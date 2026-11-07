@@ -6,8 +6,12 @@ var Render = {
 	draw: function () {
 		const ctx = this.ctx;
 		const W = Sim.W, H = Sim.H;
+		const dark = Settings.darkTheme;
+		const bg = dark ? '#0b0f14' : '#f1f5f9';
+		const wall = dark ? '#cbd5e1' : '#334155';
+		const frame = dark ? '#1f2937' : '#cbd5e1';
 		ctx.clearRect(0, 0, W, H);
-		ctx.fillStyle = '#0b0f14';
+		ctx.fillStyle = bg;
 		ctx.fillRect(0, 0, W, H);
 		for (let i = 0; i < Sim.MAX_SPOTS; i++) {
 			const s = Sim.spots[i];
@@ -51,16 +55,10 @@ var Render = {
 		}
 		const ht = Sim.hole.y - Sim.hole.r;
 		const hb = Sim.hole.y + Sim.hole.r;
-		ctx.fillStyle = '#2a3441';
+		ctx.fillStyle = wall;
 		ctx.fillRect(Sim.CX - 2, 0, 4, ht);
 		ctx.fillRect(Sim.CX - 2, hb, 4, H - hb);
-		ctx.strokeStyle = '#7dd3fc';
-		ctx.lineWidth = 2;
-		ctx.beginPath();
-		ctx.moveTo(Sim.CX, ht);
-		ctx.lineTo(Sim.CX, hb);
-		ctx.stroke();
-		ctx.strokeStyle = '#1f2937';
+		ctx.strokeStyle = frame;
 		ctx.lineWidth = 1;
 		ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
 	}

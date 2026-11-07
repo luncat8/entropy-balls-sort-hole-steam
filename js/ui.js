@@ -14,7 +14,8 @@ var Settings = {
 	force0: 0,
 	force1: 0,
 	bot0: false,
-	bot1: true
+	bot1: true,
+	darkTheme: true
 };
 
 var DEFAULTS = JSON.parse(JSON.stringify(Settings));
@@ -71,6 +72,7 @@ var UI = {
 		}
 		html += '<label>random ball size <input type="checkbox" data-key="ballSizeRandom"' + (Settings.ballSizeRandom ? ' checked' : '') + '></label>';
 		html += '<label>ball collisions <input type="checkbox" data-key="ballCollisions"' + (Settings.ballCollisions ? ' checked' : '') + '></label>';
+		html += '<label>dark theme <input type="checkbox" data-key="darkTheme"' + (Settings.darkTheme ? ' checked' : '') + '></label>';
 		html += '<label>bot P0 <input type="checkbox" data-key="bot0"' + (Settings.bot0 ? ' checked' : '') + '></label>';
 		html += '<label>bot P1 <input type="checkbox" data-key="bot1"' + (Settings.bot1 ? ' checked' : '') + '></label>';
 		html += '<button id="copy-link">copy link</button>';
@@ -157,6 +159,8 @@ function taskTextForm(t) {
 }
 
 function applySettings() {
+	document.body.style.background = Settings.darkTheme ? '#0b0f14' : '#f1f5f9';
+	document.body.style.color = Settings.darkTheme ? '#e5e7eb' : '#0f172a';
 	Players.list[0].isBot = Settings.bot0;
 	Players.list[1].isBot = Settings.bot1;
 	Players.list[0].force = Settings.force0;
