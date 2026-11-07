@@ -2,31 +2,30 @@
 
 ## Outcome
 
-A single-player objective loop that asks the player to accumulate a chosen share of a ball category in the left or right chamber. The current task is visible, its progress updates from live simulation state, and solving it immediately generates the next task.
+Each participant has an independently generated objective: change the composition of one chamber and meet the objective either immediately or for a continuous interval. The initial game has one participant; the task interface supports more without assuming a global current task.
 
 ## Design
 
-- `tasks.js` owns task definitions, generation, progress evaluation, completion, and task presentation data. It reads the simulation through a narrow function call from runtime code; it does not inspect another feature's private storage.
-- Each task contains: destination side (`left` or `right`), category (`hot`, `cold`, or a named color), comparison (`greater-than` or `less-than`), and a percentage threshold. Generate thresholds in a useful bounded range rather than 0% or 100% edge cases.
-- Assign each ball immutable category metadata when it is created. “Hot” and “cold” are category labels with distinct colors; color-category tasks select a named palette entry. Do not model temperature or let display color silently change the task predicate.
-- The percentage denominator is all currently live balls. The numerator is live balls matching the requested category that are in the requested chamber. If there are no live balls, progress is 0% and no task completes.
-- “Greater than” and “less than” are strict comparisons, matching the draft's `>x%` / `<x%`. Show the operator and threshold explicitly. Progress is the measured percentage, not a promise that the threshold is already met.
-- Evaluate after each simulation update and complete immediately on the first satisfied update. Single-player keeps one active task; create its successor only after completion. Use an injectable/random source so task rules can be tested deterministically.
-- Task generation must not create impossible wording: categories are selected from the configured palette/categories and side/comparator/threshold are always populated. A task may be difficult but remains mathematically satisfiable with live balls.
-- `main.js` wires task evaluation to simulation updates and passes a compact view model to the UI. `canvas.js` continues to own field drawing; task display is not embedded in the canvas renderer.
+- `tasks.js` owns objective definitions, generation, evaluation and lifecycle, keyed by stable participant id. It consumes a simulation-provided distribution snapshot, not private ball storage. Participant creation and control ownership belong to `players.js`.
+- A task specifies side, category (`hot`, `cold`, or one named palette color), strict comparator (`>` or `<`), threshold and completion mode (`immediate` or `hold`). Randomly choose either mode at generation; a hold requires two continuous simulation seconds. Show the mode and hold progress in the task view.
+- The percentage is matching balls on the chosen side divided by all balls on that side, based on center position. An empty side has no percentage and never satisfies either operator. Display the numerator and denominator so the meaning is clear.
+- Evaluate once per fixed step. An immediate task completes on the first satisfying step. For a hold task, accumulate fixed-step time only while satisfied; reset it when false or the side is empty. Complete once at two seconds, replace only that participant's task, and evaluate the replacement no earlier than the next step.
+- Balls retain immutable hot/cold and color metadata. Use the six-color palette from 0.1, with three colors per temperature category. Temperature is a label, not a physical property.
+- Generate from bounded candidate thresholds and categories using an injectable random source. With the current live category counts, reject a task if no nonempty distribution of those balls across the two sides could meet it or if it is already satisfied when assigned. Account for discrete counts, strict comparisons, and absent categories. If no candidate exists, show a waiting state and retry only when the distribution or population changes; do not loop indefinitely. New ball generation may later change feasibility.
+- Keep per-participant task and hold state separate; share the evaluator and generator. The UI receives a read-only view model. The second participant and bots are not required in this slice.
 
 ## Files and ownership
 
-- New `tasks.js` — objective rules and task lifecycle.
-- `main.js` — boot/wiring only; connect simulation outputs, task state, and UI.
-- Add `AGENTS.md` ownership-map entries for new source files.
+- New `tasks.js` — task rules, generation and per-participant lifecycle.
+- New `players.js` — participant identity, type and lifecycle; initialize one human participant.
+- `main.js` — boot and wiring only. Update the `AGENTS.md` ownership map.
 
 ## Validation
 
 - L0: `node --check` on touched JavaScript.
-- L1: deterministic tests for exact-threshold strictness, category and side counts, zero-ball behavior, both comparison operators, and task replacement after completion.
-- Manual: verify each displayed task against a deliberately arranged distribution and confirm the successor appears exactly once when solved.
+- L1: test side denominator, strict thresholds, empty sides, immediate and continuous-hold completion/reset, replacement timing, absent categories and discrete feasibility, bounded waiting/retry, and independent state for two participant ids.
+- Manual: arrange distributions, check displayed counts and both completion modes, and verify a successor appears once.
 
 ## Dependencies and next step
 
-Requires 0.1 ball metadata and chamber membership. Follow with 0.3; both force control and the task loop then use the same stable simulation interface.
+Requires 0.1 ball metadata and distribution access. Continue with 0.3 energy-limited per-participant controls.

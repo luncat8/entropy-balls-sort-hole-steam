@@ -2,30 +2,29 @@
 
 ## Outcome
 
-The movable aperture responds to held push/pull input while a shared energy store limits force. Energy has a configurable capacity and a small constant recharge rate; force stops as soon as input is released or energy is exhausted.
+A human participant controls the hole with held push/pull input and an individual energy store. The control interface accepts any participant id so a second human or bot can later use the same rules.
 
 ## Design
 
-- `force.js` owns force-control state, input activation, magnitude, energy storage, regeneration, and energy consumption. It does not own aperture physics; it sends a bounded signed force request through the simulation interface.
-- The aperture moves along the central wall's vertical track. A push moves it away from the selected target point; a pull moves it toward that point. The user chooses mode and target explicitly. Pointer/touch hold activates the selected force; `pointerup`, `pointercancel`, window blur, and loss of pointer capture release it.
-- A mouse-wheel adjustment and a visible magnitude slider set force strength. Prevent page scrolling only when the pointer is over the game control region. Keyboard interaction remains available for mode and magnitude controls.
-- Force changes aperture velocity subject to the configured maximum speed and track endpoints. Apply the force once per simulation step, not per rendered frame. Direct placement from 0.1 is replaced by the force interaction for normal play; retain keyboard accessibility for bounded incremental movement.
-- Energy is clamped to `[0, capacity]`. Consume energy in proportion to actual aperture displacement using the configured cost per unit movement; do not drain energy for a blocked request at a track endpoint. When depleted, applied force is zero. Regenerate at a small constant rate even while idle, also clamped to capacity. Do not let release or a frame-rate change create energy.
-- UI receives read-only force/energy values through a view model. No feature reaches into `force.js` internals.
+- `force.js` owns per-participant signed requests, activation, magnitude, energy and regeneration. `players.js` owns participant identity and controller selection. Input maps the human's controls to a participant request; future bots use that same request interface.
+- Push and pull mean positive and negative vertical movement, respectively. A visible mode control selects direction; wheel or slider sets magnitude. Pointer/touch hold or keyboard hold activates it. Pointer release, cancellation, lost capture, blur, and controller switch clear the request immediately. Prevent wheel scrolling only over the control region.
+- Each fixed step, recharge each store by a small constant rate, clamped to its capacity. An active request costs energy in proportion to its magnitude and elapsed time, even if the hole is blocked or another request cancels it. Scale a request down if the remaining energy cannot cover that step; zero cost permits free movement. Deduct each participant's own cost before combining signed requests.
+- Sum the funded requests and clamp to the configured hole speed; the result is the hole's velocity for that step. Releasing input therefore stops its contribution immediately, with no residual momentum. Clamp movement at track endpoints. Equal opposing requests cancel movement but each consumes its own energy. Apply identical rules for one or multiple participants.
+- The direct drag from 0.1 is a temporary foundation control and is disabled in normal energy-limited play. UI receives read-only per-participant force and energy view models.
 
 ## Files and ownership
 
-- New `force.js` — active force, energy, and control input state.
-- `simulation.js` — accept force and enforce aperture speed/track limits.
-- `main.js` — connect force, simulation, and the input/UI surface.
-- Update the ownership map in `AGENTS.md` when files are added or responsibilities change.
+- New `force.js` — per-participant requests and energy.
+- `input.js` — human controls; `players.js` — participant/controller identity.
+- `simulation.js` — apply combined velocity and enforce track bounds.
+- `main.js` — connect features only; update the ownership map.
 
 ## Validation
 
 - L0: `node --check` on touched JavaScript.
-- L1: targeted tests for push/pull direction, speed cap, track endpoints, energy drain/recharge/clamping, zero-energy shutdown, and release on pointer cancellation/blur.
-- Manual: hold push and pull on mouse and touch, adjust strength with wheel and slider, release at each edge case, and verify energy bars and motion remain consistent at different frame rates.
+- L1: direction, speed cap, endpoints, partial-energy scaling, zero-cost case, independent stores, opposing requests, recharge/clamping, and release on pointer cancellation, blur and controller switch.
+- Manual: hold and release controls on mouse, touch and keyboard, vary strength, exhaust and recharge energy, and verify consistent motion at different frame rates.
 
 ## Dependencies and next step
 
-Requires the movable aperture from 0.1. Integrate settings in gui.1 so force cost, maximum speed, and storage are user-adjustable.
+Requires the aperture from 0.1 and participant identity from 0.2. Integrate configurable energy and status in gui.1.
