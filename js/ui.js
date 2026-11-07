@@ -30,6 +30,7 @@ var UI = {
 		this.loadFromURL();
 		this.buildTopBar();
 		this.buildBottomBar();
+		this.buildTaskPanel();
 		document.addEventListener('keydown', (e) => {
 			if (e.key === 's' || e.key === 'S') this.togglePanel();
 		});
@@ -50,6 +51,46 @@ var UI = {
 		const el = document.getElementById('bottombar');
 		if (!el) return;
 		el.innerHTML = '<span id="help-text"></span> <span id="energy-text"></span>';
+	},
+	buildTaskPanel: function () {
+		const panel = document.getElementById('task-panel');
+		if (!panel) return;
+		this.refreshTaskPanel();
+	},
+	refreshTaskPanel: function () {
+		const panel = document.getElementById('task-panel');
+		if (!panel) return;
+		let html = '<b>open tasks</b>';
+		for (const t of TaskGen.queue) {
+			const cat = (typeof t.category === 'string') ? t.category : t.category.color;
+			html += '<div style="margin:4px 0;">' + t.side + ' ' + t.op + t.pct + '% ' + cat +
+				' <button data-task="' + t.id + '" data-player="0">sign P0</button>' +
+				' <button data-task="' + t.id + '" data-player="1">sign P1</button></div>';
+		}
+		if (TaskGen.queue.length === 0) html += '<div>none open</div>';
+		html += '<div style="margin-top:6px;"><b>claimed</b></div>';
+		for (let i = 0; i < Players.list.length; i++) {
+			const p = Players.list[i];
+			const t = p.task;
+			const txt = t ? (t.side + ' ' + t.op + t.pct + '% ' + ((typeof t.category === 'string') ? t.category : t.category.color)) : 'none';
+			html += '<div>P' + i + ': ' + txt + (t ? ' <button data-abandon="' + i + '">abandon</button>' : '') + '</div>';
+		}
+		panel.innerHTML = html;
+		panel.querySelectorAll('button[data-task]').forEach(btn => {
+			btn.addEventListener('click', () => {
+				const tid = parseInt(btn.getAttribute('data-task'), 10);
+				const pid = parseInt(btn.getAttribute('data-player'), 10);
+				TaskGen.claim(pid, tid);
+				this.refreshTaskPanel();
+			});
+		});
+		panel.querySelectorAll('button[data-abandon]').forEach(btn => {
+			btn.addEventListener('click', () => {
+				const pid = parseInt(btn.getAttribute('data-abandon'), 10);
+				TaskGen.abandon(pid);
+				this.refreshTaskPanel();
+			});
+		});
 	},
 	buildPanel: function () {
 		const panel = document.getElementById('settings-panel');
@@ -112,13 +153,12 @@ var UI = {
 	},
 	saveToURL: function () {
 		const params = new URLSearchParams();
-		for (const key in Settings) {
+		const keys = Object.keys(Settings).sort();
+		for (const key of keys) {
 			if (Settings[key] !== DEFAULTS[key]) {
 				params.set(key, typeof Settings[key] === 'boolean' ? (Settings[key] ? '1' : '0') : Settings[key]);
 			}
 		}
-		if (Settings.bot0) params.set('bot0', '1');
-		if (Settings.bot1) params.set('bot1', '1');
 		const qs = params.toString();
 		history.replaceState(null, '', qs ? ('?' + qs) : location.pathname);
 	},
@@ -128,20 +168,26 @@ var UI = {
 		const taskText = document.getElementById('task-text');
 		if (taskText) {
 			const t0 = p0.task ? taskTextForm(p0.task) : '';
-			taskText.textContent = t0;
+			if (taskText.textContent !== t0) taskText.textContent = t0;
 		}
 		const solved = document.getElementById('solved-text');
-		if (solved) solved.textContent = 'solved P0:' + p0.solvedCount + ' P1:' + p1.solvedCount;
+		const solvedStr = 'solved P0:' + p0.solvedCount + ' P1:' + p1.solvedCount;
+		if (solved && solved.textContent !== solvedStr) solved.textContent = solvedStr;
 		const bc = document.getElementById('ballcount-text');
-		if (bc) bc.textContent = 'balls:' + Sim.ballCount;
+		const bcStr = 'balls:' + Sim.ballCount;
+		if (bc && bc.textContent !== bcStr) bc.textContent = bcStr;
 		const fps = document.getElementById('fps-text');
-		if (fps) fps.textContent = 'fps:' + Math.round(1 / DT);
+		const fpsStr = 'fps:' + Math.round(1 / DT);
+		if (fps && fps.textContent !== fpsStr) fps.textContent = fpsStr;
 		const energy = document.getElementById('energy-text');
-		if (energy) energy.textContent = 'E0:' + p0.energy.toFixed(0) + '/' + p0.energyMax + ' E1:' + p1.energy.toFixed(0) + '/' + p1.energyMax;
+		const energyStr = 'E0:' + p0.energy.toFixed(0) + '/' + p0.energyMax + ' E1:' + p1.energy.toFixed(0) + '/' + p1.energyMax;
+		if (energy && energy.textContent !== energyStr) energy.textContent = energyStr;
 		// help
 		this.helpTimer += DT;
 		let help = '';
-		if (p0.energy <= 0 || p1.energy <= 0) help = 'Energy empty — wait to recharge.';
+		if (UI.panelOpen) help = 'Settings are saved in the URL.';
+		else if (p0.energy <= 0 || p1.energy <= 0) help = 'Energy empty — wait to recharge.';
+		else if (p0.task) help = 'Keep ' + p0.task.side + ' ' + p0.task.op + p0.task.pct + '% ' + ((typeof p0.task.category === 'string') ? p0.task.category : p0.task.category.color) + ' balls.';
 		else if (Settings.bot0 || Settings.bot1) help = 'Hold mouse/touch to push or pull the hole.';
 		else help = 'Drag the hole to let balls pass.';
 		const tips = ['Settings are saved in the URL.', 'Keep the target side above the threshold.'];
@@ -149,6 +195,7 @@ var UI = {
 		if (!help) help = tips[this.helpIndex];
 		const ht = document.getElementById('help-text');
 		if (ht && ht.textContent !== help) ht.textContent = help;
+		this.refreshTaskPanel();
 	}
 };
 

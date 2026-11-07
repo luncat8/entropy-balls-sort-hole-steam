@@ -12,6 +12,7 @@ var Sim = {
 	ballCount: 0,
 	hole: { x: 0, y: 0, vy: 0, targetY: 0, r: 48 },
 	spots: [],
+	prevHoleY: 0,
 	spotIndex: 0,
 	MAX_SPOTS: 256,
 	spawnTimer: 0,
@@ -24,6 +25,7 @@ var Sim = {
 		this.balls = new Array(this.MAX_BALLS);
 		for (let i = 0; i < this.MAX_BALLS; i++) this.balls[i] = { active: false, x: 0, y: 0, vx: 0, vy: 0, r: 8, color: '', colorIndex: 0 };
 		this.resize();
+		this.prevHoleY = this.hole.y;
 		window.addEventListener('resize', this.resize.bind(this));
 	},
 	resize: function () {
@@ -160,6 +162,10 @@ var Sim = {
 		this.spotIndex = (this.spotIndex + 1) % this.MAX_SPOTS;
 	},
 	updateSpots: function (DT) {
+		if (Math.abs(this.hole.y - this.prevHoleY) > this.hole.r) {
+			for (let i = 0; i < this.MAX_SPOTS; i++) this.spots[i].active = false;
+		}
+		this.prevHoleY = this.hole.y;
 		for (let i = 0; i < this.MAX_SPOTS; i++) {
 			const s = this.spots[i];
 			if (s.active) {

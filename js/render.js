@@ -52,12 +52,24 @@ var Render = {
 			ctx.stroke();
 			ctx.setLineDash([]);
 			ctx.globalAlpha = 1;
+			const my = Math.max(b.r, Math.min(H - b.r, yHit));
+			ctx.fillStyle = b.color;
+			ctx.beginPath();
+			ctx.arc(Sim.CX, my, 3, 0, Math.PI * 2);
+			ctx.fill();
 		}
 		const ht = Sim.hole.y - Sim.hole.r;
 		const hb = Sim.hole.y + Sim.hole.r;
 		ctx.fillStyle = wall;
 		ctx.fillRect(Sim.CX - 2, 0, 4, ht);
 		ctx.fillRect(Sim.CX - 2, hb, 4, H - hb);
+		// hole highlight
+		ctx.strokeStyle = 'rgba(120,200,255,0.35)';
+		ctx.lineWidth = 2;
+		ctx.strokeRect(Sim.CX - 6, ht, 12, hb - ht);
+		// grip handle
+		ctx.fillStyle = '#94a3b8';
+		ctx.fillRect(Sim.CX - 6, Sim.hole.y - 8, 12, 16);
 		ctx.strokeStyle = frame;
 		ctx.lineWidth = 1;
 		ctx.strokeRect(0.5, 0.5, W - 1, H - 1);

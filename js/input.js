@@ -6,6 +6,7 @@ var Input = {
 		const c = Sim.canvas;
 		c.addEventListener('pointerdown', (e) => {
 			Sim.hole.targetY = e.clientY;
+			if (e.button !== 0) return;
 			if (Players.list[0].force !== 0) {
 				Players.list[0].active = true;
 			} else {
@@ -29,6 +30,10 @@ var Input = {
 		c.addEventListener('wheel', (e) => {
 			Players.list[0].force = clamp(Players.list[0].force - e.deltaY * 0.5, -Players.FMAX, Players.FMAX);
 			Settings.force0 = Players.list[0].force;
+			const sl = document.querySelector('input[data-key="force0"]');
+			if (sl) sl.value = Settings.force0;
+			const v = document.querySelector('[data-val="force0"]');
+			if (v) v.textContent = Settings.force0;
 			e.preventDefault();
 		}, { passive: false });
 		// touch

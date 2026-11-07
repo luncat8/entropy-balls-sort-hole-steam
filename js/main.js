@@ -11,6 +11,7 @@ function boot() {
 	Players.init();
 	Input.init();
 	applySettings();
+	TaskGen.initQueue();
 	Sim.ensureCount(Settings.ballCount);
 	App.lastTime = performance.now();
 	requestAnimationFrame(loop);

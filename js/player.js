@@ -25,8 +25,8 @@ var Players = {
 	update: function (DT) {
 		for (let i = 0; i < this.list.length; i++) {
 			const p = this.list[i];
-			if (p.isBot) this.botStep(p);
 			p.energy = Math.min(p.energyMax, p.energy + p.recharge * DT);
+			if (p.isBot) this.botStep(p);
 		}
 		// drag has priority
 		if (Input.dragging) {
