@@ -1,0 +1,42 @@
+
+game field split by wallCentral with hole. user can move hole.
+
+## settings panel:
+settings save to url.
+slider hole size, max hole speed, slider energy consumption to move hole, 
+slider generation, storage
+
+slider balls size, average speed, same or random size
+checkbox balls collisions reflections,
+
+
+
+
+balls fly in game field without friction, reflection from walls. walls also around game field.
+
+
+draw trajectory of balls that toward to central wall and hit spot with color of that ball.
+
+
+generate new game task once all tasks solved:
+make RIGHT|LEFT hold >x%|<x% COLD|HOT|(similar to random color) color balls
+
+
+make 2 player with checkbox is bot. who have different tasks and can push and pull  hole .
+player use mouse wheel or slider to change push and pull force. force activated on hold mouse or press touch.
+force use energy. energy has storage and small constant source.
+
+
+implement status bar for constant info and current help messages
+
+
+## deferred
+
+add task list with few tasks generated to keep list full.
+player can sign to task
+
+
+
+
+
+
