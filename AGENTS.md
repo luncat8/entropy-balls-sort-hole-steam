@@ -59,7 +59,12 @@ getObj().data().action()
 
 - keep this map updated when ownership changes:
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
-	ui.js — owns <ui concern>. edit for <ui changes>.
+	sim.js — owns physics state, ball step, collisions, spots. edit for movement, spawn.
+	render.js — owns canvas rendering. edit for draw order, visual style.
+	input.js — owns pointer/touch/wheel input. edit for drag, activation.
+	ui.js — owns settings, status bar, help, URL persistence. edit for controls.
+	task.js — owns task generation and solve detection.
+	player.js — owns players, energy, forces, bots.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.

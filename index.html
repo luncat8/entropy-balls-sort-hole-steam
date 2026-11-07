@@ -3,11 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title></title>
+<title>Entropy Balls</title>
+<style>
+	html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0b0f14; color: #e5e7eb; font-family: monospace; }
+	#app { position: relative; width: 100%; height: 100%; }
+	#c { display: block; }
+	#topbar, #bottombar { position: absolute; left: 0; right: 0; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.4); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+	#topbar { top: 0; }
+	#bottombar { bottom: 0; }
+	#settings-panel { position: absolute; top: 40px; right: 10px; width: 280px; max-height: 70vh; overflow: auto; background: rgba(15,23,42,0.95); padding: 10px; border: 1px solid #334155; border-radius: 6px; }
+	#settings-panel.hidden { display: none; }
+	#settings-panel label { display: block; margin: 6px 0; font-size: 11px; }
+	#settings-panel input[type=range] { width: 160px; }
+	#settings-panel h3 { margin: 0 0 8px; }
+	.title { font-weight: bold; }
+	button { background: #1e293b; color: #e5e7eb; border: 1px solid #334155; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-family: monospace; }
+</style>
 </head>
 <body>
 <div id="app">
   <canvas id="c"></canvas>
+  <div id="topbar"></div>
+  <div id="bottombar"></div>
+  <div id="settings-panel"></div>
 </div>
+<script src="js/sim.js"></script>
+<script src="js/render.js"></script>
+<script src="js/task.js"></script>
+<script src="js/player.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
+EOF
+echo "index written"
