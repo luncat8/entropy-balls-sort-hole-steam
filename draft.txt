@@ -13,9 +13,11 @@ checkbox balls collisions reflections,
 
 
 balls fly in game field without friction, reflection from walls. walls also around game field.
-
+balls colors are random, mostly with good saturation and light. need functions to check is color considered warm, cold, near some target, etc.
 
 draw trajectory of balls that toward to central wall and hit spot with color of that ball.
+
+hole same color as background. add white/dark theme settings
 
 
 generate new game task once all tasks solved:
@@ -30,10 +32,27 @@ force use energy. energy has storage and small constant source.
 implement status bar for constant info and current help messages
 
 
+
+
+
+What should a task’s percentage measure? For example, “left holds >60% red balls.”
+Share of balls on the left
+
+How should an objective be completed?
+make both as random quest generator
+
+How should two players’ hole controls and energy work?
+Separate energy
+
+What should the first playable milestone prioritize?
+Single-player first but base architecture should be good from start to easy support player switch and enable bots for each
+
+
 ## deferred
 
 add task list with few tasks generated to keep list full.
 player can sign to task
+
 
 
 

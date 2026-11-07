@@ -59,7 +59,12 @@ getObj().data().action()
 
 - keep this map updated when ownership changes:
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
-	ui.js — owns <ui concern>. edit for <ui changes>.
+	simulation.js — owns field, balls, aperture, physics, ball color generation. edit for constants, spawn, stepping.
+	color.js — owns color conversions and warm/cold/near-target tests. edit for hue boundaries, distance metric.
+	canvas.js — owns canvas sizing/drawing and impact/forecast buffers. edit for draw styles.
+	input.js — owns pointer/keyboard aperture input. edit for bindings, clamping.
+	settings.js — owns theme default, URL persistence, UI binding and theme application. edit for theme keys, new settings keys.
+	status.js — (planned) status/help presentation. not implemented yet.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
