@@ -348,8 +348,11 @@ held.dispatch('pointerdown', { pointerId: 3 });
 for (const fn of stubs.listeners.blur || []) fn();
 check('hold: window blur closes even an unfocused pointer hold', panel().hidden === true && goal.goalField.on === false);
 
-check('list: items keep the objective words', item(0).children[0].children[1].textContent
-	=== quest.questObjectiveText(tasks.tasksView[0]));
+check('list: the card draws the side as its own glyph beside the objective words',
+	item(0).children[0].children[1].className === 'quest-arrow'
+	&& item(0).children[0].children[1].textContent === '←'
+	&& item(0).children[0].children[2].textContent
+		=== quest.questConditionText(tasks.tasksView[0]));
 
 // the frame keeps the field still while a goal is shown, so the picture cannot drift from the plan
 fixture([[LEFT, 400, 0], [RIGHT, 400, 5], [LEFT, 300, 0], [RIGHT, 300, 5]]);
