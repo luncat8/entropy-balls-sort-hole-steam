@@ -1,0 +1,2 @@
+- UI init order: loadFromURL before buildPanel so sliders reflect URL values.
+- stub querySelectorAll returns [] so panel buttons only testable in real browser.

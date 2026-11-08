@@ -26,8 +26,8 @@ var UI = {
 	helpIndex: 0,
 	helpTimer: 0,
 	init: function () {
-		this.buildPanel();
 		this.loadFromURL();
+		this.buildPanel();
 		this.buildTopBar();
 		this.buildBottomBar();
 		this.buildTaskPanel();
@@ -43,7 +43,7 @@ var UI = {
 	buildTopBar: function () {
 		const el = document.getElementById('topbar');
 		if (!el) return;
-		el.innerHTML = '<span class="title">ENTROPY BALLS</span> <button id="settings-btn">settings (S)</button> <span id="task-text"></span> <span id="solved-text"></span> <span id="ballcount-text"></span> <span id="fps-text"></span>';
+		el.innerHTML = '<span class="title">ENTROPY BALLS</span> <button id="settings-btn">settings (S)</button> <span id="task-text"></span> <span id="hold-text"></span> <span id="solved-text"></span> <span id="ballcount-text"></span> <span id="fps-text"></span>';
 		const btn = document.getElementById('settings-btn');
 		if (btn) btn.addEventListener('click', () => this.togglePanel());
 	},
@@ -75,6 +75,7 @@ var UI = {
 			const txt = t ? (t.side + ' ' + t.op + t.pct + '% ' + ((typeof t.category === 'string') ? t.category : t.category.color)) : 'none';
 			html += '<div>P' + i + ': ' + txt + (t ? ' <button data-abandon="' + i + '">abandon</button>' : '') + '</div>';
 		}
+		if (panel.innerHTML === html) return;
 		panel.innerHTML = html;
 		panel.querySelectorAll('button[data-task]').forEach(btn => {
 			btn.addEventListener('click', () => {
@@ -150,6 +151,7 @@ var UI = {
 		if (params.has('bot1')) Settings.bot1 = params.get('bot1') === '1';
 		Players.list[0].isBot = Settings.bot0;
 		Players.list[1].isBot = Settings.bot1;
+		if (typeof clampSetting === 'function') clampSetting();
 	},
 	saveToURL: function () {
 		const params = new URLSearchParams();
@@ -167,8 +169,17 @@ var UI = {
 		const p1 = Players.list[1];
 		const taskText = document.getElementById('task-text');
 		if (taskText) {
-			const t0 = p0.task ? taskTextForm(p0.task) : '';
-			if (taskText.textContent !== t0) taskText.textContent = t0;
+			const t0 = p0.task ? ('P0 ' + taskTextForm(p0.task)) : '';
+			const t1 = p1.task ? ('P1 ' + taskTextForm(p1.task)) : '';
+			const t = (t0 + (t0 && t1 ? ' | ' : '') + t1).trim();
+			if (taskText.textContent !== t) taskText.textContent = t;
+		}
+		const holdText = document.getElementById('hold-text');
+		if (holdText) {
+			const h0 = p0.task ? (p0.holdTime / p0.task.holdSeconds) : 0;
+			const h1 = p1.task ? (p1.holdTime / p1.task.holdSeconds) : 0;
+			const hs = 'hold P0:' + Math.round(h0 * 100) + '% P1:' + Math.round(h1 * 100) + '%';
+			if (holdText.textContent !== hs) holdText.textContent = hs;
 		}
 		const solved = document.getElementById('solved-text');
 		const solvedStr = 'solved P0:' + p0.solvedCount + ' P1:' + p1.solvedCount;
@@ -205,7 +216,20 @@ function taskTextForm(t) {
 	return t.side + ' hold ' + t.op + t.pct + '% ' + cat + ' balls';
 }
 
+function clampSetting() {
+	Settings.holeSize = clamp(Settings.holeSize, 16, 200);
+	Settings.holeMaxSpeed = clamp(Settings.holeMaxSpeed, 60, 600);
+	Settings.holeMoveEnergyCost = clamp(Settings.holeMoveEnergyCost, 0, 10);
+	Settings.ballSize = clamp(Settings.ballSize, 4, 24);
+	Settings.ballSpeed = clamp(Settings.ballSpeed, 40, 400);
+	Settings.ballCount = clamp(Settings.ballCount, 10, 200);
+	Settings.generation = clamp(Settings.generation, 0, 5);
+	Settings.storage = clamp(Settings.storage, 10, 500);
+	Settings.force0 = clamp(Settings.force0, -400, 400);
+	Settings.force1 = clamp(Settings.force1, -400, 400);
+}
 function applySettings() {
+	clampSetting();
 	document.body.style.background = Settings.darkTheme ? '#0b0f14' : '#f1f5f9';
 	document.body.style.color = Settings.darkTheme ? '#e5e7eb' : '#0f172a';
 	Players.list[0].isBot = Settings.bot0;

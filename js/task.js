@@ -42,9 +42,12 @@ var TaskGen = {
 		let idx = -1;
 		for (let i = 0; i < this.queue.length; i++) if (this.queue[i].id === taskId) { idx = i; break; }
 		if (idx < 0) return false;
+		const players = (typeof Players !== 'undefined') ? Players.list : null;
+		if (players && players[playerIndex] && players[playerIndex].task && players[playerIndex].task.claimedBy === playerIndex) {
+			this.abandon(playerIndex);
+		}
 		const task = this.queue.splice(idx, 1)[0];
 		task.claimedBy = playerIndex;
-		const players = (typeof Players !== 'undefined') ? Players.list : null;
 		if (players && players[playerIndex]) {
 			players[playerIndex].task = task;
 			players[playerIndex].holdTime = 0;

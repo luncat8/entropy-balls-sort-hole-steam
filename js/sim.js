@@ -99,8 +99,13 @@ var Sim = {
 			const b = this.balls[i];
 			if (!b.active) continue;
 			const prevX = b.x;
-			b.x += b.vx * DT;
-			b.y += b.vy * DT;
+			let vx = b.vx;
+			let vy = b.vy;
+			const maxV = b.r / DT;
+			if (Math.abs(vx) > maxV) vx = (vx < 0 ? -1 : 1) * maxV;
+			if (Math.abs(vy) > maxV) vy = (vy < 0 ? -1 : 1) * maxV;
+			b.x += vx * DT;
+			b.y += vy * DT;
 			if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx); }
 			if (b.x > this.W - b.r) { b.x = this.W - b.r; b.vx = -Math.abs(b.vx); }
 			if (b.y < b.r) { b.y = b.r; b.vy = Math.abs(b.vy); }

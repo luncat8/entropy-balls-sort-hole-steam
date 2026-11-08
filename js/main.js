@@ -12,6 +12,7 @@ function boot() {
 	Input.init();
 	applySettings();
 	TaskGen.initQueue();
+	UI.refreshTaskPanel();
 	Sim.ensureCount(Settings.ballCount);
 	App.lastTime = performance.now();
 	requestAnimationFrame(loop);
