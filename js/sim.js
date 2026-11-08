@@ -16,6 +16,8 @@ var Sim = {
 	spotIndex: 0,
 	MAX_SPOTS: 256,
 	spawnTimer: 0,
+	prevBallSpeed: 160,
+	prevBallCount: 20,
 	COLORS: ['#4ea8de', '#56cfe1', '#48bfe3', '#ff6b6b', '#ff9f1c', '#ffd60a'],
 	init: function () {
 		this.canvas = document.getElementById('c');
@@ -25,6 +27,8 @@ var Sim = {
 		this.balls = new Array(this.MAX_BALLS);
 		for (let i = 0; i < this.MAX_BALLS; i++) this.balls[i] = { active: false, x: 0, y: 0, vx: 0, vy: 0, r: 8, color: '', colorIndex: 0 };
 		this.resize();
+		this.prevBallSpeed = Settings.ballSpeed;
+		this.prevBallCount = Settings.ballCount;
 		this.prevHoleY = this.hole.y;
 		window.addEventListener('resize', this.resize.bind(this));
 	},

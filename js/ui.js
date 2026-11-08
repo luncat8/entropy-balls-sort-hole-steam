@@ -268,7 +268,25 @@ function applySettings() {
 	Players.list[1].energyMax = Settings.storage;
 	Players.list[0].energy = Math.min(Players.list[0].energy, Players.list[0].energyMax);
 	Players.list[1].energy = Math.min(Players.list[1].energy, Players.list[1].energyMax);
+	if (Sim.prevBallSpeed > 0 && Sim.prevBallSpeed !== Settings.ballSpeed) {
+		const ratio = Settings.ballSpeed / Sim.prevBallSpeed;
+		for (let i = 0; i < Sim.MAX_BALLS; i++) {
+			const b = Sim.balls[i];
+			if (!b.active) continue;
+			b.vx *= ratio;
+			b.vy *= ratio;
+		}
+	}
+	const countChanged = Sim.prevBallCount !== Settings.ballCount;
 	Sim.ensureCount(Settings.ballCount);
+	if (countChanged) {
+		for (let i = 0; i < Players.list.length; i++) {
+			Players.list[i].task = null;
+			Players.list[i].holdTime = 0;
+		}
+	}
+	Sim.prevBallSpeed = Settings.ballSpeed;
+	Sim.prevBallCount = Settings.ballCount;
 	UI.saveToURL();
 }
 
