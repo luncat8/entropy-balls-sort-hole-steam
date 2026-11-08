@@ -104,9 +104,12 @@ function questBuildItems() {
 		head.className = 'quest-head';
 		const swatch = document.createElement('span');
 		swatch.className = 'quest-swatch';
+		// the drawn side is the card's most readable mark, so it gets its own bigger glyph
+		const arrow = document.createElement('span');
+		arrow.className = 'quest-arrow';
 		const text = document.createElement('span');
 		text.className = 'quest-text';
-		head.append(swatch, text);
+		head.append(swatch, arrow, text);
 		const bar = document.createElement('span');
 		bar.className = 'quest-bar';
 		const fill = document.createElement('i');
@@ -123,7 +126,7 @@ function questBuildItems() {
 		item.addEventListener('keyup', e => questItemKey(e, id));
 		item.addEventListener('blur', e => questItemUp(e, id));
 		frag.append(item);
-		quest.items.push({ id, el: item, swatch, text, bar, fill, meta, held: false, pct: -1 });
+		quest.items.push({ id, el: item, swatch, arrow, text, bar, fill, meta, held: false, pct: -1 });
 	}
 	if (home) home.append(frag);
 	window.addEventListener('blur', questReleaseAll);
@@ -140,7 +143,8 @@ function questPaintItems(swatchChanged) {
 		const it = quest.items[id];
 		it.el.hidden = !tasksOn[id];
 		if (!tasksOn[id]) continue;
-		it.text.textContent = (players.count > 1 ? 'P' + (id + 1) + ' ' : '') + questObjectiveText(v);
+		it.arrow.textContent = v.waiting ? '' : tasksSideArrow(v.side);
+		it.text.textContent = (players.count > 1 ? 'P' + (id + 1) + ' ' : '') + questConditionText(v);
 		it.meta.textContent = questMetaText(v);
 		questPaintBar(it, v);
 		if (!swatchChanged) continue;
@@ -168,10 +172,16 @@ function questMetaText(v) {
 	return meta;
 }
 
-// the side is an arrow and the condition a sign, so the line reads at a glance: → >40% red · 1/6
+// the side is its own glyph so the card can draw it large; the panel and the goal label reuse the
+// one-line form: → >40% red · 1/6
 function questObjectiveText(v) {
 	if (v.waiting) return 'waiting for a feasible task';
-	let text = tasksSideArrow(v.side) + ' ' + v.cmp + v.threshold + '% ' + v.category;
+	return tasksSideArrow(v.side) + ' ' + questConditionText(v);
+}
+
+function questConditionText(v) {
+	if (v.waiting) return 'waiting for a feasible task';
+	let text = v.cmp + v.threshold + '% ' + v.category;
 	text += v.sideTotal === 0 ? ' · empty' : ' · ' + v.match + '/' + v.sideTotal;
 	return text;
 }
@@ -213,6 +223,7 @@ if (typeof module !== 'undefined') module.exports = {
 	questSetSwatches,
 	questSetPaintHook,
 	questObjectiveText,
+	questConditionText,
 	questMetaText,
 	questMount,
 	questHome,
