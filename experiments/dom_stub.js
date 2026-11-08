@@ -129,7 +129,8 @@ function makeElement(spec, paint, webglFactory) {
 			return paint;
 		},
 		getBoundingClientRect() { return { left: 0, top: 0, width: 1280, height: 800 }; },
-		appendChild() {},
+		children: [],
+		appendChild(child) { this.children.push(child); return child; },
 		setPointerCapture() {},
 		focus() {},
 		select() {}
@@ -184,6 +185,11 @@ function loadPage(options = {}) {
 					width: 0,
 					height: 0,
 					style: { setProperty() {} },
+					children: [],
+					appendChild(child) { this.children.push(child); return child; },
+					append(...kids) { for (const k of kids) this.appendChild(k); },
+					querySelectorAll() { return []; },
+					querySelector() { return null; },
 					getContext() { return paint; }
 				};
 			}

@@ -137,11 +137,10 @@ var UI = {
 		panel.querySelectorAll('input').forEach(inp => {
 			const key = inp.getAttribute('data-key');
 			inp.addEventListener('input', () => {
-				if (inp.type === 'checkbox') Settings[key] = inp.checked;
-				else Settings[key] = parseFloat(inp.value);
+				if (inp.type === 'checkbox') setSetting(key, inp.checked);
+				else setSetting(key, parseFloat(inp.value));
 				const v = panel.querySelector('[data-val="' + key + '"]');
 				if (v) v.textContent = Settings[key];
-				applySettings();
 			});
 		});
 		const copyBtn = document.getElementById('copy-link');
@@ -251,6 +250,12 @@ function clampSetting() {
 	Settings.force0 = clamp(Settings.force0, -400, 400);
 	Settings.force1 = clamp(Settings.force1, -400, 400);
 }
+function setSetting(key, value) {
+	if (!(key in Settings)) return;
+	Settings[key] = value;
+	clampSetting();
+	applySettings();
+}
 function applySettings() {
 	clampSetting();
 	document.body.style.background = Settings.darkTheme ? '#0b0f14' : '#f1f5f9';
@@ -267,4 +272,4 @@ function applySettings() {
 	UI.saveToURL();
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { Settings: Settings, UI: UI, applySettings: applySettings };
+if (typeof module !== 'undefined' && module.exports) module.exports = { Settings: Settings, UI: UI, applySettings: applySettings, setSetting: setSetting };
