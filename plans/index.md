@@ -15,8 +15,10 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 9. ~~2.1 — Bot opponent policy~~ — done: [plan](plan2.1.md), lane aim and energy rests.
 10. ~~2.2 — Player scoreboard and independent bots~~ — done: [plan](plan2.2.md), independent bots and live ball tuning.
 11. ~~2.3 — Bot plan aim~~ — done: bots aim at the split a task needs instead of at traffic.
-12. [0.5 — Aperture and energy settings](plan0.5.md): hole size, hole speed, energy cost and storage.
-13. [draft coverage](draft-coverage.md): what `draft.txt` asks for, what ships, what is still open.
+12. ~~2.4 — A bot that reads the objective~~ — done: signed quotas (`<` objectives), crossing-time
+    aim, arrival gate, hold defence, thresholds 10-90, large side arrow on the card.
+13. [0.5 — Aperture and energy settings](plan0.5.md): hole size, hole speed, energy cost and storage.
+14. [draft coverage](draft-coverage.md): what `draft.txt` asks for, what ships, what is still open.
 
 ## Shared product decisions
 
