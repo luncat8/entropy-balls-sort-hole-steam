@@ -1,4 +1,4 @@
-// owns: plan 0.1 smoke for physics, generation, and impacts
+// owns: plan 0.1 smoke for physics, generation, impacts, and dist snapshot
 // edit for: new physics-contract checks
 
 const path = require('path');
@@ -237,10 +237,26 @@ check('resize: view transform changes, world state does not',
 	&& sim.simBalls.x[0] === snap[0] && sim.simBalls.y[0] === snap[1]
 	&& sim.simBalls.vx[0] === snap[2] && sim.simBalls.vy[0] === snap[3]);
 
+freshWorld();
+place(0, 300, 400, 0, 0, 14, 0xff0000);
+place(1, 900, 400, 0, 0, 14, 0x0000ff);
+sim.simBalls.palette[0] = 0;
+sim.simBalls.palette[1] = 5;
+sim.simFillDist();
+check('dist: center x splits left/right', sim.simDist.left === 1 && sim.simDist.right === 1 && sim.simDist.total === 2);
+check('dist: palette maps to hot/cold', sim.simDist.leftHot === 1 && sim.simDist.rightCold === 1 && sim.simDist.palette[0] === 1 && sim.simDist.palette[5] === 1);
+const distRev = sim.simDist.rev;
+sim.simFillDist();
+check('dist: rev stable when counts hold', sim.simDist.rev === distRev);
+sim.simBalls.x[0] = 900;
+sim.simFillDist();
+check('dist: rev bumps when a ball changes side', sim.simDist.rev === distRev + 1 && sim.simDist.left === 0 && sim.simDist.right === 2);
+
 sim.simSetBallCollisions(false);
 sim.simSetSpawnRate(2.5);
 sim.simInit();
 check('generation: initial crowd bounded', sim.simBalls.count > 0 && sim.simBalls.count <= sim.BALL_CAP);
+check('dist: snapshot total matches live count', sim.simDist.total === sim.simBalls.count);
 let spawnClean = true;
 for (let i = 0; i < sim.simBalls.count; i++) {
 	if (Math.abs(sim.simBalls.x[i] - sim.simField.wallX) < sim.simBalls.r[i]) spawnClean = false;
