@@ -63,9 +63,10 @@ var UI = {
 		let html = '<b>open tasks</b>';
 		for (const t of TaskGen.queue) {
 			const cat = (typeof t.category === 'string') ? t.category : t.category.color;
-			html += '<div style="margin:4px 0;">' + (t.difficulty ? (t.difficulty + ' ') : '') + t.side + ' ' + t.op + t.pct + '% ' + cat +
+			html += '<div style="margin:4px 0;" data-preview="' + t.id + '">' + (t.difficulty ? (t.difficulty + ' ') : '') + t.side + ' ' + t.op + t.pct + '% ' + cat +
 				' <button data-task="' + t.id + '" data-player="0">sign P0</button>' +
-				' <button data-task="' + t.id + '" data-player="1">sign P1</button></div>';
+				' <button data-task="' + t.id + '" data-player="1">sign P1</button>' +
+				' <button data-preview-btn="' + t.id + '">hold</button></div>';
 		}
 		if (TaskGen.queue.length === 0) html += '<div>none open</div>';
 		html += '<div style="margin-top:6px;"><b>claimed</b></div>';
@@ -77,6 +78,19 @@ var UI = {
 		}
 		if (panel.innerHTML === html) return;
 		panel.innerHTML = html;
+		panel.querySelectorAll('button[data-preview-btn]').forEach(btn => {
+			btn.addEventListener('pointerdown', (e) => {
+				e.preventDefault();
+				const tid = parseInt(btn.getAttribute('data-preview-btn'), 10);
+				const task = TaskGen.queue.find(t => t.id === tid);
+				if (task) goalOpen(task);
+			});
+			const closeFn = () => goalClose();
+			btn.addEventListener('pointerup', closeFn);
+			btn.addEventListener('pointercancel', closeFn);
+			btn.addEventListener('lostpointercapture', closeFn);
+			btn.addEventListener('blur', closeFn);
+		});
 		panel.querySelectorAll('button[data-task]').forEach(btn => {
 			btn.addEventListener('click', () => {
 				const tid = parseInt(btn.getAttribute('data-task'), 10);

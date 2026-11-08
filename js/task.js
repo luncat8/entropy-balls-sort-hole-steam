@@ -26,7 +26,7 @@ var TaskGen = {
 		}
 		return { nAll: nAll, nCat: nCat, leftTotal: leftTotal, rightTotal: rightTotal, leftCat: leftCat, rightCat: rightCat };
 	},
-	cost: function (cat, cmp, pct, isLeft) {
+	cheapest: function (cat, cmp, pct, isLeft, out) {
 		const c = this.countsFor(cat);
 		const nAll = c.nAll;
 		const nCat = c.nCat;
@@ -34,6 +34,9 @@ var TaskGen = {
 		const sc = isLeft ? c.leftCat : c.rightCat;
 		const u = sn - sc;
 		let best = -1;
+		let bestClose = 0;
+		let bestSide = 0;
+		let bestMatch = 0;
 		for (let s = 1; s <= nAll; s++) {
 			const mHi = nCat < s ? nCat : s;
 			const mLoPop = nCat - (nAll - s);
@@ -52,9 +55,18 @@ var TaskGen = {
 			const flat = sc < s - u ? sc : s - u;
 			const at = flat < lo ? lo : (flat > hi ? hi : flat);
 			const cc = Math.abs(at - sc) + Math.abs(s - at - u);
-			if (best < 0 || cc < best) best = cc;
+			const close = Math.abs(s - sn);
+			if (best >= 0 && (cc > best || (cc === best && close >= bestClose))) continue;
+			best = cc;
+			bestClose = close;
+			bestSide = s;
+			bestMatch = at;
 		}
+		if (out && best >= 0) { out.side = bestSide; out.match = bestMatch; }
 		return best;
+	},
+	cost: function (cat, cmp, pct, isLeft) {
+		return this.cheapest(cat, cmp, pct, isLeft, null);
 	},
 	costMax: function () {
 		const nAll = this.countsFor('cold').nAll;
@@ -211,6 +223,25 @@ var TaskGen = {
 		if (category === 'hot') return ball.colorIndex >= 3;
 		let idx = Sim.COLORS.indexOf(category.color);
 		return ball.colorIndex === idx;
+	},
+	catHas: function (category, colorIndex) {
+		if (category === 'cold') return colorIndex < 3 ? 1 : 0;
+		if (category === 'hot') return colorIndex >= 3 ? 1 : 0;
+		return Sim.COLORS[colorIndex] === category.color ? 1 : 0;
+	},
+	catHues: function (category, out) {
+		let n = 0;
+		for (let i = 0; i < Sim.COLORS.length; i++) {
+			if (this.catHas(category, i)) { if (out) out[n] = i; n++; }
+		}
+		return n;
+	},
+	need: function (task) {
+		if (!task) return 0;
+		const onSide = Sim.countSide(task.side);
+		if (onSide === 0) return 0;
+		if (task.op === '>') return Math.floor(task.pct * onSide / 100) + 1;
+		return Math.floor((task.pct * onSide - 1) / 100);
 	},
 	updatePlayer: function (player, DT, avoid) {
 		avoid = avoid || [];

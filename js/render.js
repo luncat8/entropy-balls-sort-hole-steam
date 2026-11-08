@@ -24,15 +24,35 @@ var Render = {
 			ctx.fill();
 		}
 		ctx.globalAlpha = 1;
-		for (let i = 0; i < Sim.MAX_BALLS; i++) {
-			const b = Sim.balls[i];
-			if (!b.active) continue;
-			ctx.fillStyle = b.color;
-			ctx.beginPath();
-			ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-			ctx.fill();
+		const useGoal = (typeof GoalView !== 'undefined') && GoalView.active;
+		if (useGoal) {
+			for (let i = 0; i < GoalView.ballCount; i++) {
+				ctx.globalAlpha = GoalView.moved[i] ? 1 : 0.35;
+				ctx.fillStyle = GoalView.color[i];
+				ctx.beginPath();
+				ctx.arc(GoalView.x[i], GoalView.y[i], GoalView.r[i], 0, Math.PI * 2);
+				ctx.fill();
+				if (GoalView.moved[i]) {
+					ctx.globalAlpha = 1;
+					ctx.strokeStyle = '#e2e8f0';
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.arc(GoalView.x[i], GoalView.y[i], GoalView.r[i] + 2, 0, Math.PI * 2);
+					ctx.stroke();
+				}
+			}
+			ctx.globalAlpha = 1;
+		} else {
+			for (let i = 0; i < Sim.MAX_BALLS; i++) {
+				const b = Sim.balls[i];
+				if (!b.active) continue;
+				ctx.fillStyle = b.color;
+				ctx.beginPath();
+				ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+				ctx.fill();
+			}
 		}
-		for (let i = 0; i < Sim.MAX_BALLS; i++) {
+		if (!useGoal) for (let i = 0; i < Sim.MAX_BALLS; i++) {
 			const b = Sim.balls[i];
 			if (!b.active) continue;
 			const toward = (b.x < Sim.CX && b.vx > 0) || (b.x > Sim.CX && b.vx < 0);
