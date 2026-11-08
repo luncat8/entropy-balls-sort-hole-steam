@@ -11,3 +11,6 @@ random full-wheel hues make "sort the reds" tasks unreadable and mostly infeasib
 
 ## deterministic physics smoke vs time-based generation (2026-11-08)
 time-based spawn writes into deterministic stepping tests (stray balls record stray impacts). give simulation a rate setter — it is also the seam for the gui.1 generation slider — and set it to 0 in the test fixture. also: `simAdvance` caps catch-up at 0.25 s per call by design, so long test runs must loop small advances instead of one big one.
+
+## canvas state across draw layers (2026-11-08)
+Canvas 2D styles persist until reassigned: a forecast's `globalAlpha` can silently make the later ball pass translucent even if alpha is reset at frame end. Reset context state before each layer that expects defaults; tests should record style values at draw-call time, not only inspect the final context.

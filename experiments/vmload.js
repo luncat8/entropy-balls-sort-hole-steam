@@ -15,20 +15,44 @@ function makeStubs() {
 			(listeners[type] = listeners[type] || []).push(fn);
 		}
 	};
-	const ctx2d = new Proxy({}, {
-		get(t, k) { return k in t ? t[k] : noop; },
+	const calls = [];
+	const ctx2d = new Proxy({ calls }, {
+		get(t, k) {
+			if (k in t) return t[k];
+			return (...args) => calls.push({
+				method: k,
+				args,
+				globalAlpha: t.globalAlpha,
+				fillStyle: t.fillStyle,
+				strokeStyle: t.strokeStyle
+			});
+		},
 		set(t, k, v) { t[k] = v; return true; }
 	});
+	function element(properties) {
+		const handlers = {};
+		return Object.assign({
+			listeners: handlers,
+			addEventListener(type, fn) {
+				(handlers[type] = handlers[type] || []).push(fn);
+			},
+			dispatch(type) {
+				for (const fn of handlers[type] || []) fn({ target: this, currentTarget: this });
+			}
+		}, properties);
+	}
 	const els = {
-		app: { style: {}, addEventListener: noop },
-		canv: {
+		app: element({ style: {} }),
+		canv: element({
 			style: {}, width: 0, height: 0, clientWidth: 1200, clientHeight: 800,
-			addEventListener: noop,
 			getContext: () => ctx2d,
 			getBoundingClientRect() {
 				return { top: 0, left: 0, width: els.canv.clientWidth, height: els.canv.clientHeight };
 			}
-		}
+		}),
+		'draw-predicted-position': element({ checked: false }),
+		'draw-trajectory-lines': element({ checked: false }),
+		'draw-slow-fade-hit-spot': element({ checked: true })
 	};
 	const sandbox = {
 		document: { getElementById: id => els[id] || null },
@@ -36,7 +60,7 @@ function makeStubs() {
 		requestAnimationFrame: noop,
 		console
 	};
-	return { sandbox, stubs: { els, win, listeners } };
+	return { sandbox, stubs: { els, win, listeners, ctx2d } };
 }
 
 // scripts run in one context like the browser; the module stub collects each file's export guard

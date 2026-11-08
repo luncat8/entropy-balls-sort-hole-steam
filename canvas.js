@@ -1,20 +1,22 @@
-// owns: canvas sizing/drawing and impact/forecast buffers
-// edit for: draw styles
+// owns: canvas sizing/drawing, impact/forecast buffers, and visual cue controls
+// edit for: drawing options and styles
 
-const IMPACT_TTL = 2;
+const IMPACT_TTL = 3;
 const IMPACT_CAP = 128;
 
 const STYLE_BG = '#12151b';
 const STYLE_WALL = '#495263';
-const IMPACT_R = 3;
 const FORECAST_ALPHA = 0.55;
 const FORECAST_W = 2;
 
 const canvasView = { scale: 1, offX: 0, offY: 0, w: 0, h: 0 };
+const canvasDrawOptions = { predictedPosition: true, trajectoryLines: true, slowFadeHitSpot: false };
 
 const impactMarks = {
 	x: new Float32Array(IMPACT_CAP),
 	y: new Float32Array(IMPACT_CAP),
+	radius: new Float32Array(IMPACT_CAP),
+	side: new Int8Array(IMPACT_CAP),
 	rgb: new Uint32Array(IMPACT_CAP),
 	age: new Float32Array(IMPACT_CAP),
 	css: new Array(IMPACT_CAP),
@@ -26,12 +28,41 @@ const forecastScratch = new Float32Array(4);
 
 let cvEl = null;
 let cvCtx = null;
+let predictedPositionInput = null;
+let trajectoryLinesInput = null;
+let slowFadeHitSpotInput = null;
 
 function canvasInit() {
 	cvEl = $('canv');
 	cvCtx = cvEl.getContext('2d');
+	canvasInitDrawOptions();
 	window.addEventListener('resize', canvasResize);
 	canvasResize();
+}
+
+function canvasInitDrawOptions() {
+	predictedPositionInput = $('draw-predicted-position');
+	trajectoryLinesInput = $('draw-trajectory-lines');
+	slowFadeHitSpotInput = $('draw-slow-fade-hit-spot');
+	predictedPositionInput.checked = canvasDrawOptions.predictedPosition;
+	trajectoryLinesInput.checked = canvasDrawOptions.trajectoryLines;
+	slowFadeHitSpotInput.checked = canvasDrawOptions.slowFadeHitSpot;
+	predictedPositionInput.addEventListener('change', canvasPredictedPositionChanged);
+	trajectoryLinesInput.addEventListener('change', canvasTrajectoryLinesChanged);
+	slowFadeHitSpotInput.addEventListener('change', canvasSlowFadeHitSpotChanged);
+}
+
+function canvasPredictedPositionChanged() {
+	canvasDrawOptions.predictedPosition = predictedPositionInput.checked;
+}
+
+function canvasTrajectoryLinesChanged() {
+	canvasDrawOptions.trajectoryLines = trajectoryLinesInput.checked;
+}
+
+function canvasSlowFadeHitSpotChanged() {
+	canvasDrawOptions.slowFadeHitSpot = slowFadeHitSpotInput.checked;
+	if (!canvasDrawOptions.slowFadeHitSpot) impactMarks.age.fill(IMPACT_TTL + 1);
 }
 
 function canvasResize() {
@@ -53,10 +84,13 @@ function canvasToWorldY(clientY) {
 	return ((clientY - rect.top) * (canvasView.h / rect.height) - canvasView.offY) / canvasView.scale;
 }
 
-function canvasAddImpact(x, y, rgb) {
+function canvasAddImpact(faceX, y, radius, side, rgb) {
+	if (!canvasDrawOptions.slowFadeHitSpot) return;
 	const i = impactMarks.write;
-	impactMarks.x[i] = x;
+	impactMarks.x[i] = faceX;
 	impactMarks.y[i] = y;
+	impactMarks.radius[i] = radius;
+	impactMarks.side[i] = side;
 	impactMarks.rgb[i] = rgb;
 	impactMarks.age[i] = 0;
 	impactMarks.css[i] = colorCss(rgb); // one string per mark so the draw loop stays alloc-free
@@ -64,11 +98,14 @@ function canvasAddImpact(x, y, rgb) {
 }
 
 function canvasDraw(dtSec) {
-	for (let i = 0; i < IMPACT_CAP; i++) {
-		if (impactMarks.age[i] <= IMPACT_TTL) impactMarks.age[i] += dtSec;
+	if (canvasDrawOptions.slowFadeHitSpot) {
+		for (let i = 0; i < IMPACT_CAP; i++) {
+			if (impactMarks.age[i] <= IMPACT_TTL) impactMarks.age[i] += dtSec;
+		}
 	}
 	const ctx = cvCtx;
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	ctx.globalAlpha = 1;
 	ctx.fillStyle = STYLE_BG;
 	ctx.fillRect(0, 0, canvasView.w, canvasView.h);
 	ctx.setTransform(canvasView.scale, 0, 0, canvasView.scale, canvasView.offX, canvasView.offY);
@@ -83,32 +120,61 @@ function canvasDraw(dtSec) {
 	ctx.fillRect(f.w - f.wallT, 0, f.wallT, f.h);
 	ctx.fillRect(f.wallX - f.wallT / 2, 0, f.wallT, apTop);
 	ctx.fillRect(f.wallX - f.wallT / 2, apBot, f.wallT, f.h - apBot);
-	for (let i = 0; i < IMPACT_CAP; i++) {
-		const age = impactMarks.age[i];
-		if (age > IMPACT_TTL) continue;
-		ctx.globalAlpha = 1 - age / IMPACT_TTL;
-		ctx.fillStyle = impactMarks.css[i];
-		ctx.beginPath();
-		ctx.arc(impactMarks.x[i], impactMarks.y[i], IMPACT_R, 0, Math.PI * 2);
-		ctx.fill();
+	if (canvasDrawOptions.slowFadeHitSpot) {
+		for (let i = 0; i < IMPACT_CAP; i++) {
+			const age = impactMarks.age[i];
+			if (age > IMPACT_TTL) continue;
+			ctx.globalAlpha = 1 - age / IMPACT_TTL;
+			ctx.fillStyle = impactMarks.css[i];
+			canvasFillWallPatch(ctx, impactMarks.x[i], impactMarks.y[i], impactMarks.radius[i], impactMarks.side[i]);
+		}
 	}
-	ctx.lineWidth = FORECAST_W;
-	ctx.globalAlpha = FORECAST_ALPHA;
-	for (let i = 0; i < simBalls.count; i++) {
-		if (!canvasForecast(i, forecastScratch)) continue;
-		ctx.strokeStyle = simBalls.css[i];
-		ctx.beginPath();
-		ctx.moveTo(forecastScratch[0], forecastScratch[1]);
-		ctx.lineTo(forecastScratch[2], forecastScratch[3]);
-		ctx.stroke();
+	const showPredictedPosition = canvasDrawOptions.predictedPosition;
+	const showTrajectoryLines = canvasDrawOptions.trajectoryLines;
+	if (showPredictedPosition || showTrajectoryLines) {
+		ctx.globalAlpha = FORECAST_ALPHA;
+		if (showTrajectoryLines) ctx.lineWidth = FORECAST_W;
+		for (let i = 0; i < simBalls.count; i++) {
+			if (!canvasForecast(i, forecastScratch)) continue;
+			const side = simBalls.vx[i] > 0 ? -1 : 1;
+			if (showPredictedPosition) {
+				ctx.fillStyle = simBalls.css[i];
+				canvasFillWallPatch(ctx, forecastScratch[2], forecastScratch[3], simBalls.r[i], side);
+			}
+			if (showTrajectoryLines) {
+				ctx.strokeStyle = simBalls.css[i];
+				ctx.beginPath();
+				ctx.moveTo(forecastScratch[0], forecastScratch[1]);
+				ctx.lineTo(forecastScratch[2], forecastScratch[3]);
+				ctx.stroke();
+			}
+		}
 	}
+	ctx.globalAlpha = 1;
 	for (let i = 0; i < simBalls.count; i++) {
 		ctx.fillStyle = simBalls.css[i];
 		ctx.beginPath();
 		ctx.arc(simBalls.x[i], simBalls.y[i], simBalls.r[i], 0, Math.PI * 2);
 		ctx.fill();
 	}
-	ctx.globalAlpha = 1;
+}
+
+function canvasFillWallPatch(ctx, faceX, centerY, radius, side) {
+	const wallT = simField.wallT;
+	const x = faceX + (side > 0 ? -wallT : 0);
+	const top = centerY - radius;
+	const bottom = centerY + radius;
+	const half = simAperture.size / 2;
+	const apTop = simAperture.y - half;
+	const apBot = simAperture.y + half;
+	if (top < apTop) {
+		const patchBottom = bottom < apTop ? bottom : apTop;
+		if (patchBottom > top) ctx.fillRect(x, top, wallT, patchBottom - top);
+	}
+	if (bottom > apBot) {
+		const patchTop = top > apBot ? top : apBot;
+		if (bottom > patchTop) ctx.fillRect(x, patchTop, wallT, bottom - patchTop);
+	}
 }
 
 // straight-line cue only; bounces and ball contacts can still invalidate it
@@ -133,4 +199,15 @@ function canvasForecast(i, out) {
 	return true;
 }
 
-if (typeof module !== 'undefined') module.exports = { canvasView, impactMarks, canvasInit, canvasResize, canvasDraw, canvasAddImpact, canvasToWorldY, IMPACT_CAP, IMPACT_TTL };
+if (typeof module !== 'undefined') module.exports = {
+	canvasView,
+	canvasDrawOptions,
+	impactMarks,
+	canvasInit,
+	canvasResize,
+	canvasDraw,
+	canvasAddImpact,
+	canvasToWorldY,
+	IMPACT_CAP,
+	IMPACT_TTL
+};

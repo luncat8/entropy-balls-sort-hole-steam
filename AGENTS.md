@@ -61,7 +61,7 @@ getObj().data().action()
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
 	simulation.js — owns field, balls, aperture, physics, ball color generation. edit for constants, spawn, stepping.
 	color.js — owns color conversions and warm/cold/near-target tests. edit for palette hues, hue boundaries, distance metric.
-	canvas.js — owns canvas sizing/drawing and impact/forecast buffers. edit for draw styles.
+	canvas.js — owns canvas sizing/drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	input.js — owns pointer/keyboard aperture input. edit for bindings, clamping.
 	settings.js — (planned) theme default, URL persistence, UI binding and theme application. edit for theme keys, new settings keys.
 	status.js — (planned) status/help presentation. not implemented yet.

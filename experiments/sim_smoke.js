@@ -8,6 +8,7 @@ const { apis, stubs } = loadGame(path.join(__dirname, '..'));
 const sim = apis['simulation.js'];
 const cv = apis['canvas.js'];
 const col = apis['color.js'];
+const ctx2d = stubs.ctx2d;
 
 let pass = 0;
 let fail = 0;
@@ -27,6 +28,10 @@ function freshWorld() {
 	sim.simAperture.targetY = 100;
 	sim.simSetBallCollisions(true);
 	sim.simSetSpawnRate(0);
+	cv.canvasDrawOptions.predictedPosition = true;
+	cv.canvasDrawOptions.trajectoryLines = true;
+	cv.canvasDrawOptions.slowFadeHitSpot = false;
+	cv.impactMarks.age.fill(cv.IMPACT_TTL + 1);
 }
 
 function place(i, x, y, vx, vy, r, rgb) {
@@ -48,6 +53,20 @@ function inBounds(i) {
 		&& b.y[i] >= r - 1e-3 && b.y[i] <= f.h - r + 1e-3;
 }
 
+function hasRectCall(x, y, w, h) {
+	for (const call of ctx2d.calls) {
+		if (call.method === 'fillRect' && call.args[0] === x && call.args[1] === y
+			&& call.args[2] === w && call.args[3] === h) return true;
+	}
+	return false;
+}
+
+function countCalls(method) {
+	let count = 0;
+	for (const call of ctx2d.calls) if (call.method === method) count++;
+	return count;
+}
+
 let warm = 0, cold = 0;
 for (const entry of col.PALETTE) {
 	if (col.colorIsWarm(entry[1])) warm++;
@@ -55,6 +74,36 @@ for (const entry of col.PALETTE) {
 }
 check('palette: three warm and three cold hues', warm === 3 && cold === 3);
 check('color: hsl packs 0xRRGGBB', col.colorHslToRgb(0, 1, 0.5) === 0xff0000 && col.colorCss(0xff0000) === '#ff0000');
+
+const predictedControl = stubs.els['draw-predicted-position'];
+const trajectoryControl = stubs.els['draw-trajectory-lines'];
+const fadeControl = stubs.els['draw-slow-fade-hit-spot'];
+check('visual cues: predicted position and lines on, hit fade off by default',
+	cv.canvasDrawOptions.predictedPosition && cv.canvasDrawOptions.trajectoryLines
+	&& !cv.canvasDrawOptions.slowFadeHitSpot
+	&& predictedControl.checked && trajectoryControl.checked && !fadeControl.checked);
+predictedControl.checked = false;
+predictedControl.dispatch('change');
+check('visual cue option: predicted position toggles independently', !cv.canvasDrawOptions.predictedPosition);
+predictedControl.checked = true;
+predictedControl.dispatch('change');
+trajectoryControl.checked = false;
+trajectoryControl.dispatch('change');
+check('visual cue option: trajectory lines toggle independently', !cv.canvasDrawOptions.trajectoryLines);
+trajectoryControl.checked = true;
+trajectoryControl.dispatch('change');
+fadeControl.checked = true;
+fadeControl.dispatch('change');
+check('visual cue option: hit fade is user-selectable', cv.canvasDrawOptions.slowFadeHitSpot);
+fadeControl.checked = false;
+fadeControl.dispatch('change');
+
+freshWorld();
+place(0, 580, 400, 300, 0, 14, 0x112233);
+const disabledMarkWrite = cv.impactMarks.write;
+for (let k = 0; k < 20; k++) sim.simStep(1 / 120);
+check('hit spot: disabled by default without affecting collision',
+	sim.simBalls.vx[0] < 0 && cv.impactMarks.write === disabledMarkWrite);
 
 freshWorld();
 place(0, 800, 400, 300, 0, 14, 0x112233);
@@ -69,6 +118,8 @@ check('wall reflection: ball stays in field', wallSafe);
 check('wall reflection: right wall flips vx', wallBounced && sim.simBalls.vx[0] === -300);
 
 freshWorld();
+fadeControl.checked = true;
+fadeControl.dispatch('change');
 const rgb = 0xa1b2c3;
 place(0, 300, 400, 300, 0, 14, rgb);
 const w0 = cv.impactMarks.write;
@@ -84,13 +135,47 @@ for (let k = 0; k < 200; k++) {
 check('divider reflection: flips at the face', flipped && Math.abs(hitX - (sim.simField.wallX - 14)) < 0.01);
 check('divider reflection: ball returns left', sim.simBalls.x[0] < sim.simField.wallX - 14);
 const slot = w0 % cv.IMPACT_CAP;
-check('impact: face position and ball color',
+check('impact: face, diameter, approach side, and ball color',
 	cv.impactMarks.x[slot] === sim.simField.wallX - sim.simField.wallT / 2
 	&& cv.impactMarks.y[slot] === 400
+	&& cv.impactMarks.radius[slot] === 14
+	&& cv.impactMarks.side[slot] === -1
 	&& cv.impactMarks.rgb[slot] === rgb);
-cv.canvasDraw(1.2);
-cv.canvasDraw(1.2);
-check('impact: expires by age', cv.impactMarks.age[slot] > cv.IMPACT_TTL);
+ctx2d.calls.length = 0;
+cv.canvasDraw(0);
+check('impact: patch spans wall thickness by ball diameter', hasRectCall(596, 386, 8, 28));
+let lastBallFill = null;
+for (const call of ctx2d.calls) if (call.method === 'fill') lastBallFill = call;
+check('draw layers: balls remain opaque after forecast and impact cues', lastBallFill && lastBallFill.globalAlpha === 1);
+cv.canvasDraw(1.6);
+cv.canvasDraw(1.6);
+check('impact: slow fade expires by age', cv.impactMarks.age[slot] > cv.IMPACT_TTL);
+fadeControl.checked = false;
+fadeControl.dispatch('change');
+
+freshWorld();
+place(0, 300, 400, 200, 0, 14, 0xabcdef);
+cv.canvasDrawOptions.predictedPosition = true;
+cv.canvasDrawOptions.trajectoryLines = false;
+ctx2d.calls.length = 0;
+cv.canvasDraw(0);
+check('forecast option: predicted position draws diameter-sized wall patch', hasRectCall(596, 386, 8, 28));
+check('forecast option: position can show without trajectory lines', countCalls('stroke') === 0);
+cv.canvasDrawOptions.predictedPosition = false;
+cv.canvasDrawOptions.trajectoryLines = true;
+ctx2d.calls.length = 0;
+cv.canvasDraw(0);
+check('forecast option: trajectory line can show without position mark',
+	!hasRectCall(596, 386, 8, 28) && countCalls('stroke') === 1);
+
+freshWorld();
+sim.simAperture.y = 400;
+sim.simAperture.targetY = 400;
+place(0, 300, 480, 200, 0, 14, 0xabcdef);
+cv.canvasDrawOptions.trajectoryLines = false;
+ctx2d.calls.length = 0;
+cv.canvasDraw(0);
+check('forecast patch: clips to solid wall beside aperture', hasRectCall(596, 466, 8, 28));
 
 freshWorld();
 sim.simAperture.y = 400;

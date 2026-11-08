@@ -3,13 +3,13 @@
 
 const simField = { w: 1200, h: 800, wallX: 600, wallT: 8 };
 
-const BALL_CAP = 220;
+const BALL_CAP = 36;
 const BALL_R_MIN = 10;
 const BALL_R_MAX = 18;
 const BALL_V_MIN = 140;
 const BALL_V_MAX = 280;
 const SPAWN_RATE = 2.5;
-const APERTURE_SIZE = 170;
+const APERTURE_SIZE = 113;
 const APERTURE_SPEED = 700;
 const FIXED_DT = 1 / 120;
 const MAX_CATCHUP = 0.25;
@@ -89,7 +89,7 @@ function simInit() {
 	stepAcc = 0;
 	simAperture.y = simField.h / 2;
 	simAperture.targetY = simField.h / 2;
-	for (let k = 0; k < 80; k++) simSpawn();
+	for (let k = 0; k < 13; k++) simSpawn();
 }
 
 function simMoveAperture(dt) {
@@ -140,7 +140,7 @@ function simDividerTouch(i) {
 	const side = dx >= 0 ? 1 : -1;
 	if ((side === -1 && simBalls.vx[i] > 0) || (side === 1 && simBalls.vx[i] < 0)) {
 		simBalls.vx[i] = -simBalls.vx[i];
-		canvasAddImpact(simField.wallX + side * simField.wallT / 2, y, simBalls.rgb[i]);
+		canvasAddImpact(simField.wallX + side * simField.wallT / 2, y, r, side, simBalls.rgb[i]);
 	}
 	simBalls.x[i] = simField.wallX + side * r;
 }

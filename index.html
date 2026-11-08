@@ -8,12 +8,61 @@
 html, body { margin: 0; height: 100%; overflow: hidden; background: #12151b; }
 #app { position: fixed; inset: 0; }
 canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.draw-options {
+	position: fixed;
+	top: 12px;
+	left: 12px;
+	z-index: 1;
+	color: #edf0f6;
+	font: 13px/1.35 system-ui, sans-serif;
+}
+.draw-options fieldset {
+	margin: 0;
+	padding: 8px 12px 10px;
+	border: 1px solid #495263;
+	border-radius: 8px;
+	background: rgba(18, 21, 27, 0.92);
+	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+.draw-options legend { padding: 0 4px; color: #c9d1e0; }
+.draw-options-group { display: grid; gap: 6px; }
+.draw-options-group + .draw-options-group {
+	margin-top: 9px;
+	padding-top: 8px;
+	border-top: 1px solid rgba(73, 82, 99, 0.75);
+}
+.draw-options-heading {
+	color: #9ba6ba;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+.draw-options label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.draw-options input { margin: 0; accent-color: #83b8ff; }
+@media (max-width: 480px) {
+	.draw-options { top: 8px; left: 8px; font-size: 12px; }
+}
 </style>
 </head>
 <body>
 <div id="app">
 	<canvas id="canv"></canvas>
 </div>
+<aside class="draw-options" aria-label="Drawing options">
+	<fieldset>
+		<legend>Wall impact cues</legend>
+		<div class="draw-options-group">
+			<span class="draw-options-heading">Before hit</span>
+			<label><input id="draw-predicted-position" type="checkbox" checked> Predicted position</label>
+			<label><input id="draw-trajectory-lines" type="checkbox" checked> Trajectory lines</label>
+		</div>
+		<div class="draw-options-group">
+			<span class="draw-options-heading">After hit</span>
+			<label><input id="draw-slow-fade-hit-spot" type="checkbox"> Slow fade hit spot</label>
+		</div>
+	</fieldset>
+</aside>
 <script src="color.js"></script>
 <script src="simulation.js"></script>
 <script src="canvas.js"></script>
