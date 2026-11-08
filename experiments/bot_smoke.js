@@ -42,6 +42,11 @@ function warmPalette() {
 	return 0;
 }
 
+function coolPalette() {
+	for (let p = 0; p < 8; p++) if (tasks.tasksCatHas(1, p) === 1) return p;
+	return 0;
+}
+
 function place(i, x, y, vx, vy, p) {
 	const b = sim.simBalls;
 	b.x[i] = x;
@@ -253,6 +258,58 @@ check('predict: a crossing flips the chamber it comes back from', (() => {
 	for (let j = 1; j < passes; j++) if (bot.botScratch.dir[j] === bot.botScratch.dir[j - 1]) return false;
 	return true;
 })());
+
+// the lane is where the ball will be, not where it is: a diagonal ball crosses later and higher
+field(900, 200, -200, 200, 'hot');
+check('predict: the lane is the crossing height at the crossing time', (() => {
+	const n = bot.botPredict(0, true);
+	return n === 1 && near(bot.botScratch.t[0], 1.5, 0.01) && near(bot.botScratch.y[0], 500, 1);
+})());
+
+// "less than" objectives fill a negative quota, so the crossing they need is the matching ball leaving
+field(300, 200, 200, 0, 'hot');
+place(1, 900, 300, -200, 0, warmPalette());
+place(2, 1000, 400, 0, 0, coolPalette());
+place(3, 1000, 600, 0, 0, coolPalette());
+place(4, 1000, 700, 0, 0, coolPalette());
+sim.simFillDist();
+tasks.tasksAssign(1, 'left', 'hot', '<', 40, 'immediate');
+bot.botPlanOpen(1);
+check('plan: a less-than objective leaves a negative quota', bot.botPlan.cmp === 1
+	&& bot.botPlan.needCat < 0);
+check('plan: a matching ball leaving is the progress a less-than objective needs', (() => {
+	const n = bot.botPredict(0, true);
+	for (let j = 0; j < n; j++) {
+		if (bot.botScratch.cat[j] !== 1 || bot.botScratch.dir[j] < 0) continue;
+		return bot.botCrossUseful(j) === true;
+	}
+	return false;
+})());
+check('plan: a matching ball entering is the crossing a less-than objective loses', (() => {
+	const n = bot.botPredict(0, true);
+	for (let j = 0; j < n; j++) {
+		if (bot.botScratch.cat[j] !== 1 || bot.botScratch.dir[j] > 0) continue;
+		return bot.botCrossUseful(j) === false;
+	}
+	return false;
+})());
+
+// a satisfied hold only has to survive, so a lane with no hostile crossing beats the one under the
+// ball that is about to end the hold
+field(300, 400, 200, 0, 'hot');
+place(1, 900, 150, -200, 0, warmPalette());
+place(2, 200, 600, 0, 0, warmPalette());
+sim.simFillDist();
+tasks.tasksAssign(1, 'left', 'hot', '>', 50, 'hold');
+check('hold: a satisfied hold task is defended', tasks.tasksView[1].satisfied === true
+	&& bot.botPlanOpen(1) === true && bot.botPlan.defend === true);
+check('hold: a harmful crossing raises no lane of its own', (() => {
+	const n = bot.botPredict(0, true);
+	for (let j = 0; j < n; j++) if (near(bot.botScratch.y[j], 400, 1)) return bot.botCrossHurts(j) === true;
+	return false;
+})());
+check('hold: the hole leaves the lane that would end the hold', bot.botAim(1) === true
+	&& near(bot.botState.targetY[1], 150, 5));
 
 // a bot that owns the hole keeps it while it drives, and only hands it over when it parks
 field(900, 200, -200, 0, 'hot');
