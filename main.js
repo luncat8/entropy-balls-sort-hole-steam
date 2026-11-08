@@ -11,6 +11,7 @@ function mainFrame(tMs) {
 	runtime.dtMs = dtSec * 1000;
 	inputUpdate(dtSec);
 	simAdvance(dtSec);
+	tasksPaint();
 	canvasDraw(dtSec);
 	requestAnimationFrame(mainFrame);
 }
@@ -18,6 +19,9 @@ function mainFrame(tMs) {
 function mainBoot() {
 	root = $('app');
 	simInit();
+	playersInit();
+	tasksInit();
+	for (let i = 0; i < players.count; i++) tasksAttach(i);
 	canvasInit();
 	inputInit();
 	requestAnimationFrame(mainFrame);
