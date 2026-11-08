@@ -10,11 +10,18 @@ const noop = () => {};
 function makeStubs() {
 	// the goal-view label is a single text field; a plain element is enough for it
 	const listeners = {};
+	const documentListeners = {};
 	const win = {
 		devicePixelRatio: 1,
+		location: new URL('http://game.test/index.html'),
+		matchMedia() { return { matches: false }; },
 		addEventListener(type, fn) {
 			(listeners[type] = listeners[type] || []).push(fn);
 		}
+	};
+	win.history = {
+		state: null,
+		replaceState(state, title, href) { win.location = new URL(href); }
 	};
 	const calls = [];
 	const ctx2d = new Proxy({ calls }, {
@@ -32,9 +39,15 @@ function makeStubs() {
 	});
 	function element(properties) {
 		const handlers = {};
+		const captures = new Set();
 		const node = {
 			children: [],
+			attributes: {},
 			style: { setProperty(k, v) { this[k] = v; } },
+			setAttribute(name, value) { this.attributes[name] = String(value); },
+			getAttribute(name) { return this.attributes[name] || null; },
+			focus() {},
+			getBoundingClientRect() { return { top: 0, left: 0, width: 40, height: 146 }; },
 			append(...nodes) {
 				for (const n of nodes) {
 					// the dom empties a fragment into the parent instead of nesting it
@@ -68,12 +81,18 @@ function makeStubs() {
 				(handlers[type] = handlers[type] || []).push(fn);
 			},
 			dispatch(type, event) {
-				const e = Object.assign({ type, target: node, currentTarget: node, preventDefault() {} }, event);
+				const e = Object.assign({
+					type, target: node, currentTarget: node, defaultPrevented: false,
+					preventDefault() { this.defaultPrevented = true; }
+				}, event);
 				for (const fn of handlers[type] || []) fn.call(node, e);
+				return e;
 			},
 			fields: {},
 			className: '',
-			setPointerCapture() {},
+			setPointerCapture(id) { captures.add(id); },
+			hasPointerCapture(id) { return captures.has(id); },
+			releasePointerCapture(id) { captures.delete(id); },
 			hidden: false,
 			get textContent() { return node._text || ''; },
 			set textContent(v) {
@@ -116,12 +135,11 @@ function makeStubs() {
 		'draw-predicted-position': element({ checked: false }),
 		'draw-trajectory-lines': element({ checked: false }),
 		'draw-slow-fade-hit-spot': element({ checked: true }),
-		'force-panel': element({}),
-		'force-pad': element({ textContent: '' }),
-		'force-mag': element({ value: '60' }),
-		'force-push': element({ checked: true }),
-		'force-pull': element({ checked: false }),
-		'force-stores': element({}),
+		'force-panels': element({}),
+		'settings-panel': element({ open: true }),
+		'settings-friction': element({ checked: false }),
+		'settings-url-wrap': element({ hidden: true }),
+		'settings-url': element({ value: '' }),
 		'task-list': element({}),
 		'quest-panel': questPanel(),
 		'quest-goal': element({ hidden: true, textContent: '' }),
@@ -137,15 +155,19 @@ function makeStubs() {
 	}
 	const sandbox = {
 		document: {
+			hidden: false,
 			getElementById: id => els[id] || null,
 			createElement: tag => element({ tagName: tag.toUpperCase() }),
-			createDocumentFragment: () => element({ tagName: '#fragment', isFragment: true })
+			createDocumentFragment: () => element({ tagName: '#fragment', isFragment: true }),
+			addEventListener(type, fn) { (documentListeners[type] = documentListeners[type] || []).push(fn); }
 		},
 		window: win,
+		URL,
+		URLSearchParams,
 		requestAnimationFrame: noop,
 		console
 	};
-	return { sandbox, stubs: { els, win, listeners, ctx2d } };
+	return { sandbox, stubs: { els, win, listeners, documentListeners, ctx2d } };
 }
 
 // scripts run in one context like the browser; the module stub collects each file's export guard

@@ -97,6 +97,7 @@ function questBuildItems() {
 		item.addEventListener('pointerdown', e => questItemDown(e, id));
 		item.addEventListener('pointerup', e => questItemUp(e, id));
 		item.addEventListener('pointercancel', e => questItemUp(e, id));
+		item.addEventListener('lostpointercapture', e => questItemUp(e, id));
 		item.addEventListener('keydown', e => questItemKey(e, id));
 		item.addEventListener('keyup', e => questItemKey(e, id));
 		item.addEventListener('blur', e => questItemUp(e, id));
@@ -104,6 +105,12 @@ function questBuildItems() {
 		quest.items.push({ id, el: item, swatch, text, meta, held: false });
 	}
 	quest.listEl.append(frag);
+	window.addEventListener('blur', questReleaseAll);
+}
+
+function questReleaseAll() {
+	for (let id = 0; id < quest.items.length; id++) quest.items[id].held = false;
+	questClose();
 }
 
 function questPaintItems(swatchChanged) {

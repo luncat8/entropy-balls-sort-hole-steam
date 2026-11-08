@@ -341,6 +341,12 @@ check('hold: other keys do not open the panel', panel().hidden === true);
 held.dispatch('pointerdown', { pointerId: 1 });
 held.dispatch('blur');
 check('hold: focus loss closes the panel', panel().hidden === true && goal.goalField.on === false);
+held.dispatch('pointerdown', { pointerId: 2 });
+held.dispatch('lostpointercapture', { pointerId: 2 });
+check('hold: losing pointer capture closes the panel', panel().hidden === true && goal.goalField.on === false);
+held.dispatch('pointerdown', { pointerId: 3 });
+for (const fn of stubs.listeners.blur || []) fn();
+check('hold: window blur closes even an unfocused pointer hold', panel().hidden === true && goal.goalField.on === false);
 
 check('list: items keep the objective words', item(0).children[1].children[0].textContent
 	=== quest.questObjectiveText(tasks.tasksView[0]));

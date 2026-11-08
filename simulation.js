@@ -11,6 +11,7 @@ const BALL_V_MAX = 280;
 const SPAWN_RATE = 2.5;
 const APERTURE_SIZE = 113;
 const APERTURE_SPEED = 700;
+const APERTURE_FRICTION = 1;
 const FIXED_DT = 1 / 120;
 const MAX_CATCHUP = 0.25;
 const MAX_SUBSTEPS = 8;
@@ -27,7 +28,7 @@ const simBalls = {
 	css: new Array(BALL_CAP)
 };
 
-const simAperture = { y: 400, drive: 0, size: APERTURE_SIZE, speed: APERTURE_SPEED };
+const simAperture = { y: 400, drive: 0, velocity: 0, friction: 0, size: APERTURE_SIZE, speed: APERTURE_SPEED };
 
 const DIST_PALETTE = 6;
 const simDist = {
@@ -48,9 +49,20 @@ const simDist = {
 };
 
 let simBallCollisions = true;
+let simFrictionEnabled = false;
+let simControlHook = null;
 let spawnRate = SPAWN_RATE;
 let spawnAcc = 0;
 let stepAcc = 0;
+
+function simSetFriction(on) {
+	simFrictionEnabled = !!on;
+	if (!simFrictionEnabled) simAperture.friction = 0;
+}
+
+function simSetControlHook(hook) {
+	simControlHook = hook;
+}
 
 function simSetBallCollisions(on) {
 	simBallCollisions = on;
@@ -159,18 +171,23 @@ function simInit() {
 	stepAcc = 0;
 	simAperture.y = simField.h / 2;
 	simAperture.drive = 0;
+	simAperture.velocity = 0;
+	simAperture.friction = 0;
 	for (let k = 0; k < 13; k++) simSpawn();
 	simFillDist();
 }
 
-// the drive is a signed fraction of full speed and is rebuilt every step from funded requests, so a
-// release stops the hole on that step instead of bleeding off momentum
+// With no inertia, drive balances speed plus optional speed-proportional resistance. Release still stops immediately.
 function simMoveAperture(dt) {
-	const half = simAperture.size / 2;
-	let y = simAperture.y + simAperture.drive * simAperture.speed * dt;
+	const ap = simAperture;
+	const half = ap.size / 2;
+	const speed = ap.drive * ap.speed / (simFrictionEnabled ? 1 + APERTURE_FRICTION : 1);
+	let y = ap.y + speed * dt;
 	if (y < half) y = half;
 	else if (y > simField.h - half) y = simField.h - half;
-	simAperture.y = y;
+	ap.velocity = dt > 0 ? (y - ap.y) / dt : 0;
+	ap.friction = simFrictionEnabled && ap.speed > 0 ? -APERTURE_FRICTION * ap.velocity / ap.speed : 0;
+	ap.y = y;
 }
 
 function simSpawnTick(dt) {
@@ -261,6 +278,7 @@ function simCollideBalls() {
 }
 
 function simStep(dt) {
+	if (simControlHook) simControlHook(dt);
 	// force prices its requests per fixed step, so catch-up and frame rate cannot change a bill
 	simAperture.drive = forceDrive(dt);
 	simMoveAperture(dt);
@@ -279,4 +297,8 @@ function simAdvance(dtSec) {
 	}
 }
 
-if (typeof module !== 'undefined') module.exports = { simField, simBalls, simAperture, simDist, simInit, simAdvance, simStep, simSpawn, simFillDist, simSetBallCollisions, simSetSpawnRate, BALL_CAP, BALL_V_MAX, FIXED_DT };
+if (typeof module !== 'undefined') module.exports = {
+	simField, simBalls, simAperture, simDist, simInit, simAdvance, simStep, simSpawn, simFillDist,
+	simSetBallCollisions, simSetSpawnRate, simSetFriction, simSetControlHook,
+	BALL_CAP, BALL_V_MAX, APERTURE_FRICTION, FIXED_DT
+};

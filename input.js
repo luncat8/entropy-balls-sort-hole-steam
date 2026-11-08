@@ -1,131 +1,216 @@
-// owns: hole force controls — direction, strength and the hold gesture
-// edit for: bindings, strength steps, hold regions
+// owns: the human player's signed force selection and hold gestures
+// edit for: pointer, wheel and keyboard controls
 
-// the slider and the wheel are one control: the slider shows the strength the wheel sets
-const INPUT_MAG_STEP = 0.05;
-const INPUT_MAG_START = 0.6;
-const INPUT_KEYS_DIRECT = { ArrowUp: -1, ArrowDown: 1 };
+const INPUT_FORCE_STEP = 5;
+const INPUT_FORCE_START = 60;
+const INPUT_SLIDER_INSET = 10;
 
-const inputUi = { panel: null, pad: null, mag: null, push: null, pull: null };
-const inputState = { player: 0, dir: 1, mag: INPUT_MAG_START, held: false };
+const inputUi = { canvas: null, panel: null, slider: null };
+const inputState = {
+	player: 0, value: INPUT_FORCE_START, sliderPointer: null, canvasPointer: null,
+	canvasClientY: 0, targetY: 0, keyHeld: false
+};
 
 function inputInit() {
-	inputUi.panel = $('force-panel');
-	inputUi.pad = $('force-pad');
-	inputUi.mag = $('force-mag');
-	inputUi.push = $('force-push');
-	inputUi.pull = $('force-pull');
-	inputUi.panel.addEventListener('wheel', inputWheel, { passive: false });
-	inputUi.pad.addEventListener('pointerdown', inputPadDown);
-	inputUi.pad.addEventListener('pointerup', inputRelease);
-	inputUi.pad.addEventListener('pointercancel', inputRelease);
-	inputUi.pad.addEventListener('lostpointercapture', inputRelease);
-	inputUi.mag.addEventListener('input', inputMagChanged);
-	inputUi.push.addEventListener('change', inputDirectionChanged);
-	inputUi.pull.addEventListener('change', inputDirectionChanged);
+	inputUi.canvas = $('canv');
+	inputUi.canvas.addEventListener('pointerdown', inputCanvasDown);
+	inputUi.canvas.addEventListener('pointermove', inputCanvasMove);
+	inputUi.canvas.addEventListener('pointerup', inputCanvasEnd);
+	inputUi.canvas.addEventListener('pointercancel', inputCanvasEnd);
+	inputUi.canvas.addEventListener('lostpointercapture', inputCanvasEnd);
+	inputUi.canvas.addEventListener('wheel', inputWheel, { passive: false });
 	window.addEventListener('keydown', inputKeyDown);
 	window.addEventListener('keyup', inputKeyUp);
 	window.addEventListener('blur', inputRelease);
-	inputState.held = false;
-	inputState.dir = 1;
-	inputState.mag = INPUT_MAG_START;
-	inputUi.push.checked = true;
-	inputUi.pull.checked = false;
-	inputSetMagnitude(INPUT_MAG_START);
-	inputSetDirection(1);
+	window.addEventListener('resize', inputResize);
+	document.addEventListener('visibilitychange', inputVisibilityChanged);
+	inputState.player = 0;
+	inputState.sliderPointer = null;
+	inputState.canvasPointer = null;
+	inputState.keyHeld = false;
+	inputSetValue(INPUT_FORCE_START);
 }
 
-// a key that a control already consumed, or that a control needs for itself, is not a hole control
-function inputOwned(e) {
-	if (e.defaultPrevented) return true;
-	const tag = e.target && e.target.tagName;
-	return tag === 'INPUT' || tag === 'BUTTON' || tag === 'SELECT' || tag === 'TEXTAREA';
+function inputControls(id) {
+	return id === inputState.player && players.type[id] === PLAYER_HUMAN;
 }
 
-function inputKeyDown(e) {
-	if (inputOwned(e)) return;
-	if (e.code === 'Space') {
-		e.preventDefault();
-		inputActivate();
-		return;
-	}
-	const dir = INPUT_KEYS_DIRECT[e.code];
-	if (dir === undefined) return;
-	e.preventDefault();
-	inputSetDirection(dir);
+function inputValue() {
+	return inputState.value;
 }
 
-function inputKeyUp(e) {
-	if (e.code === 'Space') inputRelease();
+function inputBindPanel(id, panel, slider) {
+	if (!inputControls(id)) return false;
+	inputUi.panel = panel;
+	inputUi.slider = slider;
+	panel.addEventListener('wheel', inputWheel, { passive: false });
+	slider.addEventListener('pointerdown', inputSliderDown);
+	slider.addEventListener('pointermove', inputSliderMove);
+	slider.addEventListener('pointerup', inputSliderEnd);
+	slider.addEventListener('pointercancel', inputSliderEnd);
+	slider.addEventListener('lostpointercapture', inputSliderEnd);
+	slider.addEventListener('input', inputSliderChanged);
+	return true;
 }
 
-// a controller belongs to one participant; handing the controls over drops any held request first, so
-// a second human or a bot can share this interface without inheriting the previous player's force
+function inputPreparePanels() {
+	inputRelease();
+	inputUi.panel = null;
+	inputUi.slider = null;
+}
+
 function inputSetPlayer(id) {
-	if (id === inputState.player || id < 0 || id >= players.count) return;
+	if (id === inputState.player || id < 0 || id >= players.count || players.type[id] !== PLAYER_HUMAN) return;
 	inputRelease();
 	inputState.player = id;
-	forceSetDirection(id, inputState.dir);
-	forceSetMagnitude(id, inputState.mag);
+	inputSetValue(inputState.value);
+	forcePanelRebuild();
 }
 
-function inputActivate() {
-	if (inputState.held) return;
-	inputState.held = true;
-	forceHold(inputState.player, true);
+function inputSetValue(value) {
+	if (!inputControls(inputState.player) || !Number.isFinite(value)) return;
+	let next = Math.round(value / INPUT_FORCE_STEP) * INPUT_FORCE_STEP;
+	if (next < -100) next = -100;
+	else if (next > 100) next = 100;
+	inputState.value = next;
+	forceSetMagnitude(inputState.player, Math.abs(next) / 100);
+	forcePanelSetValue(inputState.player, next);
+	inputRefreshRequest();
+}
+
+function inputTargetDirection() {
+	const delta = inputState.targetY - simAperture.y;
+	// Half a maximum fixed-step movement prevents a held pointer from oscillating around its target.
+	const deadZone = simAperture.speed * FIXED_DT / 2 + 0.01;
+	return delta < -deadZone ? -1 : (delta > deadZone ? 1 : 0);
+}
+
+function inputRefreshRequest() {
+	if (!inputControls(inputState.player)) return;
+	const canvasHeld = inputState.canvasPointer !== null;
+	const dir = canvasHeld ? inputTargetDirection() : Math.sign(inputState.value);
+	forceSetDirection(inputState.player, dir);
+	forceHold(inputState.player, canvasHeld || inputState.sliderPointer !== null || inputState.keyHeld);
+}
+
+function inputStep() {
+	if (inputState.canvasPointer !== null) inputRefreshRequest();
+}
+
+function inputReleaseCapture(el, id) {
+	if (id !== null && el && el.hasPointerCapture && el.hasPointerCapture(id)) el.releasePointerCapture(id);
 }
 
 function inputRelease() {
-	if (!inputState.held) return;
-	inputState.held = false;
-	forceClear(inputState.player);
+	const sliderId = inputState.sliderPointer;
+	const canvasId = inputState.canvasPointer;
+	inputState.sliderPointer = null;
+	inputState.canvasPointer = null;
+	inputState.keyHeld = false;
+	inputReleaseCapture(inputUi.slider, sliderId);
+	inputReleaseCapture(inputUi.canvas, canvasId);
+	inputRefreshRequest();
 }
 
-function inputPadDown(e) {
+function inputVisibilityChanged() {
+	if (document.hidden) inputRelease();
+}
+
+function inputSliderDown(e) {
+	if ((e.button !== undefined && e.button !== 0) || inputState.sliderPointer !== null) return;
 	e.preventDefault();
-	if (inputUi.pad.setPointerCapture) inputUi.pad.setPointerCapture(e.pointerId);
-	inputActivate();
+	inputState.sliderPointer = e.pointerId;
+	if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+	e.currentTarget.focus({ preventScroll: true });
+	inputSliderMove(e);
 }
 
-function inputDirectionChanged(e) {
-	if (e.target.checked) inputSetDirection(e.target.value === 'pull' ? -1 : 1);
+function inputSliderMove(e) {
+	if (e.pointerId !== inputState.sliderPointer) return;
+	const rect = e.currentTarget.getBoundingClientRect();
+	const ratio = (e.clientY - rect.top - INPUT_SLIDER_INSET) / (rect.height - 2 * INPUT_SLIDER_INSET);
+	inputSetValue(-100 + ratio * 200);
 }
 
-function inputSetDirection(dir) {
-	inputState.dir = dir < 0 ? -1 : 1;
-	const pull = inputState.dir < 0;
-	inputUi.pull.checked = pull;
-	inputUi.push.checked = !pull;
-	inputUi.pad.textContent = pull ? 'Hold to pull up' : 'Hold to push down';
-	forceSetDirection(inputState.player, inputState.dir);
+function inputSliderEnd(e) {
+	if (e.pointerId !== inputState.sliderPointer) return;
+	inputState.sliderPointer = null;
+	inputRefreshRequest();
 }
 
-function inputMagChanged() {
-	inputSetMagnitude(inputUi.mag.value / 100);
+function inputSliderChanged(e) {
+	inputSetValue(Number(e.currentTarget.value));
 }
 
-function inputSetMagnitude(mag) {
-	const m = mag < 0 ? 0 : (mag > 1 ? 1 : mag);
-	inputState.mag = m;
-	inputUi.mag.value = String(Math.round(m * 100));
-	forceSetMagnitude(inputState.player, m);
+function inputTargetAt(clientY) {
+	inputState.canvasClientY = clientY;
+	const half = simAperture.size / 2;
+	const y = canvasFieldY(clientY);
+	inputState.targetY = Math.max(half, Math.min(simField.h - half, y));
 }
 
-// the wheel adjusts strength only over the force panel, so it never hijacks a scroll elsewhere
+function inputCanvasDown(e) {
+	if (!inputControls(inputState.player)) return;
+	if ((e.button !== undefined && e.button !== 0) || inputState.canvasPointer !== null) return;
+	e.preventDefault();
+	inputState.canvasPointer = e.pointerId;
+	if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+	inputTargetAt(e.clientY);
+	inputRefreshRequest();
+}
+
+function inputCanvasMove(e) {
+	if (e.pointerId !== inputState.canvasPointer) return;
+	inputTargetAt(e.clientY);
+	inputRefreshRequest();
+}
+
+function inputCanvasEnd(e) {
+	if (e.pointerId !== inputState.canvasPointer) return;
+	inputState.canvasPointer = null;
+	inputRefreshRequest();
+}
+
+function inputResize() {
+	if (inputState.canvasPointer !== null) inputTargetAt(inputState.canvasClientY);
+}
+
+// A wheel over the field or this player's panel changes selection, never activation.
 function inputWheel(e) {
+	if (!inputControls(inputState.player) || !e.deltaY) return;
 	e.preventDefault();
-	const step = e.deltaY > 0 ? -INPUT_MAG_STEP : INPUT_MAG_STEP;
-	inputSetMagnitude(inputState.mag + step);
+	inputSetValue(inputState.value + (e.deltaY > 0 ? INPUT_FORCE_STEP : -INPUT_FORCE_STEP));
+}
+
+function inputOwned(e) {
+	if (e.defaultPrevented) return true;
+	if (e.target === inputUi.slider) return false;
+	const tag = e.target && e.target.tagName;
+	return e.target && e.target.isContentEditable || tag === 'INPUT' || tag === 'BUTTON'
+		|| tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'A' || tag === 'SUMMARY';
+}
+
+function inputKeyDown(e) {
+	if (!inputControls(inputState.player) || inputOwned(e)) return;
+	if (e.code === 'Space') {
+		e.preventDefault();
+		inputState.keyHeld = true;
+		inputRefreshRequest();
+		return;
+	}
+	if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return;
+	e.preventDefault();
+	inputSetValue(inputState.value + (e.code === 'ArrowUp' ? -INPUT_FORCE_STEP : INPUT_FORCE_STEP));
+}
+
+function inputKeyUp(e) {
+	if (e.code !== 'Space' || !inputState.keyHeld) return;
+	inputState.keyHeld = false;
+	inputRefreshRequest();
 }
 
 if (typeof module !== 'undefined') module.exports = {
-	inputInit,
-	inputState,
-	inputActivate,
-	inputRelease,
-	inputSetDirection,
-	inputSetMagnitude,
-	inputSetPlayer,
-	INPUT_MAG_STEP,
-	INPUT_MAG_START
+	inputUi, inputState, inputInit, inputControls, inputValue, inputBindPanel, inputPreparePanels,
+	inputSetPlayer, inputSetValue, inputRelease, inputStep,
+	INPUT_FORCE_STEP, INPUT_FORCE_START, INPUT_SLIDER_INSET
 };

@@ -16,8 +16,26 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	color: #edf0f6;
 	font: 13px/1.35 system-ui, sans-serif;
 }
+.draw-options summary {
+	width: fit-content;
+	padding: 6px 10px;
+	border: 1px solid #495263;
+	border-radius: 7px;
+	background: rgba(18, 21, 27, 0.94);
+	font-weight: 600;
+	list-style: none;
+	cursor: pointer;
+}
+.draw-options summary::-webkit-details-marker { display: none; }
+.draw-options summary::before { content: '▸'; margin-right: 7px; color: #9ba6ba; }
+.draw-options[open] summary::before { content: '▾'; }
+.draw-options summary:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
 .draw-options fieldset {
-	margin: 0;
+	box-sizing: border-box;
+	max-width: calc(100vw - 16px);
+	max-height: calc(100vh - 65px);
+	overflow-y: auto;
+	margin: 6px 0 0;
 	padding: 8px 12px 10px;
 	border: 1px solid #495263;
 	border-radius: 8px;
@@ -165,62 +183,136 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	border: 1px solid rgba(237, 240, 246, 0.35);
 }
 .quest-panel-dots i.on { background: #83b8ff; border-color: #83b8ff; }
-.force-panel {
+.force-panels {
 	position: fixed;
 	right: 12px;
 	bottom: 12px;
 	z-index: 1;
-	color: #edf0f6;
-	font: 13px/1.35 system-ui, sans-serif;
-}
-.force-panel fieldset {
-	width: 232px;
-	margin: 0;
-	padding: 8px 12px 10px;
-	border: 1px solid #495263;
-	border-radius: 8px;
-	background: rgba(18, 21, 27, 0.92);
-	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-}
-.force-panel legend { padding: 0 4px; color: #c9d1e0; }
-.force-modes { display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.force-modes label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.force-modes input { margin: 0; accent-color: #83b8ff; }
-.force-strength {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	align-items: center;
+	display: flex;
+	align-items: flex-end;
 	gap: 8px;
-	margin-top: 9px;
-	color: #9ba6ba;
-	font-size: 11px;
+	max-width: calc(100vw - 24px);
+	color: #edf0f6;
+	font: 12px/1.35 system-ui, sans-serif;
 }
-.force-strength input { width: 100%; margin: 0; accent-color: #83b8ff; }
-.force-pad {
-	margin-top: 9px;
-	padding: 8px 10px;
-	text-align: center;
-	border: 1px solid #495263;
-	border-radius: 6px;
-	background: rgba(131, 184, 255, 0.12);
+.force-panel {
+	box-sizing: border-box;
+	flex: 1 1 194px;
+	width: 194px;
+	min-width: 145px;
+	padding: 10px 11px 9px;
+	border: 1px solid #445263;
+	border-radius: 10px;
+	background: rgba(20, 26, 35, 0.96);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+.force-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.force-player { color: #eef3f8; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.force-player::before {
+	content: '';
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin: 0 6px 2px 0;
+	border-radius: 50%;
+	background: #75d9a6;
+}
+.force-kind { color: #9caabd; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+.force-status { margin-top: 5px; color: #93a3b7; font-size: 11px; font-variant-numeric: tabular-nums; }
+.force-status[data-active="true"] { color: #a8d3ff; }
+.force-panel-body { display: grid; grid-template-columns: minmax(76px, 1fr) minmax(57px, 0.8fr); gap: 9px; margin-top: 12px; }
+.force-column-title { margin-bottom: 6px; color: #91a0b2; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.force-scale { display: flex; align-items: stretch; gap: 2px; height: 146px; }
+.force-scale-labels {
+	display: flex;
+	flex: 0 0 35px;
+	flex-direction: column;
+	justify-content: space-between;
+	box-sizing: border-box;
+	padding: 4px 0;
+	color: #91a0b2;
+	font-size: 9px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+.force-zero-label { color: #75d9a6; }
+.force-slider-shell { position: relative; flex: 1; min-width: 32px; height: 100%; border-radius: 6px; }
+.force-slider-shell:focus-within { outline: 2px solid #83b8ff; outline-offset: 2px; }
+.force-slider-rail { position: absolute; inset: 10px 0; pointer-events: none; }
+.force-slider-rail::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	width: 5px;
+	transform: translateX(-50%);
+	border-radius: 4px;
+	background: #3c4a5a;
+}
+.force-slider-rail::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 3px;
+	right: 3px;
+	height: 2px;
+	transform: translateY(-50%);
+	border-radius: 2px;
+	background: #75d9a6;
+	box-shadow: 0 0 7px rgba(117, 217, 166, 0.3);
+}
+.force-slider-thumb {
+	position: absolute;
+	left: 50%;
+	z-index: 1;
+	box-sizing: border-box;
+	width: 24px;
+	height: 14px;
+	transform: translate(-50%, -50%);
+	border: 2px solid #9acaff;
+	border-radius: 5px;
+	background: #e1f0ff;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.force-slider {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	writing-mode: vertical-lr;
+	direction: ltr;
 	touch-action: none;
-	user-select: none;
-	cursor: pointer;
+	cursor: ns-resize;
 }
-.force-pad:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
-.force-pad:active { border-color: #83b8ff; background: rgba(131, 184, 255, 0.3); }
-.force-stores { display: grid; gap: 4px; margin-top: 9px; }
-.force-store {
-	display: grid;
-	grid-template-columns: 20px 1fr 26px;
-	align-items: center;
-	gap: 6px;
-	color: #9ba6ba;
-	font-size: 11px;
+.force-slider:disabled { cursor: default; }
+.force-selected { margin-top: 5px; color: #aab9c9; font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.force-energy-body { display: flex; align-items: stretch; gap: 7px; height: 146px; }
+.force-meter {
+	position: relative;
+	box-sizing: border-box;
+	flex: 0 0 16px;
+	height: 100%;
+	overflow: hidden;
+	border: 1px solid #445263;
+	border-radius: 5px;
+	background: #0b1119;
 }
-.force-bar { display: block; height: 6px; border: 1px solid #495263; border-radius: 3px; overflow: hidden; }
-.force-bar i { display: block; height: 100%; width: 100%; background: #83b8ff; }
-.force-num { text-align: right; font-variant-numeric: tabular-nums; }
+.force-meter-fill, .force-meter-use { position: absolute; right: 0; bottom: 0; left: 0; display: block; }
+.force-meter-fill { background: linear-gradient(#a3d5ff, #599fd6); }
+.force-meter-use { background: #e28083; box-shadow: inset 0 1px rgba(255, 222, 216, 0.8); }
+.force-energy-numbers { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; font-variant-numeric: tabular-nums; }
+.force-energy-number { color: #e2f2ff; font-size: 15px; font-weight: 700; line-height: 1.1; }
+.force-energy-capacity { color: #8697aa; font-size: 10px; }
+.force-cost-label { margin-top: auto; color: #9eacbc; font-size: 9px; white-space: nowrap; }
+.force-cost { color: #f0a1a1; font-size: 12px; font-weight: 700; }
+.force-help { margin-top: 9px; padding-top: 7px; border-top: 1px solid #34404d; color: #93a3b7; font-size: 10px; line-height: 1.35; }
+.settings-note { margin: -1px 0 0 20px; color: #9ba6ba; font-size: 11px; }
+.settings-url { display: grid; gap: 4px; color: #9ba6ba; font-size: 11px; }
+.settings-url[hidden] { display: none; }
+.settings-url input { box-sizing: border-box; width: 100%; color: #edf0f6; background: #202936; border: 1px solid #495263; border-radius: 3px; }
 /* wide screens: the label and the force panel share the bottom edge from opposite corners */
 .bottom-panels { display: contents; }
 /* under this width the side panels would cover the divider, so the bottom edge becomes one flex row:
@@ -236,15 +328,47 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 		z-index: 1;
 		display: flex;
 		flex-wrap: wrap;
+		justify-content: flex-end;
 		align-items: flex-end;
 		gap: 8px;
+		pointer-events: none;
 	}
-	.bottom-panels > * { position: static; }
-	.force-panel { font-size: 12px; flex: 0 1 calc(50% - 4px); min-width: 0; }
-	.force-panel fieldset { box-sizing: border-box; width: 100%; padding: 6px 8px 8px; }
+	.bottom-panels > * { position: static; pointer-events: auto; }
+	.force-panels { flex: 0 1 auto; max-width: 100%; overflow-x: auto; }
+	.force-panel { font-size: 12px; }
 	.quest-panel { box-sizing: border-box; flex: 0 1 calc(50% - 4px); min-width: 0; }
 	.quest-panel-swatch { height: 40px; }
 	.quest-goal { order: -1; flex: 1 0 100%; max-width: none; }
+}
+@media (max-width: 360px) {
+	.force-panel { min-width: 134px; padding-right: 8px; padding-left: 8px; }
+	.force-panel-body { grid-template-columns: minmax(60px, 1fr) minmax(48px, 0.8fr); gap: 5px; }
+	.force-scale-labels { flex-basis: 30px; font-size: 8px; }
+	.force-slider-shell { min-width: 26px; }
+	.force-energy-body { gap: 4px; }
+	.force-meter { flex-basis: 13px; }
+	.force-energy-number { font-size: 13px; }
+	.force-selected { font-size: 9px; }
+}
+@media (max-height: 600px) {
+	.force-panel { padding-top: 7px; padding-bottom: 7px; }
+	.force-status { margin-top: 2px; }
+	.force-panel-body { margin-top: 5px; }
+	.force-column-title { margin-bottom: 3px; }
+	.force-scale, .force-energy-body { height: 72px; }
+	.force-selected { margin-top: 3px; }
+	.force-help {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		border: 0;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	.force-panel::after { content: attr(data-hint); display: block; margin-top: 3px; color: #93a3b7; font-size: 9px; }
 }
 </style>
 </head>
@@ -257,18 +381,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
      goal label can never land on top of a control whose height no stylesheet can predict -->
 <div class="bottom-panels">
 	<div id="quest-goal" class="quest-goal" hidden aria-live="polite"></div>
-	<aside id="force-panel" class="force-panel" aria-label="Hole force">
-		<fieldset>
-			<legend>Hole force</legend>
-			<div class="force-modes">
-				<label><input id="force-push" type="radio" name="force-dir" value="push" checked> Push down</label>
-				<label><input id="force-pull" type="radio" name="force-dir" value="pull"> Pull up</label>
-			</div>
-			<label class="force-strength">Strength <input id="force-mag" type="range" min="0" max="100" step="5" value="60"></label>
-			<div id="force-pad" class="force-pad" role="button" tabindex="0">Hold to push down</div>
-			<div id="force-stores" class="force-stores"></div>
-		</fieldset>
-	</aside>
+	<div id="force-panels" class="force-panels" aria-label="Player force controls"></div>
 	<aside id="quest-panel" class="quest-panel" hidden aria-live="polite">
 		<div class="quest-panel-swatch"></div>
 		<div class="quest-panel-title" data-field="title"></div>
@@ -276,17 +389,27 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 		<div class="quest-panel-dots" data-field="dots"></div>
 	</aside>
 </div>
-<aside class="draw-options" aria-label="Drawing options">
+<details id="settings-panel" class="draw-options" aria-label="Settings" open>
+	<summary>Settings</summary>
 	<fieldset>
-		<legend>Wall impact cues</legend>
+		<legend>Game settings</legend>
 		<div class="draw-options-group">
-			<span class="draw-options-heading">Before hit</span>
+			<span class="draw-options-heading">Wall cues · before hit</span>
 			<label><input id="draw-predicted-position" type="checkbox" checked> Predicted position</label>
 			<label><input id="draw-trajectory-lines" type="checkbox" checked> Trajectory lines</label>
 		</div>
 		<div class="draw-options-group">
-			<span class="draw-options-heading">After hit</span>
+			<span class="draw-options-heading">Wall cues · after hit</span>
 			<label><input id="draw-slow-fade-hit-spot" type="checkbox"> Slow fade hit spot</label>
+		</div>
+		<div class="draw-options-group">
+			<span class="draw-options-heading">Hole movement</span>
+			<label><input id="settings-friction" type="checkbox"> Friction force</label>
+			<span class="settings-note">Faster movement meets more resistance.</span>
+		</div>
+		<div class="draw-options-group settings-url" id="settings-url-wrap" hidden>
+			<label for="settings-url">Copy settings URL</label>
+			<input id="settings-url" type="text" readonly>
 		</div>
 		<div class="draw-options-group preview-mode" id="preview-mode">
 			<span class="draw-options-heading">Quest target color</span>
@@ -295,13 +418,15 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 			<label><input type="radio" name="preview-mode" value="smooth" checked> A smooth palette rectangle</label>
 		</div>
 	</fieldset>
-</aside>
+</details>
 <script src="color.js"></script>
 <script src="simulation.js"></script>
 <script src="canvas.js"></script>
 <script src="input.js"></script>
 <script src="players.js"></script>
 <script src="force.js"></script>
+<script src="forcepanel.js"></script>
+<script src="settings.js"></script>
 <script src="tasks.js"></script>
 <script src="quest.js"></script>
 <script src="goalview.js"></script>

@@ -83,6 +83,12 @@ function canvasResize() {
 	canvasView.offY = (h - simField.h * canvasView.scale) / 2;
 }
 
+// Pointer coordinates use CSS pixels, whereas the canvas transform uses backing-store pixels.
+function canvasFieldY(clientY) {
+	const rect = cvEl.getBoundingClientRect();
+	return ((clientY - rect.top) * cvEl.height / rect.height - canvasView.offY) / canvasView.scale;
+}
+
 // the goal layer is optional: no hook or a null result means the live field is what gets drawn
 function canvasSetGoalHook(hook) {
 	goalBallsHook = hook;
@@ -225,6 +231,7 @@ if (typeof module !== 'undefined') module.exports = {
 	impactMarks,
 	canvasInit,
 	canvasResize,
+	canvasFieldY,
 	canvasDraw,
 	canvasAddImpact,
 	canvasSetGoalHook,

@@ -20,13 +20,29 @@ draw trajectory of balls that toward to central wall and hit spot with color of 
 hole same color as background. add white/dark theme settings
 
 
-generate new game task once all tasks solved:
-make RIGHT|LEFT hold >x%|<x% COLD|HOT|(similar to random color) color balls
 
 
 make 2 player with checkbox is bot. who have different tasks and can push and pull  hole .
 player use mouse wheel or slider to change push and pull force. force activated on hold mouse or press touch.
 force use energy. energy has storage and small constant source.
+
+settings: 2 players on same device: one mouse second - arrows up down to move force slider and right arrow to apply force
+
+
+## force move GUI
+
+slider vertical. green central mark, above move up, below move down. distance from central mark is force amount. near - energy storage bar and energy usage per 2second - segment of same bar with reddish color
+
+in settings add friction force checkbox - when enabled more faster movement of hole - more friction force.
+
+hole movement force until user press slider of force or until press canvas. if canvas pressed then force amount is from slider but direction is from pointer position related to hole.
+mouse wheel change force slider.
+no press mean this player no force applying
+
+draw force panels for each player (i can see what bot apply)
+
+##
+
 
 
 implement status bar for constant info and current help messages
@@ -76,12 +92,19 @@ after hit:
 
 
 ## quest list
+
+generate new game task once all tasks solved:
+make RIGHT|LEFT hold >x%|<x% COLD|HOT|(similar to random color) color balls
+
+
 press (while hold) on quest list item should show preview on the canvas (balls on the game field instead of current) with possible win result so user can visually see goal. 
 
 quest list target color drawn options radio buttons (with preview of what options mean): 
 [] as colored ball of average target color
 [] as few balls with color range
 [x] rectangle with smooth palette of possible range
+
+
 
 
 ## deferred

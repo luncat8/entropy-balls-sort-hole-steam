@@ -10,7 +10,7 @@ function mainFrame(tMs) {
 	runtime.dtMs = dtSec * 1000;
 	// a held quest shows a goal, so the field holds still: a moving goal view would read as the live field
 	if (!goalHolding()) simAdvance(dtSec);
-	forcePaint();
+	forcePanelPaint();
 	questPaint();
 	canvasDraw(dtSec);
 	requestAnimationFrame(mainFrame);
@@ -22,10 +22,13 @@ function mainBoot() {
 	tasksInit();
 	for (let i = 0; i < players.count; i++) tasksAttach(i);
 	canvasInit();
+	settingsInit();
 	goalInit();
 	previewInit();
 	forceInit();
 	inputInit();
+	forcePanelInit();
+	simSetControlHook(inputStep);
 	requestAnimationFrame(mainFrame);
 }
 
