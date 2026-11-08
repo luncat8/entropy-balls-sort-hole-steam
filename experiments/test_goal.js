@@ -1,0 +1,14 @@
+const { loadPage } = require('./dom_stub.js');
+const page = loadPage({});
+page.fireWindow('DOMContentLoaded', {});
+const ctx = page.context;
+const tid = ctx.TaskGen.queue[0].id;
+const task = ctx.TaskGen.queue.find(t=>t.id===tid);
+console.log('task', task);
+console.log('goalOpen', ctx.goalOpen(task));
+console.log('GoalView active', ctx.GoalView.active, 'movedCount', ctx.GoalView.movedCount, 'ballCount', ctx.GoalView.ballCount);
+const before = ctx.Sim.ballCount;
+page.runFrames(10,16.7);
+console.log('after frames ballCount', ctx.Sim.ballCount, 'GoalView active', ctx.GoalView.active);
+ctx.goalClose();
+console.log('closed active', ctx.GoalView.active);
