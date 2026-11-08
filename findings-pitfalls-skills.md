@@ -12,5 +12,11 @@ random full-wheel hues make "sort the reds" tasks unreadable and mostly infeasib
 ## deterministic physics smoke vs time-based generation (2026-11-08)
 time-based spawn writes into deterministic stepping tests (stray balls record stray impacts). give simulation a rate setter — it is also the seam for the gui.1 generation slider — and set it to 0 in the test fixture. also: `simAdvance` caps catch-up at 0.25 s per call by design, so long test runs must loop small advances instead of one big one.
 
+## integer task percentages (2026-11-08)
+compare `match * 100 ? threshold * sideTotal` so 1/2 is neither >50 nor <50. feasibility ignores side (any nonempty split of the live counts); only the already-satisfied check reads the named chamber. empty population waits until `simDist.rev` changes — do not resample every step.
+
+## hold time is steps*dt, not summed dt (2026-11-08)
+adding 1/120 two hundred forty times yields 1.9999999999999953, so `sum < 2` never completes on the 2.00s step. store a step count and set `hold = steps * dt`; 240 * (1/120) === 2.
+
 ## canvas state across draw layers (2026-11-08)
 Canvas 2D styles persist until reassigned: a forecast's `globalAlpha` can silently make the later ball pass translucent even if alpha is reset at frame end. Reset context state before each layer that expects defaults; tests should record style values at draw-call time, not only inspect the final context.
