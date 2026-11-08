@@ -3,13 +3,15 @@
 
 const TASK_SLOTS = 2;
 const TASK_HOLD_SEC = 2;
-const TASK_THRESH = [30, 40, 50, 60, 70];
+// A "less than" objective at 40-70% is almost always already met on a random field, so the playable
+// pool only exists at the low end: the table spans both ends or the list is nearly all "greater than"
+const TASK_THRESH = [10, 20, 30, 40, 50, 60, 70, 80, 90];
 const TASK_SIDE_NAME = ['left', 'right'];
 // the list shows the side as an arrow, and the arrow carries the meaning better than the word
 const TASK_SIDE_ARROW = ['←', '→'];
 const TASK_CMP_NAME = ['>', '<'];
 const TASK_MODE_NAME = ['immediate', 'hold'];
-const TASK_ORDER_CAP = 512;
+const TASK_ORDER_CAP = 1024;
 const TASK_HUE_CAP = 6;
 
 // crossings: the fewest balls that must change chamber. below the floor the outcome is decided by
@@ -316,14 +318,34 @@ function tasksPickCandidate() {
 		if ((tasksRand() * k | 0) === 0) label = i;
 	}
 	if (label < 0) return -1;
+	// the two comparators are separate grammars and one of them is usually the rarer playable one, so
+	// they are drawn by equal chance and only then narrowed: a flat draw over candidates would make
+	// "less than" an accident of the field instead of half the quest list
+	let cmp = (tasksRand() * 2) | 0;
+	if (!tasksLabelHas(label, cmp)) cmp = 1 - cmp;
+	if (!tasksLabelHas(label, cmp)) return -1;
 	let pick = -1;
 	let j = 0;
 	for (let i = 0; i < tasksCandN; i++) {
-		if (tasksBand(tasksCostScratch[i]) !== label || !tasksInBand(tasksCostScratch[i])) continue;
+		if (!tasksInBand(tasksCostScratch[i]) || tasksBand(tasksCostScratch[i]) !== label) continue;
+		if (tasksDecodedCmp(i) !== cmp) continue;
 		j++;
 		if ((tasksRand() * j | 0) === 0) pick = i;
 	}
 	return pick;
+}
+
+function tasksLabelHas(label, cmp) {
+	for (let i = 0; i < tasksCandN; i++) {
+		if (!tasksInBand(tasksCostScratch[i]) || tasksBand(tasksCostScratch[i]) !== label) continue;
+		if (tasksDecodedCmp(i) === cmp) return true;
+	}
+	return false;
+}
+
+// the candidate index layout: 2 modes, a threshold, a comparator, a category, a side (tasksDecode)
+function tasksDecodedCmp(idx) {
+	return ((idx / (2 * TASK_THRESH.length)) | 0) % 2;
 }
 
 function tasksInit() {
