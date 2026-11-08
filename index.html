@@ -150,7 +150,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	touch-action: none;
 	user-select: none;
 }
-.quest-head { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 7px; align-items: center; }
+.quest-head { display: grid; grid-template-columns: 22px 20px minmax(0, 1fr); gap: 6px; align-items: center; }
+.quest-arrow { color: #a8d3ff; font: 700 24px/1 system-ui, sans-serif; text-align: center; }
 .quest + .quest { margin-top: 6px; }
 .quest:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
 .quest[hidden] { display: none; }
@@ -436,7 +437,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	.quest-meta { display: none; }
 	.quest { padding: 5px 8px; gap: 3px; }
 	.quest-swatch { width: 20px; height: 20px; }
-	.quest-head { grid-template-columns: 20px minmax(0, 1fr); }
+	.quest-head { grid-template-columns: 20px 18px minmax(0, 1fr); }
+	.quest-arrow { font-size: 21px; }
 	.score-panel { padding: 6px 9px; }
 	.score-table { margin-top: 2px; }
 	.score-row th { padding: 3px 0; }
@@ -462,7 +464,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 @media (max-height: 450px) {
 	.quest-bar { height: 9px; }
-	.quest-head { grid-template-columns: 18px minmax(0, 1fr); }
+	.quest-head { grid-template-columns: 18px 16px minmax(0, 1fr); }
+	.quest-arrow { font-size: 19px; }
 }
 </style>
 </head>
