@@ -60,6 +60,30 @@ Balance quests so they’re challenging but reasonably solvable. For example:
 Develop a difficulty metric to evaluate each quest and label its difficulty during generation. Use it to avoid quests that are excessively difficult or often solved by random immediately.
 
 
+
+## predicted hit spot 
+hit spot is segment of wall plate (rectangle faced to ball and same size as ball diameter)
+
+make option to draw:
+before hit:
+	[x] predicted position
+	[x] trajectory lines
+after hit:
+	[] slow fade hit spot
+	
+[x] is enabled by default
+[] is disabled by default
+
+
+## quest list
+press (while hold) on quest list item should show preview on the canvas (balls on the game field instead of current) with possible win result so user can visually see goal. 
+
+quest list target color drawn options radio buttons (with preview of what options mean): 
+[] as colored ball of average target color
+[] as few balls with color range
+[x] rectangle with smooth palette of possible range
+
+
 ## deferred
 
 add task list with few tasks generated to keep list full.
