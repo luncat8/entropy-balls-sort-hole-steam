@@ -20,3 +20,12 @@ adding 1/120 two hundred forty times yields 1.9999999999999953, so `sum < 2` nev
 
 ## canvas state across draw layers (2026-11-08)
 Canvas 2D styles persist until reassigned: a forecast's `globalAlpha` can silently make the later ball pass translucent even if alpha is reset at frame end. Reset context state before each layer that expects defaults; tests should record style values at draw-call time, not only inspect the final context.
+
+## difficulty as minimum crossings, not a percentage (2026-11-08)
+a percentage target is incomparable across categories: "60% of left is green" is trivial with ten green balls and near-impossible with two. pricing a task by the fewest balls that must change chamber gives one integer that is comparable across categories, sides and population sizes, and it matches what the player actually does. the count is a unit-L1 distance from the current `(other, category)` counts, and the threshold is linear in `m`, so the satisfying `m` form one run and the cost is convex in `m` — clamping the flat minimum into the run gives O(nAll) per candidate instead of O(nAll^2). verify such a closed form against a brute-force move count on every combination before trusting it; the first three attempts here were wrong in ways the band numbers looked plausible for.
+
+## a flat draw over candidates is biased toward the widest band (2026-11-08)
+bands of different width do not have equal candidate counts, so picking uniformly over in-band candidates makes the widest band the default difficulty — 55% of assignments landed in `hard` before the fix. draw the label first (uniform over labels that have at least one candidate), then a candidate inside it. measure the assigned mix, not the candidate histogram, to see this.
+
+## rejecting already-true tasks needs the cheapest reachable plan (2026-11-08)
+the 0.2 filter only rejected a task satisfied on its named side, which left half of all candidates (4763/9600) already true by construction: a looser threshold on a category that is already ahead costs nothing. a cost of 0 has to be rejected globally, and so does a task that costs 1–2 crossings — those are decided by one or two balls, and random drift through the opening flips them without the player acting.

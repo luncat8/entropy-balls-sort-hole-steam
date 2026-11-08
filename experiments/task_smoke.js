@@ -1,5 +1,5 @@
-// owns: plan 0.2 smoke for distribution, tasks, and participants
-// edit for: predicate, lifecycle, and waiting checks
+// owns: plan 0.2/0.4/1.1 smoke for distribution, tasks, difficulty, participants, quest list
+// edit for: predicate, lifecycle, difficulty, list item, and waiting checks
 
 const path = require('path');
 const { loadGame } = require('./vmload');
@@ -7,6 +7,7 @@ const { loadGame } = require('./vmload');
 const { apis, stubs } = loadGame(path.join(__dirname, '..'));
 const sim = apis['simulation.js'];
 const tasks = apis['tasks.js'];
+const quest = apis['quest.js'];
 const players = apis['players.js'];
 
 let pass = 0;
@@ -30,6 +31,17 @@ function reset() {
 	tasks.tasksSetRand(Math.random);
 }
 
+// the quest list items are built lazily on the first paint; helpers keep the checks readable
+function questItems() {
+	quest.questPaint();
+	return stubs.els['task-list'].children;
+}
+
+function questText(id) {
+	const items = questItems();
+	return items[id] ? items[id].children[1].children[0].textContent : '';
+}
+
 function place(i, x, palette) {
 	sim.simBalls.x[i] = x;
 	sim.simBalls.y[i] = 400;
@@ -42,12 +54,18 @@ function place(i, x, palette) {
 	if (sim.simBalls.count <= i) sim.simBalls.count = i + 1;
 }
 
+// fills from index 2 up to count 14 so generation has a population above the difficulty floor
+function fillBalls(x, count) {
+	for (let i = 2; i < count; i++) place(i, x, i % 2 ? 5 : 0);
+}
+
 const LEFT = 300;
 const RIGHT = 900;
 const DT = sim.FIXED_DT;
 const CAT_HOT = 0;
 const CAT_COLD = 1;
 const CAT_RED = 2;
+const CAT_BLUE = 6;
 const CMP_GT = 0;
 const CMP_LT = 1;
 
@@ -106,6 +124,7 @@ tasks.tasksStep(DT);
 check('wait: same rev does not retry', tasks.tasksGenCount() === genWait && sim.simDist.rev === revWait && tasks.tasksView[0].waiting);
 place(0, LEFT, 0);
 place(1, RIGHT, 5);
+fillBalls(LEFT, 12);
 sim.simFillDist();
 check('wait: population change bumps rev', sim.simDist.rev !== revWait);
 tasks.tasksStep(DT);
@@ -184,12 +203,70 @@ place(0, LEFT, 0);
 place(1, RIGHT, 5);
 sim.simFillDist();
 tasks.tasksAssign(0, 'left', 'red', '<', 40, 'immediate');
-tasks.tasksPaint();
-check('strip: shows side cmp threshold category and counts',
-	stubs.els['task-strip'].textContent.indexOf('left') !== -1
-	&& stubs.els['task-strip'].textContent.indexOf('<40%') !== -1
-	&& stubs.els['task-strip'].textContent.indexOf('red') !== -1
-	&& stubs.els['task-strip'].textContent.indexOf('1/1') !== -1);
+quest.questPaint();
+check('quest item: shows side cmp threshold category and counts',
+	questText(0).indexOf('left') !== -1
+	&& questText(0).indexOf('<40%') !== -1
+	&& questText(0).indexOf('red') !== -1
+	&& questText(0).indexOf('1/1') !== -1);
+
+
+reset();
+place(0, LEFT, 0);
+place(1, LEFT, 0);
+place(2, LEFT, 0);
+sim.simFillDist();
+check('cost: a met objective costs nothing', tasks.tasksCost(CAT_RED, CMP_GT, 50, true) === 0);
+check('cost: red <50% of an all red left is unreachable', tasks.tasksCost(CAT_RED, CMP_LT, 50, true) === -1);
+check('cost: absent category with > is unreachable', tasks.tasksCost(CAT_BLUE, CMP_GT, 50, true) === -1);
+check('cost: absent category with < is already met', tasks.tasksCost(CAT_BLUE, CMP_LT, 50, true) === 0);
+
+reset();
+fillBalls(LEFT, 14);
+place(0, RIGHT, 0);
+place(1, RIGHT, 0);
+sim.simFillDist();
+check('band: floor rejects a one ball task', !tasks.tasksInBand(1) && !tasks.tasksInBand(2));
+check('band: cheapest playable label is easy', tasks.tasksInBand(tasks.TASK_COST_MIN) && tasks.tasksBand(tasks.TASK_COST_MIN) === 0);
+check('band: cap follows the live population', tasks.tasksCostMax() === Math.min(27, (sim.simDist.total * 0.75) | 0));
+check('band: above the cap is rejected', !tasks.tasksInBand(tasks.tasksCostMax() + 1));
+
+reset();
+// the prompt case: 2 violet of 14 whole canvas, left holds 1 of them beside 11 reds, so 60% of
+// left being violet needs every red shipped out and the far violet shipped in
+place(0, LEFT, 5);
+place(1, RIGHT, 5);
+for (let i = 2; i < 14; i++) place(i, LEFT, 0);
+sim.simFillDist();
+const rareCost = tasks.tasksCost(tasks.tasksCatFromName('violet'), CMP_GT, 60, true);
+const commonCost = tasks.tasksCost(tasks.tasksCatFromName('red'), CMP_GT, 60, false);
+check('rare category: 60% violet costs every other ball', rareCost >= 11);
+check('rare category: the common category that is already ahead is cheaper', commonCost < rareCost);
+check('rare category: the expensive target still gets a label', tasks.tasksBand(rareCost) >= 0);
+
+reset();
+fillBalls(LEFT, 14);
+sim.simFillDist();
+const seen = {};
+for (let k = 0; k < 40; k++) {
+	tasks.tasksInit();
+	tasks.tasksAttach(0);
+	const v = tasks.tasksView[0];
+	if (v.waiting) continue;
+	seen[v.difficulty] = 1;
+	if (!tasks.tasksInBand(v.cost)) check('assign: every generated task is in band', false);
+	if (v.satisfied) check('assign: no generated task is already met', false);
+	if (!tasks.TASK_LABEL_NAME.includes(v.difficulty)) check('assign: difficulty is a known label', false);
+}
+check('assign: generation labels tasks', Object.keys(seen).length > 0);
+
+reset();
+place(0, LEFT, 0);
+place(1, RIGHT, 5);
+sim.simFillDist();
+tasks.tasksAssign(0, 'left', 'red', '<', 40, 'immediate');
+quest.questPaint();
+check('quest item: shows the difficulty label', ['easy', 'normal', 'hard', 'expert'].includes(stubs.els['task-list'].children[0].children[1].children[1].textContent.split(' ')[0]));
 
 console.log('pass=' + pass + ' fail=' + fail);
 process.exitCode = fail ? 1 : 0;

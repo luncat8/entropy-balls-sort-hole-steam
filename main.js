@@ -11,7 +11,7 @@ function mainFrame(tMs) {
 	runtime.dtMs = dtSec * 1000;
 	inputUpdate(dtSec);
 	simAdvance(dtSec);
-	tasksPaint();
+	questPaint();
 	canvasDraw(dtSec);
 	requestAnimationFrame(mainFrame);
 }
@@ -22,6 +22,7 @@ function mainBoot() {
 	playersInit();
 	tasksInit();
 	for (let i = 0; i < players.count; i++) tasksAttach(i);
+	previewInit();
 	canvasInit();
 	inputInit();
 	requestAnimationFrame(mainFrame);

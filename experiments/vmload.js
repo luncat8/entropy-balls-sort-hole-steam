@@ -31,15 +31,68 @@ function makeStubs() {
 	});
 	function element(properties) {
 		const handlers = {};
-		return Object.assign({
-			listeners: handlers,
+		const node = {
+			children: [],
+			style: { setProperty(k, v) { this[k] = v; } },
+			append(...nodes) {
+				for (const n of nodes) {
+					// the dom empties a fragment into the parent instead of nesting it
+					if (n.isFragment) {
+						for (const child of n.children) {
+							node.children.push(child);
+							child.parentNode = node;
+						}
+						n.children.length = 0;
+						continue;
+					}
+					node.children.push(n);
+					n.parentNode = node;
+				}
+			},
+			querySelector(selector) {
+				const field = /^\[data-field="([^"]+)"\]$/.exec(selector);
+				if (!field) return null;
+				for (const child of node.children) if (child['data-field'] === field[1]) return child;
+				return node.fields[field[1]] || (node.fields[field[1]] = element({}));
+			},
+			querySelectorAll(selector) {
+				if (selector === 'input') return node.inputs || [];
+				return [];
+			},
 			addEventListener(type, fn) {
 				(handlers[type] = handlers[type] || []).push(fn);
 			},
-			dispatch(type) {
-				for (const fn of handlers[type] || []) fn({ target: this, currentTarget: this });
-			}
-		}, properties);
+			dispatch(type, event) {
+				const e = Object.assign({ type, target: node, currentTarget: node, preventDefault() {} }, event);
+				for (const fn of handlers[type] || []) fn.call(node, e);
+			},
+			fields: {},
+			setPointerCapture() {},
+			hidden: false,
+			textContent: ''
+		};
+		Object.defineProperty(node, 'firstElementChild', {
+			get() { return node.children[0] || null; }
+		});
+		Object.defineProperty(node, 'childElementCount', {
+			get() { return node.children.length; }
+		});
+		Object.defineProperty(node, 'parentNode', {
+			get() { return node._parent || null; },
+			set(v) { node._parent = v; }
+		});
+		return Object.assign(node, properties);
+	}
+	// mirrors the panel markup in index.html: swatch, title, detail, dots
+	function questPanel() {
+		const panel = element({ hidden: true });
+		panel.append(
+			element({ className: 'quest-panel-swatch' }),
+			element({ className: 'quest-panel-title', 'data-field': 'title' }),
+			element({ className: 'quest-panel-detail', 'data-field': 'detail' }),
+			element({ className: 'quest-panel-dots', 'data-field': 'dots' })
+		);
+		return panel;
 	}
 	const els = {
 		app: element({ style: {} }),
@@ -53,10 +106,24 @@ function makeStubs() {
 		'draw-predicted-position': element({ checked: false }),
 		'draw-trajectory-lines': element({ checked: false }),
 		'draw-slow-fade-hit-spot': element({ checked: true }),
-		'task-strip': element({ textContent: '' })
+		'task-list': element({}),
+		'quest-panel': questPanel(),
+		'preview-mode': element({ inputs: [] })
 	};
+	// each radio sits in its own label, which carries that option's sample
+	for (const mode of ['mean', 'range', 'smooth']) {
+		const radio = element({ value: mode, checked: mode === 'smooth' });
+		const label = element({});
+		label.append(radio);
+		label.parentNode = els['preview-mode'];
+		els['preview-mode'].inputs.push(radio);
+	}
 	const sandbox = {
-		document: { getElementById: id => els[id] || null },
+		document: {
+			getElementById: id => els[id] || null,
+			createElement: tag => element({ tagName: tag.toUpperCase() }),
+			createDocumentFragment: () => element({ tagName: '#fragment', isFragment: true })
+		},
 		window: win,
 		requestAnimationFrame: noop,
 		console

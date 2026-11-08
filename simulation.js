@@ -89,7 +89,9 @@ function simSpawn() {
 	const sp = BALL_V_MIN + Math.random() * (BALL_V_MAX - BALL_V_MIN);
 	const ang = Math.random() * Math.PI * 2;
 	const p = (Math.random() * PALETTE.length) | 0;
-	const rgb = colorHslToRgb(PALETTE[p][1], 0.6 + Math.random() * 0.3, 0.5 + Math.random() * 0.25);
+	const sat = BALL_SAT_MIN + Math.random() * (BALL_SAT_MAX - BALL_SAT_MIN);
+	const light = BALL_LIGHT_MIN + Math.random() * (BALL_LIGHT_MAX - BALL_LIGHT_MIN);
+	const rgb = colorHslToRgb(PALETTE[p][1], sat, light);
 	simBalls.x[i] = x;
 	simBalls.y[i] = y;
 	simBalls.vx[i] = Math.cos(ang) * sp;

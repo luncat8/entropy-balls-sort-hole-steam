@@ -60,11 +60,12 @@ getObj().data().action()
 - keep this map updated when ownership changes:
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
 	simulation.js — owns field, balls, aperture, physics, ball color generation, distribution snapshot. edit for constants, spawn, stepping, snapshot fields.
-	color.js — owns color conversions and warm/cold/near-target tests. edit for palette hues, hue boundaries, distance metric.
+	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
 	canvas.js — owns canvas sizing/drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	input.js — owns pointer/keyboard aperture input. edit for bindings, clamping.
 	players.js — owns participant identity, type and lifecycle. edit for adding participants, controller type.
-	tasks.js — owns objective rules, generation, per-participant lifecycle and the task strip. edit for predicates, candidates, hold duration, strip copy.
+	tasks.js — owns objective rules, generation, difficulty cost and bands, per-participant lifecycle, the quest list and press reporting. edit for predicates, candidates, band constants, hold duration, list copy.
+	preview.js — owns quest target appearance modes, their samples, the hold preview panel and its mode radios. edit for appearance modes, swatch sampling, panel copy.
 	settings.js — (planned) theme default, URL persistence, UI binding and theme application. edit for theme keys, new settings keys.
 	status.js — (planned) status/help presentation. not implemented yet.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.

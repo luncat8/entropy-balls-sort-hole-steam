@@ -40,23 +40,94 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 .draw-options label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
 .draw-options input { margin: 0; accent-color: #83b8ff; }
-.task-strip {
+.preview-mode { margin-top: 9px; }
+.preview-mode label {
+	grid-template-columns: 16px 22px 1fr;
+	align-items: center;
+}
+.preview-mode label::after {
+	content: '';
+	width: 22px;
+	height: 22px;
+	border-radius: 5px;
+	border: 1px solid rgba(237, 240, 246, 0.25);
+	background: var(--sample, #2a3040);
+}
+.quest-list {
 	position: fixed;
 	top: 12px;
 	right: 12px;
 	z-index: 1;
-	max-width: 280px;
-	padding: 8px 12px;
+	width: 268px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	color: #edf0f6;
+	font: 13px/1.35 system-ui, sans-serif;
+}
+.quest {
+	display: grid;
+	grid-template-columns: 26px 1fr;
+	gap: 9px;
+	align-items: center;
+	padding: 8px 10px;
 	border: 1px solid #495263;
 	border-radius: 8px;
 	background: rgba(18, 21, 27, 0.92);
 	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+	cursor: pointer;
+	touch-action: none;
+	user-select: none;
+}
+.quest + .quest { margin-top: 6px; }
+.quest:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
+.quest[hidden] { display: none; }
+.quest:active { border-color: #83b8ff; }
+.quest-swatch {
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	border: 1px solid rgba(237, 240, 246, 0.25);
+}
+.quest-body { display: grid; gap: 1px; min-width: 0; }
+.quest-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quest-meta { color: #9ba6ba; font-size: 11px; }
+.quest-panel {
+	position: fixed;
+	top: 12px;
+	right: 292px;
+	z-index: 1;
+	width: 236px;
+	padding: 10px 12px 12px;
+	border: 1px solid #495263;
+	border-radius: 8px;
+	background: rgba(18, 21, 27, 0.96);
+	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
 	color: #edf0f6;
 	font: 13px/1.35 system-ui, sans-serif;
 }
-@media (max-width: 480px) {
+.quest-panel[hidden] { display: none; }
+.quest-panel-swatch {
+	height: 54px;
+	border-radius: 6px;
+	border: 1px solid rgba(237, 240, 246, 0.25);
+}
+.quest-panel-title { margin-top: 8px; font-weight: 600; }
+.quest-panel-detail { margin-top: 3px; color: #9ba6ba; font-size: 11px; }
+.quest-panel-dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 7px; }
+.quest-panel-dots i {
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	border: 1px solid rgba(237, 240, 246, 0.35);
+}
+.quest-panel-dots i.on { background: #83b8ff; border-color: #83b8ff; }
+/* under this width the side panel would cover the divider, so the panel moves to the bottom edge */
+@media (max-width: 1150px) {
 	.draw-options { top: 8px; left: 8px; font-size: 12px; }
-	.task-strip { top: 8px; right: 8px; font-size: 12px; }
+	.quest-list { top: 8px; right: 8px; font-size: 12px; width: 200px; }
+	.quest-panel { top: auto; bottom: 8px; right: 8px; left: 8px; width: auto; }
+	.quest-panel-swatch { height: 40px; }
 }
 </style>
 </head>
@@ -64,7 +135,13 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 <div id="app">
 	<canvas id="canv"></canvas>
 </div>
-<aside id="task-strip" class="task-strip" aria-live="polite"></aside>
+<ul id="task-list" class="quest-list" aria-live="polite"></ul>
+<aside id="quest-panel" class="quest-panel" hidden aria-live="polite">
+	<div class="quest-panel-swatch"></div>
+	<div class="quest-panel-title" data-field="title"></div>
+	<div class="quest-panel-detail" data-field="detail"></div>
+	<div class="quest-panel-dots" data-field="dots"></div>
+</aside>
 <aside class="draw-options" aria-label="Drawing options">
 	<fieldset>
 		<legend>Wall impact cues</legend>
@@ -77,6 +154,12 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 			<span class="draw-options-heading">After hit</span>
 			<label><input id="draw-slow-fade-hit-spot" type="checkbox"> Slow fade hit spot</label>
 		</div>
+		<div class="draw-options-group preview-mode" id="preview-mode">
+			<span class="draw-options-heading">Quest target color</span>
+			<label><input type="radio" name="preview-mode" value="mean"> A ball of the average color</label>
+			<label><input type="radio" name="preview-mode" value="range"> A few balls across the range</label>
+			<label><input type="radio" name="preview-mode" value="smooth" checked> A smooth palette rectangle</label>
+		</div>
 	</fieldset>
 </aside>
 <script src="color.js"></script>
@@ -85,6 +168,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 <script src="input.js"></script>
 <script src="players.js"></script>
 <script src="tasks.js"></script>
+<script src="quest.js"></script>
+<script src="preview.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

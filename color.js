@@ -10,6 +10,12 @@ const HUE_WARM_MAX = 90;
 const HUE_COLD_MIN = 180;
 const HUE_COLD_MAX = 300;
 
+// every spawned ball uses this envelope, so a goal preview drawn from it matches the field
+const BALL_SAT_MIN = 0.6;
+const BALL_SAT_MAX = 0.9;
+const BALL_LIGHT_MIN = 0.5;
+const BALL_LIGHT_MAX = 0.75;
+
 // green and magenta fall between the warm and cold bands and read neutral
 function colorIsWarm(hue) {
 	return hue < HUE_WARM_MAX;
@@ -26,6 +32,16 @@ function colorHueDist(a, b) {
 
 function colorHueNear(hue, target, tol) {
 	return colorHueDist(hue, target) <= tol;
+}
+
+// circular mean: summing unit vectors keeps 350 and 10 degrees adjacent instead of antipodal
+function colorMeanHue(a, b) {
+	const rad = Math.PI / 180;
+	const x = Math.cos(a * rad) + Math.cos(b * rad);
+	const y = Math.sin(a * rad) + Math.sin(b * rad);
+	if (x === 0 && y === 0) return a;
+	const mean = Math.atan2(y, x) / rad;
+	return ((mean % 360) + 360) % 360;
 }
 
 const SECTOR_PICK = [[0, 1, 2], [1, 0, 2], [2, 0, 1], [2, 1, 0], [1, 2, 0], [0, 2, 1]];
@@ -49,4 +65,17 @@ function colorCss(packed) {
 	return '#' + packed.toString(16).padStart(6, '0');
 }
 
-if (typeof module !== 'undefined') module.exports = { PALETTE, colorIsWarm, colorIsCold, colorHueDist, colorHueNear, colorHslToRgb, colorCss };
+if (typeof module !== 'undefined') module.exports = {
+	PALETTE,
+	BALL_SAT_MIN,
+	BALL_SAT_MAX,
+	BALL_LIGHT_MIN,
+	BALL_LIGHT_MAX,
+	colorIsWarm,
+	colorIsCold,
+	colorHueDist,
+	colorHueNear,
+	colorMeanHue,
+	colorHslToRgb,
+	colorCss
+};
