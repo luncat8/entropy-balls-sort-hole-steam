@@ -7,9 +7,6 @@ const PREVIEW_MODES = ['mean', 'range', 'smooth'];
 const PREVIEW_MODE_NAME = ['a ball of the average color', 'a few balls across the range', 'a smooth palette rectangle'];
 const PREVIEW_RANGE_STEPS = 5;
 const PREVIEW_SMOOTH_STEPS = 9;
-const PREVIEW_MEAN_SAT = 0.75;
-const PREVIEW_MEAN_LIGHT = 0.62;
-const PREVIEW_DARK_SAT = 0.9;
 
 const preview = { mode: 'smooth', modeIndex: 2, open: false, id: -1, samples: [] };
 const previewHue = [0, 0];
@@ -44,14 +41,17 @@ function previewAppend(el, css) {
 	el.append(ball);
 }
 
+// the middle of the envelope every spawned ball falls in, so the mean swatch is a ball the field can produce
 function previewMeanColor(hue, count) {
-	return colorHslToRgb(previewMean(hue, count), PREVIEW_MEAN_SAT, PREVIEW_MEAN_LIGHT);
+	const sat = (BALL_SAT_MIN + BALL_SAT_MAX) / 2;
+	const light = (BALL_LIGHT_MIN + BALL_LIGHT_MAX) / 2;
+	return colorHslToRgb(previewMean(hue, count), sat, light);
 }
 
 // the one ramp every shape reads: hue across the target, saturation and lightness across the envelope
 // balls are generated in, so a single-hue target spans dark and saturated to pale
 function previewRampColor(hue, count, t) {
-	const sat = PREVIEW_DARK_SAT + (BALL_SAT_MIN - PREVIEW_DARK_SAT) * t;
+	const sat = BALL_SAT_MAX + (BALL_SAT_MIN - BALL_SAT_MAX) * t;
 	const light = BALL_LIGHT_MIN + (BALL_LIGHT_MAX - BALL_LIGHT_MIN) * t;
 	return colorHslToRgb(previewHueAt(hue, count, t), sat, light);
 }
@@ -150,8 +150,8 @@ function previewClose() {
 	previewPaintSamples();
 }
 
-// the hook fires every frame while a quest is held, so opening is idempotent and the goal layer only
-// rebuilds when the held objective actually changes
+// the hook fires on every quest repaint, and a hold is part of the repaint digest, so opening is
+// idempotent and the goal layer only rebuilds when the held objective actually changes
 function previewHook(open, id) {
 	if (!open) {
 		previewClose();

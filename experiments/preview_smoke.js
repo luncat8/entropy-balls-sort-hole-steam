@@ -24,8 +24,8 @@ function check(name, ok) {
 	}
 }
 
+// the vm loader runs main.js, which boots the page itself, so booting again would double every listener
 function boot() {
-	main.mainBoot();
 	main.mainFrame(16.7);
 	sampleScratch = document.createElement('span');
 }

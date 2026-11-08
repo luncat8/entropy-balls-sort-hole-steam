@@ -7,7 +7,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 1. ~~0.1 — Field simulation and canvas~~ — done: [plan](../archive/0.1-plan.md), [worklog](../archive/0.1-worklog.md).
 2. ~~0.2 — Sorting objectives and progression~~ — done: [plan](../archive/0.2-plan.md), [worklog](../archive/0.2-worklog.md).
 3. ~~0.4 — Objective difficulty~~ — done: [plan](../archive/0.4-plan.md), [worklog](../archive/0.4-worklog.md).
-4. [1.1 — Quest goal preview](plan1.1.md): hold a quest to draw the goal on the canvas and open its panel, pick how target colors are drawn.
+4. ~~1.1 — Quest goal preview~~ — done: [plan](../archive/1.1-plan.md), [worklog](../archive/1.1-worklog.md).
 5. [0.3 — Hole force and energy](plan0.3.md): add held push/pull controls and the energy budget.
 6. [gui.1 — Settings and status UI](plangui.1.md): expose simulation parameters, URL persistence, and in-game help/status.
 7. [1.0 — Task queue](plan1.0.md): deferred task list and task claiming, after the single-task loop is proven.

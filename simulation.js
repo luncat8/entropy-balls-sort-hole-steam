@@ -27,7 +27,7 @@ const simBalls = {
 	css: new Array(BALL_CAP)
 };
 
-const simAperture = { y: 400, targetY: 400, size: APERTURE_SIZE, speed: APERTURE_SPEED };
+const simAperture = { y: 400, drive: 0, size: APERTURE_SIZE, speed: APERTURE_SPEED };
 
 const DIST_PALETTE = 6;
 const simDist = {
@@ -58,10 +58,6 @@ function simSetBallCollisions(on) {
 
 function simSetSpawnRate(rate) {
 	spawnRate = rate;
-}
-
-function simSetApertureTarget(y) {
-	simAperture.targetY = y;
 }
 
 function simSpawnOverlaps(x, y, r) {
@@ -162,18 +158,16 @@ function simInit() {
 	spawnAcc = 0;
 	stepAcc = 0;
 	simAperture.y = simField.h / 2;
-	simAperture.targetY = simField.h / 2;
+	simAperture.drive = 0;
 	for (let k = 0; k < 13; k++) simSpawn();
 	simFillDist();
 }
 
+// the drive is a signed fraction of full speed and is rebuilt every step from funded requests, so a
+// release stops the hole on that step instead of bleeding off momentum
 function simMoveAperture(dt) {
 	const half = simAperture.size / 2;
-	const maxStep = simAperture.speed * dt;
-	let d = simAperture.targetY - simAperture.y;
-	if (d > maxStep) d = maxStep;
-	else if (d < -maxStep) d = -maxStep;
-	let y = simAperture.y + d;
+	let y = simAperture.y + simAperture.drive * simAperture.speed * dt;
 	if (y < half) y = half;
 	else if (y > simField.h - half) y = simField.h - half;
 	simAperture.y = y;
@@ -267,6 +261,8 @@ function simCollideBalls() {
 }
 
 function simStep(dt) {
+	// force prices its requests per fixed step, so catch-up and frame rate cannot change a bill
+	simAperture.drive = forceDrive(dt);
 	simMoveAperture(dt);
 	simSpawnTick(dt);
 	for (let i = 0; i < simBalls.count; i++) simMoveBall(i, dt);
@@ -283,4 +279,4 @@ function simAdvance(dtSec) {
 	}
 }
 
-if (typeof module !== 'undefined') module.exports = { simField, simBalls, simAperture, simDist, simInit, simAdvance, simStep, simSpawn, simFillDist, simSetApertureTarget, simSetBallCollisions, simSetSpawnRate, BALL_CAP, BALL_V_MAX, FIXED_DT };
+if (typeof module !== 'undefined') module.exports = { simField, simBalls, simAperture, simDist, simInit, simAdvance, simStep, simSpawn, simFillDist, simSetBallCollisions, simSetSpawnRate, BALL_CAP, BALL_V_MAX, FIXED_DT };

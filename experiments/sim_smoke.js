@@ -25,7 +25,6 @@ function freshWorld() {
 	sim.simInit();
 	sim.simBalls.count = 0;
 	sim.simAperture.y = 100;
-	sim.simAperture.targetY = 100;
 	sim.simSetBallCollisions(true);
 	sim.simSetSpawnRate(0);
 	cv.canvasDrawOptions.predictedPosition = true;
@@ -170,7 +169,6 @@ check('forecast option: trajectory line can show without position mark',
 
 freshWorld();
 sim.simAperture.y = 400;
-sim.simAperture.targetY = 400;
 place(0, 300, 480, 200, 0, 14, 0xabcdef);
 cv.canvasDrawOptions.trajectoryLines = false;
 ctx2d.calls.length = 0;
@@ -179,7 +177,6 @@ check('forecast patch: clips to solid wall beside aperture', hasRectCall(596, 46
 
 freshWorld();
 sim.simAperture.y = 400;
-sim.simAperture.targetY = 400;
 place(0, 300, 400, 200, 0, 14, 0x445566);
 const w1 = cv.impactMarks.write;
 for (let k = 0; k < 480; k++) sim.simStep(1 / 120);
@@ -189,7 +186,6 @@ check('aperture crossing: no impact recorded', cv.impactMarks.write === w1);
 
 freshWorld();
 sim.simAperture.y = 400;
-sim.simAperture.targetY = 400;
 place(0, 300, 480, 200, 0, 14, 0x778899);
 let partialFlipped = false;
 for (let k = 0; k < 200 && !partialFlipped; k++) {
@@ -200,7 +196,6 @@ check('aperture: partial fit reflects', partialFlipped && Math.abs(sim.simBalls.
 
 freshWorld();
 sim.simAperture.y = 400;
-sim.simAperture.targetY = 400;
 place(0, 300, 400, 200, 0, 100, 0x778899);
 let bigFlipped = false;
 for (let k = 0; k < 200 && !bigFlipped; k++) {

@@ -59,10 +59,11 @@ getObj().data().action()
 
 - keep this map updated when ownership changes:
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
-	simulation.js — owns field, balls, aperture, physics, ball color generation, distribution snapshot. edit for constants, spawn, stepping, snapshot fields.
+	simulation.js — owns field, balls, aperture position/bounds, physics, ball color generation, distribution snapshot. edit for constants, spawn, stepping, snapshot fields. the aperture's velocity is the drive force.js funds; simulation never reads a request.
 	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
 	canvas.js — owns canvas sizing/drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
-	input.js — owns pointer/keyboard aperture input. edit for bindings, clamping.
+	force.js — owns per-participant hole requests, energy stores, funding, the combined drive and the store readout. edit for energy rates, funding rules, readout.
+	input.js — owns the human hole controls: direction, strength, hold gesture and the participant the controls drive. edit for bindings, strength steps, hold regions.
 	players.js — owns participant identity, type and lifecycle. edit for adding participants, controller type.
 	tasks.js — owns objective rules, generation, difficulty cost and bands, per-participant lifecycle, the quest list and press reporting. edit for predicates, candidates, band constants, hold duration, list copy.
 	preview.js — owns quest target appearance modes, their shapes and samples, the hold preview panel and its mode radios. edit for appearance modes, target shapes, panel copy.
@@ -140,7 +141,8 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-plan 0.3 next: force.js energy-limited aperture control. a held quest freezes the field and draws the goal instead.
+plan gui.1 next: settings.js owns the aperture max speed, energy cost and store capacity seams that 0.3 exposed (forceSetCost, simAperture.speed); status.js takes the per-player energy row from forceView.
+a held quest freezes the field and draws the goal instead, so forcePaint still runs but forceDrive does not.
 settings.js and status.js stay out of index.html until gui.1 creates them.
 
 ## housekeeping

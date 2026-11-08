@@ -88,11 +88,6 @@ function canvasSetGoalHook(hook) {
 	goalBallsHook = hook;
 }
 
-function canvasToWorldY(clientY) {
-	const rect = cvEl.getBoundingClientRect();
-	return ((clientY - rect.top) * (canvasView.h / rect.height) - canvasView.offY) / canvasView.scale;
-}
-
 function canvasAddImpact(faceX, y, radius, side, rgb) {
 	if (!canvasDrawOptions.slowFadeHitSpot) return;
 	const i = impactMarks.write;
@@ -233,7 +228,6 @@ if (typeof module !== 'undefined') module.exports = {
 	canvasDraw,
 	canvasAddImpact,
 	canvasSetGoalHook,
-	canvasToWorldY,
 	GOAL_RING,
 	GOAL_RING_W,
 	GOAL_DIM_ALPHA,

@@ -137,12 +137,6 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	border: 1px solid rgba(237, 240, 246, 0.25);
 	overflow: hidden;
 }
-.quest-panel-swatch i {
-	display: block;
-	flex: none;
-	border-radius: 50%;
-	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
-}
 .quest-panel-swatch.target-mean i { width: 34px; height: 34px; }
 .quest-panel-swatch.target-range i { width: 10px; height: 10px; }
 .quest-panel-swatch.target-smooth i { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
@@ -171,13 +165,86 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	border: 1px solid rgba(237, 240, 246, 0.35);
 }
 .quest-panel-dots i.on { background: #83b8ff; border-color: #83b8ff; }
-/* under this width the side panel would cover the divider, so the panel moves to the bottom edge */
+.force-panel {
+	position: fixed;
+	right: 12px;
+	bottom: 12px;
+	z-index: 1;
+	color: #edf0f6;
+	font: 13px/1.35 system-ui, sans-serif;
+}
+.force-panel fieldset {
+	width: 232px;
+	margin: 0;
+	padding: 8px 12px 10px;
+	border: 1px solid #495263;
+	border-radius: 8px;
+	background: rgba(18, 21, 27, 0.92);
+	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+.force-panel legend { padding: 0 4px; color: #c9d1e0; }
+.force-modes { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.force-modes label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.force-modes input { margin: 0; accent-color: #83b8ff; }
+.force-strength {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: center;
+	gap: 8px;
+	margin-top: 9px;
+	color: #9ba6ba;
+	font-size: 11px;
+}
+.force-strength input { width: 100%; margin: 0; accent-color: #83b8ff; }
+.force-pad {
+	margin-top: 9px;
+	padding: 8px 10px;
+	text-align: center;
+	border: 1px solid #495263;
+	border-radius: 6px;
+	background: rgba(131, 184, 255, 0.12);
+	touch-action: none;
+	user-select: none;
+	cursor: pointer;
+}
+.force-pad:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
+.force-pad:active { border-color: #83b8ff; background: rgba(131, 184, 255, 0.3); }
+.force-stores { display: grid; gap: 4px; margin-top: 9px; }
+.force-store {
+	display: grid;
+	grid-template-columns: 20px 1fr 26px;
+	align-items: center;
+	gap: 6px;
+	color: #9ba6ba;
+	font-size: 11px;
+}
+.force-bar { display: block; height: 6px; border: 1px solid #495263; border-radius: 3px; overflow: hidden; }
+.force-bar i { display: block; height: 100%; width: 100%; background: #83b8ff; }
+.force-num { text-align: right; font-variant-numeric: tabular-nums; }
+/* wide screens: the label and the force panel share the bottom edge from opposite corners */
+.bottom-panels { display: contents; }
+/* under this width the side panels would cover the divider, so the bottom edge becomes one flex row:
+   the goal label takes its own line above the two panels, whatever their height turns out to be */
 @media (max-width: 1150px) {
 	.draw-options { top: 8px; left: 8px; font-size: 12px; }
 	.quest-list { top: 8px; right: 8px; font-size: 12px; width: 200px; }
-	.quest-panel { top: auto; bottom: 8px; right: 8px; left: 8px; width: auto; }
+	.bottom-panels {
+		position: fixed;
+		left: 8px;
+		right: 8px;
+		bottom: 8px;
+		z-index: 1;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 8px;
+	}
+	.bottom-panels > * { position: static; }
+	.force-panel { font-size: 12px; flex: 0 1 calc(50% - 4px); min-width: 0; }
+	.force-panel fieldset { box-sizing: border-box; width: 100%; padding: 6px 8px 8px; }
+	.quest-panel { box-sizing: border-box; flex: 0 1 calc(50% - 4px); min-width: 0; }
 	.quest-panel-swatch { height: 40px; }
-	.quest-goal { left: 8px; bottom: 8px; max-width: calc(100vw - 16px); }
+	.quest-goal { order: -1; flex: 1 0 100%; max-width: none; }
 }
 </style>
 </head>
@@ -186,13 +253,29 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	<canvas id="canv"></canvas>
 </div>
 <ul id="task-list" class="quest-list" aria-live="polite"></ul>
-<div id="quest-goal" class="quest-goal" hidden aria-live="polite"></div>
-<aside id="quest-panel" class="quest-panel" hidden aria-live="polite">
-	<div class="quest-panel-swatch"></div>
-	<div class="quest-panel-title" data-field="title"></div>
-	<div class="quest-panel-detail" data-field="detail"></div>
-	<div class="quest-panel-dots" data-field="dots"></div>
-</aside>
+<!-- the bottom edge reads as one row of panels: on a narrow screen they stack inside one container, so the
+     goal label can never land on top of a control whose height no stylesheet can predict -->
+<div class="bottom-panels">
+	<div id="quest-goal" class="quest-goal" hidden aria-live="polite"></div>
+	<aside id="force-panel" class="force-panel" aria-label="Hole force">
+		<fieldset>
+			<legend>Hole force</legend>
+			<div class="force-modes">
+				<label><input id="force-push" type="radio" name="force-dir" value="push" checked> Push down</label>
+				<label><input id="force-pull" type="radio" name="force-dir" value="pull"> Pull up</label>
+			</div>
+			<label class="force-strength">Strength <input id="force-mag" type="range" min="0" max="100" step="5" value="60"></label>
+			<div id="force-pad" class="force-pad" role="button" tabindex="0">Hold to push down</div>
+			<div id="force-stores" class="force-stores"></div>
+		</fieldset>
+	</aside>
+	<aside id="quest-panel" class="quest-panel" hidden aria-live="polite">
+		<div class="quest-panel-swatch"></div>
+		<div class="quest-panel-title" data-field="title"></div>
+		<div class="quest-panel-detail" data-field="detail"></div>
+		<div class="quest-panel-dots" data-field="dots"></div>
+	</aside>
+</div>
 <aside class="draw-options" aria-label="Drawing options">
 	<fieldset>
 		<legend>Wall impact cues</legend>
@@ -218,6 +301,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 <script src="canvas.js"></script>
 <script src="input.js"></script>
 <script src="players.js"></script>
+<script src="force.js"></script>
 <script src="tasks.js"></script>
 <script src="quest.js"></script>
 <script src="goalview.js"></script>

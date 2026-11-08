@@ -2,7 +2,6 @@
 // edit for: load order, boot, wiring
 
 const $ = id => document.getElementById(id);
-let root = null;
 const runtime = { timeMs: 0, dtMs: 0 };
 
 function mainFrame(tMs) {
@@ -10,17 +9,14 @@ function mainFrame(tMs) {
 	runtime.timeMs = tMs;
 	runtime.dtMs = dtSec * 1000;
 	// a held quest shows a goal, so the field holds still: a moving goal view would read as the live field
-	if (!goalHolding()) {
-		inputUpdate(dtSec);
-		simAdvance(dtSec);
-	}
+	if (!goalHolding()) simAdvance(dtSec);
+	forcePaint();
 	questPaint();
 	canvasDraw(dtSec);
 	requestAnimationFrame(mainFrame);
 }
 
 function mainBoot() {
-	root = $('app');
 	simInit();
 	playersInit();
 	tasksInit();
@@ -28,6 +24,7 @@ function mainBoot() {
 	canvasInit();
 	goalInit();
 	previewInit();
+	forceInit();
 	inputInit();
 	requestAnimationFrame(mainFrame);
 }
