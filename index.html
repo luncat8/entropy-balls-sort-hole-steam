@@ -40,8 +40,23 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 .draw-options label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
 .draw-options input { margin: 0; accent-color: #83b8ff; }
+.task-strip {
+	position: fixed;
+	top: 12px;
+	right: 12px;
+	z-index: 1;
+	max-width: 280px;
+	padding: 8px 12px;
+	border: 1px solid #495263;
+	border-radius: 8px;
+	background: rgba(18, 21, 27, 0.92);
+	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+	color: #edf0f6;
+	font: 13px/1.35 system-ui, sans-serif;
+}
 @media (max-width: 480px) {
 	.draw-options { top: 8px; left: 8px; font-size: 12px; }
+	.task-strip { top: 8px; right: 8px; font-size: 12px; }
 }
 </style>
 </head>
@@ -49,6 +64,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 <div id="app">
 	<canvas id="canv"></canvas>
 </div>
+<aside id="task-strip" class="task-strip" aria-live="polite"></aside>
 <aside class="draw-options" aria-label="Drawing options">
 	<fieldset>
 		<legend>Wall impact cues</legend>
@@ -67,6 +83,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 <script src="simulation.js"></script>
 <script src="canvas.js"></script>
 <script src="input.js"></script>
+<script src="players.js"></script>
+<script src="tasks.js"></script>
 <script src="main.js"></script>
 </body>
 </html>
