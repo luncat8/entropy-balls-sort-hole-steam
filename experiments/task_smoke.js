@@ -37,9 +37,17 @@ function questItems() {
 	return stubs.els['task-list'].children;
 }
 
+// the side arrow is its own element so the card can draw it large; the line reads arrow then words
 function questText(id) {
 	const items = questItems();
-	return items[id] ? items[id].children[0].children[1].textContent : '';
+	if (!items[id]) return '';
+	const head = items[id].children[0];
+	return head.children[1].textContent + ' ' + head.children[2].textContent;
+}
+
+function questArrow(id) {
+	const items = questItems();
+	return items[id] ? items[id].children[0].children[1] : null;
 }
 
 function questMeta(id) {
@@ -214,6 +222,8 @@ place(1, RIGHT, 5);
 sim.simFillDist();
 tasks.tasksAssign(0, 'left', 'red', '<', 40, 'immediate');
 quest.questPaint();
+check('quest item: the side arrow is a dedicated large glyph',
+	questArrow(0).className === 'quest-arrow' && questArrow(0).textContent === '←');
 check('quest item: shows side cmp threshold category and counts',
 	questText(0).indexOf('←') !== -1
 	&& questText(0).indexOf('<40%') !== -1
