@@ -59,10 +59,12 @@ getObj().data().action()
 
 - keep this map updated when ownership changes:
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
-	simulation.js — owns field, balls, aperture, physics, ball color generation. edit for constants, spawn, stepping.
+	simulation.js — owns field, balls, aperture, physics, ball color generation, distribution snapshot. edit for constants, spawn, stepping, snapshot fields.
 	color.js — owns color conversions and warm/cold/near-target tests. edit for palette hues, hue boundaries, distance metric.
 	canvas.js — owns canvas sizing/drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	input.js — owns pointer/keyboard aperture input. edit for bindings, clamping.
+	players.js — owns participant identity, type and lifecycle. edit for adding participants, controller type.
+	tasks.js — owns objective rules, generation, per-participant lifecycle and the task strip. edit for predicates, candidates, hold duration, strip copy.
 	settings.js — (planned) theme default, URL persistence, UI binding and theme application. edit for theme keys, new settings keys.
 	status.js — (planned) status/help presentation. not implemented yet.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
@@ -136,7 +138,7 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-plan 0.2 next: give simulation.js a distribution snapshot API before task evaluation. smoke = node experiments/sim_smoke.js.
+plan 0.3 next: force.js energy-limited aperture control.
 settings.js and status.js stay out of index.html until gui.1 creates them.
 
 ## housekeeping
