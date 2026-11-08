@@ -1,5 +1,5 @@
-// owns: the bot opponent's aim and energy policy — which ball to feed, when to rest
-// edit for: bot heuristics, aim horizon, rest thresholds
+// owns: the bots' aim, energy policy and fair use of a contested hole
+// edit for: bot heuristics, aim horizon, rest thresholds, contest turns
 
 const BOT_THINK_SEC = 0.2;
 const BOT_AIM_HORIZON = 2.5;
@@ -12,8 +12,11 @@ const BOT_RESUME_SHARE = 0.55;
 const BOT_CROSS_SEC = 0.8;
 // keeping a lane costs no travel, so a rival lane has to beat it by this much to make the hole move
 const BOT_SWITCH_SEC = 0.8;
+// Equal opposite requests cancel forever; alternate the right to drive instead of burning both stores.
+const BOT_CONTEST_SEC = 2;
 
 const botState = {
+	clock: 0,
 	think: new Float32Array(PLAYER_CAP),
 	rest: new Uint8Array(PLAYER_CAP),
 	aimed: new Uint8Array(PLAYER_CAP),
@@ -28,6 +31,7 @@ const botScratch = {
 };
 
 function botInit() {
+	botState.clock = 0;
 	botState.think.fill(0);
 	botState.rest.fill(0);
 	botState.aimed.fill(0);
@@ -35,11 +39,38 @@ function botInit() {
 }
 
 function botStep(dt) {
+	botState.clock += dt;
 	for (let id = 0; id < players.count; id++) {
-		if (players.type[id] !== PLAYER_BOT) continue;
-		botThink(id, dt);
-		botAct(id);
+		if (players.type[id] === PLAYER_BOT) botThink(id, dt);
 	}
+	const priority = botContest();
+	for (let id = 0; id < players.count; id++) {
+		if (players.type[id] === PLAYER_BOT) botAct(id, priority);
+	}
+}
+
+function botDeadZone() {
+	return simAperture.speed * FIXED_DT / 2 + 0.01;
+}
+
+// Only an actual opposition yields; aligned requests still combine, and a resting bot reserves no turn.
+function botContest() {
+	let first = -1;
+	let direction = 0;
+	const dead = botDeadZone();
+	for (let id = 0; id < players.count; id++) {
+		if (players.type[id] !== PLAYER_BOT || !botState.aimed[id] || botState.rest[id]) continue;
+		const delta = botState.targetY[id] - simAperture.y;
+		if (Math.abs(delta) <= dead) continue;
+		const dir = delta < 0 ? -1 : 1;
+		if (first < 0) {
+			first = id;
+			direction = dir;
+		} else if (dir !== direction) {
+			return ((botState.clock / BOT_CONTEST_SEC) | 0) & 1 ? id : first;
+		}
+	}
+	return -1;
 }
 
 function botThink(id, dt) {
@@ -137,19 +168,19 @@ function botAim(id) {
 	return true;
 }
 
-function botAct(id) {
+function botAct(id, priority = -1) {
 	const view = forceView(id, botForceView);
 	const share = view.capacity > 0 ? view.energy / view.capacity : 0;
 	if (botState.rest[id]) {
 		if (share >= BOT_RESUME_SHARE) botState.rest[id] = 0;
 	} else if (share <= BOT_REST_SHARE) botState.rest[id] = 1;
-	if (botState.rest[id] || !botState.aimed[id]) {
+	if (botState.rest[id] || !botState.aimed[id] || priority >= 0 && priority !== id) {
 		forceClear(id);
 		return;
 	}
 	const delta = botState.targetY[id] - simAperture.y;
 	// the half-step dead zone a held pointer uses, so the hole does not buzz at its target
-	const dead = simAperture.speed * FIXED_DT / 2 + 0.01;
+	const dead = botDeadZone();
 	if (delta > -dead && delta < dead) {
 		forceClear(id);
 		return;
@@ -166,6 +197,8 @@ if (typeof module !== 'undefined') module.exports = {
 	botThink,
 	botAim,
 	botAct,
+	botContest,
+	BOT_CONTEST_SEC,
 	BOT_THINK_SEC,
 	BOT_AIM_HORIZON,
 	BOT_MAG,

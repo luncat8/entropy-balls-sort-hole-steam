@@ -4,11 +4,17 @@
 const simField = { w: 1200, h: 800, wallX: 600, wallT: 8 };
 
 const BALL_CAP = 36;
+const BALL_COUNT_MIN = 6;
+const BALL_COUNT_DEFAULT = 24;
+const BALL_START_COUNT = 9;
 const BALL_R_MIN = 10;
 const BALL_R_MAX = 18;
 const BALL_V_MIN = 140;
 const BALL_V_MAX = 280;
-const SPAWN_RATE = 2.5;
+const BALL_SPEED_MIN = 50;
+const BALL_SPEED_MAX = 350;
+const BALL_SPEED_DEFAULT = 175;
+const SPAWN_RATE = 5 / 3;
 const APERTURE_SIZE = 113;
 const APERTURE_SPEED = 700;
 const APERTURE_FRICTION = 1;
@@ -29,6 +35,7 @@ const simBalls = {
 };
 
 const simAperture = { y: 400, drive: 0, velocity: 0, friction: 0, size: APERTURE_SIZE, speed: APERTURE_SPEED };
+const simBallConfig = { count: BALL_COUNT_DEFAULT, speed: BALL_SPEED_DEFAULT };
 
 const DIST_PALETTE = 6;
 const simDist = {
@@ -72,6 +79,29 @@ function simSetSpawnRate(rate) {
 	spawnRate = rate;
 }
 
+// The limit keeps the existing field intact; new arrivals fill a raised limit at the scaled spawn rate.
+function simSetBallCount(count) {
+	const next = Math.max(BALL_COUNT_MIN, Math.min(BALL_CAP, Math.round(count)));
+	if (next === simBallConfig.count) return false;
+	simBallConfig.count = next;
+	if (simBalls.count > next) simBalls.count = next;
+	spawnAcc = 0;
+	simFillDist();
+	return true;
+}
+
+function simSetBallSpeed(speed) {
+	const next = Math.max(BALL_SPEED_MIN, Math.min(BALL_SPEED_MAX, speed));
+	if (next === simBallConfig.speed) return false;
+	const scale = next / simBallConfig.speed;
+	for (let i = 0; i < simBalls.count; i++) {
+		simBalls.vx[i] *= scale;
+		simBalls.vy[i] *= scale;
+	}
+	simBallConfig.speed = next;
+	return true;
+}
+
 function simSpawnOverlaps(x, y, r) {
 	for (let j = 0; j < simBalls.count; j++) {
 		const dx = x - simBalls.x[j];
@@ -84,7 +114,7 @@ function simSpawnOverlaps(x, y, r) {
 
 function simSpawn() {
 	const i = simBalls.count;
-	if (i >= BALL_CAP) return;
+	if (i >= simBallConfig.count) return;
 	const r = BALL_R_MIN + Math.random() * (BALL_R_MAX - BALL_R_MIN);
 	let x = 0, y = 0;
 	for (let attempt = 0; attempt < 8; attempt++) {
@@ -94,7 +124,8 @@ function simSpawn() {
 		if (!simSpawnOverlaps(x, y, r)) break;
 	}
 	if (Math.abs(x - simField.wallX) < r + 6) x = simField.wallX + (x < simField.wallX ? -(r + 6) : r + 6);
-	const sp = BALL_V_MIN + Math.random() * (BALL_V_MAX - BALL_V_MIN);
+	const sp = (BALL_V_MIN + Math.random() * (BALL_V_MAX - BALL_V_MIN))
+		* simBallConfig.speed / ((BALL_V_MIN + BALL_V_MAX) / 2);
 	const ang = Math.random() * Math.PI * 2;
 	const p = (Math.random() * PALETTE.length) | 0;
 	const sat = BALL_SAT_MIN + Math.random() * (BALL_SAT_MAX - BALL_SAT_MIN);
@@ -173,7 +204,8 @@ function simInit() {
 	simAperture.drive = 0;
 	simAperture.velocity = 0;
 	simAperture.friction = 0;
-	for (let k = 0; k < 13; k++) simSpawn();
+	const initial = Math.round(BALL_START_COUNT * simBallConfig.count / BALL_COUNT_DEFAULT);
+	for (let k = 0; k < initial; k++) simSpawn();
 	simFillDist();
 }
 
@@ -191,7 +223,7 @@ function simMoveAperture(dt) {
 }
 
 function simSpawnTick(dt) {
-	spawnAcc += dt * spawnRate;
+	spawnAcc += dt * spawnRate * simBallConfig.count / BALL_COUNT_DEFAULT;
 	while (spawnAcc >= 1) {
 		spawnAcc -= 1;
 		simSpawn();
@@ -298,7 +330,8 @@ function simAdvance(dtSec) {
 }
 
 if (typeof module !== 'undefined') module.exports = {
-	simField, simBalls, simAperture, simDist, simInit, simAdvance, simStep, simSpawn, simFillDist,
-	simSetBallCollisions, simSetSpawnRate, simSetFriction, simSetControlHook,
-	BALL_CAP, BALL_V_MAX, APERTURE_FRICTION, FIXED_DT
+	simField, simBalls, simAperture, simDist, simBallConfig, simInit, simAdvance, simStep, simSpawn, simFillDist,
+	simSetBallCollisions, simSetSpawnRate, simSetBallCount, simSetBallSpeed, simSetFriction, simSetControlHook,
+	BALL_CAP, BALL_COUNT_MIN, BALL_COUNT_DEFAULT, BALL_START_COUNT, BALL_V_MIN, BALL_V_MAX,
+	BALL_SPEED_MIN, BALL_SPEED_MAX, BALL_SPEED_DEFAULT, APERTURE_FRICTION, FIXED_DT
 };

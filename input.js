@@ -7,7 +7,7 @@ const INPUT_SLIDER_INSET = 10;
 const INPUT_NONE = -1;
 
 const inputUi = { canvas: null, sliders: [] };
-// mouse and keys are participant ids: one human owns the pointer, a second human owns the arrows
+// mouse and keys are participant ids: the first human owns the pointer, a second human the arrows
 const inputState = {
 	mouse: 0,
 	keys: 0,
@@ -53,7 +53,7 @@ function inputControls(id) {
 	return id === inputState.mouse || id === inputState.keys;
 }
 
-// the pointer belongs to player 1, the arrows to player 2; one human owns both
+// the pointer belongs to the first human, the arrows to the second; one human owns both
 function inputChannel(id) {
 	if (!inputControls(id)) return null;
 	return id === inputState.mouse ? 'mouse' : 'keys';
@@ -93,13 +93,20 @@ function inputPreparePanels() {
 	inputUi.sliders.length = 0;
 }
 
-// re-reads the participants: participant 1 owns the pointer, participant 2 the arrows
+// A lone human keeps both channels even in slot 2; a bot never reserves a human channel.
 function inputRebind() {
 	// boot creates the participants (and can rebuild them from the URL) before this layer exists
 	if (!inputState.value) return;
 	inputReleaseAll();
-	inputState.mouse = 0;
-	inputState.keys = players.count > 1 && players.type[1] === PLAYER_HUMAN ? 1 : 0;
+	let first = -1;
+	let second = -1;
+	for (let id = 0; id < players.count; id++) {
+		if (players.type[id] !== PLAYER_HUMAN) continue;
+		if (first < 0) first = id;
+		else second = id;
+	}
+	inputState.mouse = first < 0 ? 0 : first;
+	inputState.keys = second < 0 ? inputState.mouse : second;
 	inputApplyAll();
 }
 

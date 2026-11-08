@@ -56,7 +56,7 @@ function questSetPaintHook(hook) {
 
 // cheap integer digest: the list must repaint on progress, not on every frame
 function questStateSig() {
-	let sig = quest.heldId;
+	let sig = quest.heldId * 31 + players.count;
 	for (let id = 0; id < TASK_SLOTS; id++) {
 		const v = tasksView[id];
 		const h = tasksHueView[id];
@@ -181,5 +181,6 @@ if (typeof module !== 'undefined') module.exports = {
 	questObjectiveText,
 	questOpen,
 	questClose,
+	questReleaseAll,
 	QUEST_IDLE
 };

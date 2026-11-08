@@ -59,3 +59,9 @@ with a shared field and a small aperture, the metric moves with crossing *volume
 
 ## a policy on the fixed-step hook overwrites hand-made force in display tests (2026-11-08)
 panel tests write `forceSetDirection`/`forceHold` directly and then step to price the store; once a bot policy runs on the same hook, the step replaces the request and the panel shows "No force". detach the hook for those steps (`simSetControlHook(null)`, step, restore) instead of teaching the display tests the policy.
+
+## two bots need a contest rule, not just two controllers (2026-11-08)
+equal opposite requests through a shared aperture cancel while both stores pay; synchronized rest/resume thresholds can repeat the stall. in a 180 s two-bot run the old policy spent about 62 s in exact opposition. alternate the right to drive only when ready bots actually oppose, let aligned requests combine, and never let a resting or arrived bot reserve a turn. this removes the cancellation deadlock without giving one slot a permanent force advantage.
+
+## a restart that clears force stores must reproject human selections (2026-11-08)
+`forceInit()` clears magnitude as well as energy, while the input layer still remembers the slider value. calling it from a restart or roster rebuild without a following `inputRebind()` leaves a human panel showing a nonzero selection that applies zero force until the slider moves. boot the stores first, then rebind/reproject the human channels.

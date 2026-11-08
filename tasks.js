@@ -19,6 +19,7 @@ const TASK_LABEL_NAME = ['easy', 'normal', 'hard', 'expert'];
 const TASK_LABEL_COST = [5, 10, 17];
 
 const tasksOn = new Uint8Array(TASK_SLOTS);
+const tasksScore = new Uint32Array(TASK_SLOTS);
 const tasksWait = new Uint8Array(TASK_SLOTS);
 const tasksSide = new Uint8Array(TASK_SLOTS);
 const tasksCat = new Uint8Array(TASK_SLOTS);
@@ -304,6 +305,7 @@ function tasksInit() {
 		tasksHold[id] = 0;
 		tasksHoldSteps[id] = 0;
 	}
+	tasksScore.fill(0);
 	tasksGenCalls = 0;
 }
 
@@ -327,6 +329,11 @@ function tasksRestart() {
 		if (prior[id]) tasksOn[id] = 1;
 		else tasksAttach(id);
 	}
+}
+
+// A smaller population can invalidate an assigned cost, so active objectives are priced again.
+function tasksRegenerate() {
+	for (let id = 0; id < players.count; id++) tasksAttach(id);
 }
 
 function tasksAssign(id, sideName, catName, cmpStr, threshold, modeName) {
@@ -378,6 +385,7 @@ function tasksStepOne(id, dt) {
 			return;
 		}
 	}
+	tasksScore[id]++;
 	tasksGenerate(id);
 }
 
@@ -385,6 +393,7 @@ if (typeof module !== 'undefined') module.exports = {
 	tasksInit,
 	tasksAttach,
 	tasksRestart,
+	tasksRegenerate,
 	tasksAny,
 	tasksAssign,
 	tasksStep,
@@ -404,6 +413,7 @@ if (typeof module !== 'undefined') module.exports = {
 	tasksCatSide,
 	tasksView,
 	tasksOn,
+	tasksScore,
 	tasksWait,
 	tasksHold,
 	tasksGenCount,

@@ -9,6 +9,7 @@ const sim = apis['simulation.js'];
 const cv = apis['canvas.js'];
 const col = apis['color.js'];
 const ctx2d = stubs.ctx2d;
+const DT = sim.FIXED_DT;
 
 let pass = 0;
 let fail = 0;
@@ -43,6 +44,10 @@ function place(i, x, y, vx, vy, r, rgb) {
 	sim.simBalls.palette[i] = 0;
 	sim.simBalls.css[i] = '#000000';
 	if (sim.simBalls.count <= i) sim.simBalls.count = i + 1;
+}
+
+function near(a, b, tol = 1e-5) {
+	return Math.abs(a - b) <= tol;
 }
 
 function inBounds(i) {
@@ -248,6 +253,7 @@ sim.simFillDist();
 check('dist: rev bumps when a ball changes side', sim.simDist.rev === distRev + 1 && sim.simDist.left === 0 && sim.simDist.right === 2);
 
 sim.simSetBallCollisions(false);
+sim.simSetBallCount(sim.BALL_CAP);
 sim.simSetSpawnRate(2.5);
 sim.simInit();
 check('generation: initial crowd bounded', sim.simBalls.count > 0 && sim.simBalls.count <= sim.BALL_CAP);
@@ -259,13 +265,56 @@ for (let i = 0; i < sim.simBalls.count; i++) {
 }
 check('generation: spawns avoid divider and bounds', spawnClean);
 for (let s = 0; s < 240; s++) sim.simAdvance(0.25);
-check('generation: count capped at BALL_CAP', sim.simBalls.count === sim.BALL_CAP);
+check('generation: count capped at the configured limit', sim.simBalls.count === sim.simBallConfig.count);
 let speedOk = true, boundsOk = true;
 for (let i = 0; i < sim.simBalls.count; i++) {
-	if (Math.hypot(sim.simBalls.vx[i], sim.simBalls.vy[i]) > sim.BALL_V_MAX + 0.01) speedOk = false;
+	const speedMax = sim.BALL_V_MAX * sim.simBallConfig.speed / ((sim.BALL_V_MIN + sim.BALL_V_MAX) / 2);
+	if (Math.hypot(sim.simBalls.vx[i], sim.simBalls.vy[i]) > speedMax + 0.01) speedOk = false;
 	if (!inBounds(i)) boundsOk = false;
 }
 check('generation: speeds bounded and balls in field after 60s', speedOk && boundsOk);
+
+
+sim.simSetBallCount(sim.BALL_COUNT_DEFAULT);
+sim.simSetBallSpeed(sim.BALL_SPEED_DEFAULT);
+sim.simSetSpawnRate(0);
+sim.simInit();
+check('ball defaults: limit 24, average speed 175, initial population 9',
+	sim.simBallConfig.count === 24 && sim.simBallConfig.speed === 175 && sim.simBalls.count === 9);
+let speedSum = 0;
+let speedSamples = 0;
+let spawnBounds = true;
+const speedScale = sim.BALL_SPEED_DEFAULT / ((sim.BALL_V_MIN + sim.BALL_V_MAX) / 2);
+for (let run = 0; run < 200; run++) {
+	sim.simInit();
+	for (let i = 0; i < sim.simBalls.count; i++) {
+		const speed = Math.hypot(sim.simBalls.vx[i], sim.simBalls.vy[i]);
+		speedSum += speed;
+		speedSamples++;
+		if (speed < sim.BALL_V_MIN * speedScale - 0.01 || speed > sim.BALL_V_MAX * speedScale + 0.01) spawnBounds = false;
+	}
+}
+check('ball speed: spawned distribution is centered on the setting', spawnBounds && Math.abs(speedSum / speedSamples - 175) < 5);
+
+freshWorld();
+for (let i = 0; i < 24; i++) sim.simSpawn();
+check('ball count: lowering the limit trims immediately', sim.simSetBallCount(12) === true
+	&& sim.simBalls.count === 12 && sim.simDist.total === 12);
+sim.simStep(DT);
+check('ball count: a raised limit fills through generation, not a reset', sim.simSetBallCount(18) === true
+	&& sim.simBalls.count === 12);
+sim.simSetSpawnRate(24);
+for (let i = 0; i < 120; i++) sim.simStep(DT);
+check('ball count: generation stops at the raised limit', sim.simBalls.count === 18);
+sim.simSetSpawnRate(0);
+place(0, 300, 400, 300, 400, 14, 0);
+place(1, 900, 400, 0, -100, 14, 0);
+sim.simSetBallSpeed(350);
+check('ball speed: existing velocities scale without turning', near(sim.simBalls.vx[0], 600, 0.01)
+	&& near(sim.simBalls.vy[0], 800, 0.01) && sim.simBalls.vx[1] === 0 && near(sim.simBalls.vy[1], -200, 0.01));
+sim.simSetBallSpeed(50);
+check('ball speed: a second change scales from the current setting', near(sim.simBalls.vx[0], 600 / 7, 0.01)
+	&& near(sim.simBalls.vy[1], -200 / 7, 0.01));
 
 console.log('pass=' + pass + ' fail=' + fail);
 process.exitCode = fail ? 1 : 0;

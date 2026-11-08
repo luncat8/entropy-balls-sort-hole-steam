@@ -2,20 +2,20 @@
 
 ## Outcome
 
-Two participants share one field and hole while pursuing independent objectives. A setting enables a second human on the same device: player 1 uses the mouse or touch, player 2 uses the keyboard. With the setting off there is one human, controlled by the pointer and the arrow/Space keys. Bot behaviour stays deferred; the bot controller type, its read-only panel and its funding path already exist.
+Two participants share one field and hole while pursuing independent objectives. A setting enables a second human on the same device: the first human uses mouse or touch, the second uses the keyboard. A lone human owns both channels. Either slot can instead be automated through the player table (2.1–2.2), with a read-only force panel and its own funding path.
 
 ## Design
 
 ### Participants and settings
 
-- `players.js` owns participant slots and controller type. `playersInit(humans)` builds one or two human slots; further slots are added by `playersAdd` for bots. A slot keeps its identity, so slot 1 is always player 2 and its task, panel and energy belong to whoever controls that slot.
+- `players.js` owns participant slots and controller type. `playersInit(humans, bots)` builds one or two slots and applies the per-slot bot mask. A slot keeps its identity, so slot 1 is always player 2 and its task, panel and energy belong to whoever controls that slot.
 - `settings.js` owns the `humans` setting (`1` or `2`) next to the existing `friction` key. Both keys are one table (`SETTINGS_KEYS`) with one normalization, one encoding and one URL write. Two humans is written as `humans=2` and omitted otherwise; unknown values fall back to one human; other query parameters, the hash and the file:// copyable-URL fallback behave as for any settings key.
 - Changing the number of humans rebuilds the participant list, then re-attaches objectives only to live slots (`tasksRestart`), clears both channels' holds and reprojects the stored selections into the force layer. Rebuilding never resets the ball field, the hole or an unrelated setting. Turning the second human off drops that slot's objective with it, so the player who stays is not measured against a slot nobody plays.
 - The participant list is the single source for the panels: `forcePanelPaint` rebuilds when a count, controller type or control channel changed.
 
 ### Control channels
 
-- Channels are participant ids. `inputState.mouse` owns the pointer (field and slider) and the wheel; `inputState.keys` owns the arrow keys. With one human both channels are that human. `inputRebind` recomputes both from the participant list and releases every hold first.
+- Channels are participant ids. `inputState.mouse` owns the pointer (field and slider) and the wheel for the first human; `inputState.keys` owns the arrow keys for the second human. A lone human owns both channels even in slot 2. `inputRebind` recomputes both from the participant list and releases every hold first.
 - Per participant, state is a selected signed value (−100…+100 in 5-point steps), at most one slider pointer, at most one canvas pointer, and a key hold flag. Direction is `sign(value)` except while a canvas pointer is held, which aims the hole at the pointer's vertical position with the slider's magnitude and a half-step dead zone.
 - A player applies force only while holding a source: their slider, their field pointer, or the key apply key. Releasing a source releases only that player, keeping the selection. Pointer release, cancellation, lost capture, window blur, document hiding and a channel change clear holds; `keyup` always releases a held key even after focus moved.
 - Player 2 uses **↑/↓** to move their own slider in 5-point steps, including through the green zero mark, and holds **→** to apply the selection. A repeated keydown does not toggle the hold; the keyup releases it. In two-human mode the single-human shortcuts are suspended, so ↑/↓ are not double-bound: player 1 uses only the pointer and the wheel. With one human, **Space** applies and ↑/↓ adjust.
@@ -24,7 +24,7 @@ Two participants share one field and hole while pursuing independent objectives.
 
 ### Bots
 
-- A bot submits requests through the same force API and appears in a read-only panel with its own store; `PLAYER_BOT` slots are added through `playersAdd` and never read pointer or key input. A decision policy is a later slice.
+- A bot submits requests through the same force API and appears in a read-only panel with its own store. `PLAYER_BOT` slots never read pointer or key input; their policy and contested-hole turns are owned by `bot.js` (2.1–2.2).
 
 ## Files and ownership
 

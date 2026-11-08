@@ -12,6 +12,7 @@ function mainFrame(tMs) {
 	if (!goalHolding()) simAdvance(dtSec);
 	forcePanelPaint();
 	questPaint();
+	scoreboardPaint();
 	canvasDraw(dtSec);
 	requestAnimationFrame(mainFrame);
 }
@@ -20,6 +21,22 @@ function mainFrame(tMs) {
 function mainControlStep(dt) {
 	inputStep();
 	botStep(dt);
+}
+
+// A round resets play, not the chosen controllers or simulation settings.
+function mainRestartRound() {
+	questReleaseAll();
+	goalClose();
+	inputRelease();
+	simInit();
+	forceInit();
+	inputRebind();
+	botInit();
+	tasksInit();
+	for (let id = 0; id < players.count; id++) tasksAttach(id);
+	questRepaint();
+	forcePanelPaint();
+	scoreboardPaint();
 }
 
 function mainBoot() {
@@ -35,6 +52,7 @@ function mainBoot() {
 	settingsInit();
 	forcePanelInit();
 	botInit();
+	scoreboardInit(mainRestartRound);
 	simSetControlHook(mainControlStep);
 	requestAnimationFrame(mainFrame);
 }
@@ -42,4 +60,4 @@ function mainBoot() {
 // boot runs in the browser only so every file also loads under bare node
 if (typeof document !== 'undefined') mainBoot();
 
-if (typeof module !== 'undefined') module.exports = { mainBoot, mainFrame, mainControlStep, runtime };
+if (typeof module !== 'undefined') module.exports = { mainBoot, mainFrame, mainControlStep, mainRestartRound, runtime };

@@ -32,6 +32,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .draw-options summary:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
 .draw-options fieldset {
 	box-sizing: border-box;
+	width: 280px;
 	max-width: calc(100vw - 16px);
 	max-height: calc(100vh - 65px);
 	overflow-y: auto;
@@ -89,17 +90,50 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 .preview-mode .target-mean i { width: 16px; height: 16px; }
 .preview-mode .target-range i { width: 5px; height: 5px; }
-.quest-list {
+.player-hud {
 	position: fixed;
 	top: 12px;
 	right: 12px;
 	z-index: 1;
 	width: 268px;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 	color: #edf0f6;
 	font: 13px/1.35 system-ui, sans-serif;
+}
+.score-panel {
+	padding: 9px 11px 8px;
+	border: 1px solid #495263;
+	border-radius: 8px;
+	background: rgba(18, 21, 27, 0.94);
+	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+.score-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.score-header h2 { margin: 0; color: #c9d1e0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.score-restart {
+	padding: 3px 7px;
+	border: 1px solid #495263;
+	border-radius: 5px;
+	background: #202936;
+	color: #c9d1e0;
+	font: 10px/1.3 system-ui, sans-serif;
+	cursor: pointer;
+}
+.score-restart:hover { border-color: #83b8ff; color: #edf0f6; }
+.score-restart:focus-visible, .score-bot:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
+.score-table { width: 100%; margin-top: 5px; border-collapse: collapse; font-size: 12px; }
+.score-table thead th { padding: 2px 0 4px; color: #9ba6ba; font-size: 10px; font-weight: 500; }
+.score-table th:first-child { text-align: left; }
+.score-table th:nth-child(2), .score-table td:nth-child(2) { width: 38px; text-align: center; }
+.score-table th:last-child, .score-table td:last-child { width: 44px; text-align: right; }
+.score-row th { padding: 5px 0; font-weight: 600; }
+.score-row + .score-row { border-top: 1px solid rgba(73, 82, 99, 0.45); }
+.score-row[data-active="false"] th, .score-row[data-active="false"] .score-value { color: #778397; }
+.score-bot { width: 16px; height: 16px; margin: 0; vertical-align: middle; accent-color: #83b8ff; cursor: pointer; }
+.score-value { color: #a8d3ff; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.score-mode { margin-top: 5px; color: #9ba6ba; font-size: 10px; }
+.quest-list {
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
 }
 .quest {
 	display: grid;
@@ -315,6 +349,9 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .force-cost { color: #f0a1a1; font-size: 12px; font-weight: 700; }
 .force-help { margin-top: 9px; padding-top: 7px; border-top: 1px solid #34404d; color: #93a3b7; font-size: 10px; line-height: 1.35; }
 .settings-note { margin: -1px 0 0 20px; color: #9ba6ba; font-size: 11px; }
+.settings-range-label { justify-content: space-between; gap: 10px; }
+.settings-range-label output { color: #a8d3ff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.draw-options input[type="range"] { width: 100%; min-height: 20px; cursor: pointer; }
 .settings-url { display: grid; gap: 4px; color: #9ba6ba; font-size: 11px; }
 .settings-url[hidden] { display: none; }
 .settings-url input { box-sizing: border-box; width: 100%; color: #edf0f6; background: #202936; border: 1px solid #495263; border-radius: 3px; }
@@ -324,7 +361,9 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
    the goal label takes its own line above the two panels, whatever their height turns out to be */
 @media (max-width: 1150px) {
 	.draw-options { top: 8px; left: 8px; font-size: 12px; }
-	.quest-list { top: 8px; right: 8px; font-size: 12px; width: 200px; }
+	.player-hud { top: 8px; right: 8px; font-size: 12px; width: min(268px, calc(100vw - 112px)); }
+	.score-panel { padding: 7px 9px; }
+	.score-mode { font-size: 9px; }
 	.bottom-panels {
 		position: fixed;
 		left: 8px;
@@ -345,8 +384,12 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	.quest-panel-swatch { height: 40px; }
 	.quest-goal { order: -1; flex: 1 0 100%; max-width: none; }
 }
+@media (max-width: 700px) {
+	.force-panels { flex-direction: row; width: 100%; gap: 6px; }
+	.force-panel { flex: 1 1 0; width: auto; min-width: 0; }
+}
 @media (max-width: 360px) {
-	.force-panel { min-width: 134px; padding-right: 8px; padding-left: 8px; }
+	.force-panel { min-width: 0; padding-right: 8px; padding-left: 8px; }
 	.force-panel-body { grid-template-columns: minmax(60px, 1fr) minmax(48px, 0.8fr); gap: 5px; }
 	.force-scale-labels { flex-basis: 30px; font-size: 8px; }
 	.force-slider-shell { min-width: 26px; }
@@ -356,6 +399,14 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	.force-selected { font-size: 9px; }
 }
 @media (max-height: 600px) {
+	.force-panels { flex-direction: row; align-items: flex-end; }
+	.score-panel { padding: 6px 9px; }
+	.score-table { margin-top: 2px; }
+	.score-row th { padding: 3px 0; }
+	.score-mode { margin-top: 3px; }
+	.quest { padding: 5px 8px; gap: 7px; }
+	.quest-swatch { width: 22px; height: 22px; }
+	.quest + .quest { margin-top: 4px; }
 	.force-panel { padding-top: 7px; padding-bottom: 7px; }
 	.force-status { margin-top: 2px; }
 	.force-panel-body { margin-top: 5px; }
@@ -375,13 +426,29 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	}
 	.force-panel::after { content: attr(data-hint); display: block; margin-top: 3px; color: #93a3b7; font-size: 9px; }
 }
+@media (max-height: 450px) {
+	.quest-meta { display: none; }
+}
 </style>
 </head>
 <body>
 <div id="app">
 	<canvas id="canv"></canvas>
 </div>
-<ul id="task-list" class="quest-list" aria-live="polite"></ul>
+<div class="player-hud">
+	<section class="score-panel" aria-label="Players">
+		<div class="score-header">
+			<h2>Players</h2>
+			<button id="score-restart" class="score-restart" type="button" title="Reset scores and restart the field">New round</button>
+		</div>
+		<table id="score-table" class="score-table" aria-label="Completed quests and bot controls">
+			<thead><tr><th scope="col">Player</th><th scope="col">Bot</th><th scope="col">Score</th></tr></thead>
+			<tbody id="score-rows"></tbody>
+		</table>
+		<div id="score-mode" class="score-mode" aria-live="polite"></div>
+	</section>
+	<ul id="task-list" class="quest-list" aria-live="polite"></ul>
+</div>
 <!-- the bottom edge reads as one row of panels: on a narrow screen they stack inside one container, so the
      goal label can never land on top of a control whose height no stylesheet can predict -->
 <div class="bottom-panels">
@@ -413,11 +480,17 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 			<span class="settings-note">Faster movement meets more resistance.</span>
 		</div>
 		<div class="draw-options-group">
+			<span class="draw-options-heading">Balls</span>
+			<label class="settings-range-label" for="settings-balls"><span>Ball count limit</span><output id="settings-balls-value" for="settings-balls">24</output></label>
+			<input id="settings-balls" type="range" min="6" max="36" step="1" value="24">
+			<label class="settings-range-label" for="settings-ball-speed"><span>Average ball speed</span><output id="settings-ball-speed-value" for="settings-ball-speed">175 px/s</output></label>
+			<input id="settings-ball-speed" type="range" min="50" max="350" step="5" value="175">
+			<span class="settings-note">Changes apply to the live field. New balls arrive gradually.</span>
+		</div>
+		<div class="draw-options-group">
 			<span class="draw-options-heading">Second player</span>
-			<label><input id="settings-humans" type="checkbox"> Two players on this device</label>
-			<span class="settings-note">Player 1: mouse, touch and wheel. Player 2: ↑↓ set the force, hold → to apply.</span>
-			<label><input id="settings-bot" type="checkbox"> Player 2 is a bot</label>
-			<span class="settings-note">The bot reads the field and moves the hole with its own energy store.</span>
+			<label><input id="settings-humans" type="checkbox"> Enable player 2</label>
+			<span class="settings-note">Use the Bot checkboxes in the player table to automate either player. Two humans: Player 1 uses mouse, touch and wheel; Player 2 uses ↑↓ and holds →.</span>
 		</div>
 		<div class="draw-options-group settings-url" id="settings-url-wrap" hidden>
 			<label for="settings-url">Copy settings URL</label>
@@ -441,6 +514,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 <script src="forcepanel.js"></script>
 <script src="settings.js"></script>
 <script src="tasks.js"></script>
+<script src="scoreboard.js"></script>
 <script src="quest.js"></script>
 <script src="goalview.js"></script>
 <script src="preview.js"></script>

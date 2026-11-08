@@ -9,10 +9,11 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 3. ~~0.4 — Objective difficulty~~ — done: [plan](../archive/0.4-plan.md), [worklog](../archive/0.4-worklog.md).
 4. ~~1.1 — Quest goal preview~~ — done: [plan](../archive/1.1-plan.md), [worklog](../archive/1.1-worklog.md).
 5. ~~0.3 — Hole force and energy~~ — done (force GUI in place).
-6. [gui.1 — Settings and status UI](plangui.1.md): settings table and URL persistence landed (friction, two humans); the status strip remains.
+6. [gui.1 — Settings and status UI](plangui.1.md): settings table and URL persistence include friction, players, ball count and speed; the status strip remains.
 7. [1.0 — Task queue](plan1.0.md): deferred task list and task claiming, after the single-task loop is proven.
-8. [2.0 — Two players and bot](plan2.0.md): independent objectives, shared field and force controls, optional bot.
-9. [2.1 — Bot opponent policy](plan2.1.md): the bot aims, spends its store and rests on the `PLAYER_BOT` slot that 2.0 created.
+8. ~~2.0 — Two players and bot~~ — done: [plan](plan2.0.md), independent objectives and shared controls.
+9. ~~2.1 — Bot opponent policy~~ — done: [plan](plan2.1.md), lane aim and energy rests.
+10. [2.2 — Player scoreboard and independent bots](plan2.2.md): score table, per-slot bot checkboxes, two-bot matches and live ball tuning.
 
 ## Shared product decisions
 
@@ -22,7 +23,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 - Progress is evaluated on fixed simulation steps. Each generated task requires either immediate satisfaction or a continuous two-second hold; a new task follows completion. An empty side never completes a task.
 - The control model is explicit signed push/pull along the aperture’s vertical track. Pointer hold/touch hold activates it; mouse wheel and a visible slider adjust force magnitude. This avoids relying on ambiguous pointer gestures.
 - Settings and live gameplay values have one owner each, and the browser URL is the shareable settings representation. The design remains local and file:// friendly, with classic script tags and no build or network dependency.
-- Single-player starts with one participant using the same per-player task, input and energy interfaces intended for two-player and bot modes. Bot selection and the second participant are deferred.
+- Single-player starts with one human. The player table exposes both slots; either can be a bot, and two bots can play while the user spectates. Each participant keeps its own task, input channel and energy store.
 
 ## Manual completion checklist
 
@@ -36,3 +37,5 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 - Opening a copied URL restores settings without requiring a server; gameplay state is not persisted.
 - Mouse and touch controls both activate and release cleanly; status/help does not cover the field or primary controls.
 - Bot and human controls can be distinguished and each participant uses their own energy budget.
+- The score table counts completed quests, both bot checkboxes work independently, and New round resets play without changing settings.
+- Ball count and average speed sliders update the live field and restore from a copied URL.

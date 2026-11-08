@@ -1,5 +1,5 @@
-// owns: bot policy, its energy rests and the bot setting smoke checks
-// edit for: aim rules, rest thresholds, participant rebuild
+// owns: bot policy, energy rests, contested turns and bot-mask smoke checks
+// edit for: aim rules, rest thresholds, contest turns, participant rebuild
 
 const path = require('path');
 const { loadGame } = require('./vmload');
@@ -164,38 +164,65 @@ bot.botStep(DT);
 check('two humans: no slot is a bot, so nothing is requested', force.forceState.held[1] === 0
 	&& force.forceState.held[1] === 0);
 
-check('settings: bot normalizes and encodes on its own key', settings.settingsNormalize('bot', '1') === true
-	&& settings.settingsNormalize('bot', '0') === false && settings.settingsEncode('bot', true) === '1'
-	&& settings.settingsEncode('bot', false) === undefined);
-const parsed = settings.settingsFromSearch('?bot=1&humans=1');
-check('settings: the URL restores a bot opponent', parsed.bot === true && parsed.humans === 1
+check('settings: the bot mask normalizes and encodes on its own key', settings.settingsNormalize('bots', '3') === 3
+	&& settings.settingsNormalize('bots', 'bad') === 0 && settings.settingsEncode('bots', 3) === '3'
+	&& settings.settingsEncode('bots', 0) === undefined);
+const parsed = settings.settingsFromSearch('?bots=3');
+check('settings: the URL restores two bots and the second participant', parsed.bots === 3 && parsed.humans === 2
 	&& parsed.friction === false);
 
 settings.settingsSetHumans(1, false);
-settings.settingsSetBot(true, false);
+settings.settingsSetBot(1, true, false);
 panels.forcePanelPaint();
-check('settings: the bot takes the second slot and reads as a bot', players.players.count === 2
+check('settings: a bot checkbox joins the second slot and reads as a bot', players.players.count === 2
 	&& players.players.type[1] === players.PLAYER_BOT && panels.forcePanels.rows.length === 2
 	&& panels.forcePanels.rows[1].kind === 'Bot' && panels.forcePanels.rows[1].controlled === false);
 check('settings: the remaining human keeps the pointer and the shortcuts', input.inputState.keys === 0
 	&& input.inputApplyKey() === 'Space' && input.inputControls(0) === true);
 check('settings: each participant keeps its own objective', tasks.tasksOn[0] === 1 && tasks.tasksOn[1] === 1);
 
-settings.settingsSetBot(true, true);
-check('settings: bot is written to the URL', stubs.win.location.search === '?bot=1');
+settings.settingsSetBot(1, true, true);
+check('settings: the second bot bit is written to the URL', stubs.win.location.search === '?bots=2');
+settings.settingsSetBot(0, true, false);
+panels.forcePanelPaint();
+check('settings: both slots can be bots with no human channel', players.players.count === 2
+	&& players.players.type[0] === players.PLAYER_BOT && players.players.type[1] === players.PLAYER_BOT
+	&& input.inputControls(0) === false && input.inputControls(1) === false
+	&& panels.forcePanels.rows[0].controlled === false && panels.forcePanels.rows[1].controlled === false);
 
 settings.settingsSetHumans(2, false);
-check('settings: two humans win the second slot over the bot', players.players.count === 2
-	&& players.players.type[1] === players.PLAYER_HUMAN && settings.settingsState.bot === false
-	&& stubs.els['settings-bot'].disabled === true);
-settings.settingsSetBot(true, false);
-check('settings: the bot cannot take a slot a human plays', players.players.type[1] === players.PLAYER_HUMAN
-	&& settings.settingsState.bot === false);
+check('settings: a second human replaces only the second bot', players.players.count === 2
+	&& players.players.type[0] === players.PLAYER_BOT && players.players.type[1] === players.PLAYER_HUMAN
+	&& settings.settingsState.bots === 1 && input.inputControls(1) === true);
 settings.settingsSetHumans(1, false);
-settings.settingsSetBot(false, false);
+settings.settingsSetBot(0, false, false);
 panels.forcePanelPaint();
-check('settings: turning the bot off drops its slot and its objective', players.players.count === 1
+check('settings: turning the second player off drops its slot and objective', players.players.count === 1
 	&& tasks.tasksOn[1] === 0 && panels.forcePanels.rows.length === 1);
+
+field(900, 200, -200, 0, 'hot');
+players.playersInit(2, 3);
+input.inputRebind();
+force.forceInit();
+bot.botInit();
+bot.botState.targetY[0] = 100;
+bot.botState.targetY[1] = 700;
+bot.botState.aimed.fill(1);
+bot.botState.think.fill(1);
+sim.simAperture.y = 400;
+check('contest: opposing aims give the first turn to player 1', bot.botContest() === 0);
+bot.botStep(DT);
+check('contest: the yielding bot releases while the other drives', force.forceState.held[0] === 1
+	&& force.forceState.held[1] === 0);
+bot.botState.clock = bot.BOT_CONTEST_SEC;
+bot.botStep(DT);
+check('contest: the next turn belongs to player 2', force.forceState.held[0] === 0
+	&& force.forceState.held[1] === 1);
+bot.botState.targetY[1] = 100;
+check('contest: aligned aims do not reserve a turn', bot.botContest() === -1);
+bot.botState.rest[0] = 1;
+bot.botState.targetY[1] = 700;
+check('contest: a resting bot does not block the other', bot.botContest() === -1);
 
 check('wiring: the fixed-step hook runs both control channels', typeof main.mainControlStep === 'function');
 

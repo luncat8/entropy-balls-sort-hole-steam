@@ -18,12 +18,12 @@ function playersAdd(type) {
 	return id;
 }
 
-// The number of humans is a setting. Slots keep their identity, so slot 1 stays
-// player 2 whichever controller it has; bots are added separately until plan 2.0.
-function playersInit(humans) {
+// Slots keep their identity while either controller changes; the mask automates each slot independently.
+function playersInit(humans, bots) {
 	const humansOn = humans === 2 ? 2 : 1;
+	const mask = bots || 0;
 	players.count = 0;
-	for (let id = 0; id < humansOn; id++) playersAdd(PLAYER_HUMAN);
+	for (let id = 0; id < humansOn; id++) playersAdd(mask & (1 << id) ? PLAYER_BOT : PLAYER_HUMAN);
 	inputRebind();
 }
 
