@@ -52,7 +52,8 @@ function makeStubs() {
 		}),
 		'draw-predicted-position': element({ checked: false }),
 		'draw-trajectory-lines': element({ checked: false }),
-		'draw-slow-fade-hit-spot': element({ checked: true })
+		'draw-slow-fade-hit-spot': element({ checked: true }),
+		'task-strip': element({ textContent: '' })
 	};
 	const sandbox = {
 		document: { getElementById: id => els[id] || null },
