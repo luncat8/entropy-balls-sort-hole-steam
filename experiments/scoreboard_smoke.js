@@ -103,7 +103,8 @@ check('layout: each player column is an objective above that player\'s force pan
 })());
 
 check('table: controller changes keep the same rows and add player prefixes', row(0).el === persistentRow
-	&& stubs.els['task-list'].children[0].children[0].children[1].textContent.indexOf('P1 ') === 0);
+	&& stubs.els['task-list'].children[0].children[0].children[1].className === 'quest-arrow'
+	&& stubs.els['task-list'].children[0].children[0].children[2].textContent.indexOf('P1 ') === 0);
 
 row(0).checkbox.checked = true;
 row(0).checkbox.dispatch('change');
