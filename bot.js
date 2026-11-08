@@ -5,12 +5,13 @@ const BOT_THINK_SEC = 0.2;
 // A crossing further out than BOT_DECAY_SEC is worth less than one arriving now, so the hole opens
 // for the ball it can take instead of waiting on a lane whose traffic is only predicted.
 // A crossing has to be worth more than the drive to it, or every possible lane scores below zero
-// and the bot stands still: one crossing buys about a second of hole travel.
+// and the bot stands still: BOT_CROSS_SEC is how many seconds of hole travel one crossing buys. It is
+// measured, not reasoned: keeping the plan's one second left most lanes negative at BOT_MAG 0.8.
 const BOT_AIM_HORIZON = 4;
-const BOT_DECAY_SEC = 2;
-const BOT_CROSS_SEC = 1.2;
+const BOT_DECAY_SEC = 1.5;
+const BOT_CROSS_SEC = 3.2;
 const BOT_SWITCH_SEC = 0.3;
-const BOT_MAG = 0.5;
+const BOT_MAG = 0.8;
 // a store drained to nothing then trickled reads as a dead bot: it rests low and resumes high
 const BOT_REST_SHARE = 0.15;
 const BOT_RESUME_SHARE = 0.55;
@@ -48,15 +49,16 @@ const botForceView = { energy: 0, capacity: 1 };
 const botScratch = {
 	t: new Float32Array(BALL_CAP),
 	y: new Float32Array(BALL_CAP),
+	r: new Float32Array(BALL_CAP),
 	cat: new Uint8Array(BALL_CAP),
 	dir: new Int8Array(BALL_CAP),
 	n: 0
 };
 const botPlanOut = { side: 0, match: 0 };
-// needCat and spareOther are the two quotas left to fill, measured from the same satisfying split the
-// difficulty priced: matching balls still to enter the named chamber and non-matching ones that may
-// still leave it. One crossing fills one of them, so their sum is what is left to do.
-const botPlan = { active: false, defend: false, needCat: 0, spareOther: 0, cost: 0 };
+// needCat and spareOther are the two signed changes the split the difficulty priced still needs in the
+// named chamber: matching balls to add (or to leave, when negative) and the same for the other balls.
+// Their magnitudes are the crossings still to make, and their signs say which crossing makes one.
+const botPlan = { active: false, defend: false, cmp: 0, needCat: 0, spareOther: 0, cost: 0 };
 
 function botInit() {
 	botState.clock = 0;
@@ -162,9 +164,10 @@ function botPlanOpen(id) {
 	// and the bot simply raises no lane. A satisfied hold is still a job — the split has to survive
 	// the hold — so that one mirrors the ledger and parks where harmful crossings are fewest.
 	botPlan.defend = v.satisfied && v.mode === 'hold';
+	botPlan.cmp = v.cmp === '>' ? 0 : 1;
 	const isLeft = v.side === 'left';
 	const cat = tasksCatFromName(v.category);
-	if (tasksCheapest(cat, v.cmp === '>' ? 0 : 1, v.threshold, isLeft, botPlanOut) < 0) return false;
+	if (tasksCheapest(cat, botPlan.cmp, v.threshold, isLeft, botPlanOut) < 0) return false;
 	const namedMatch = isLeft ? simDist.leftPalette : simDist.rightPalette;
 	const named = isLeft ? simDist.left : simDist.right;
 	let catNow = 0;
@@ -173,8 +176,7 @@ function botPlanOpen(id) {
 	// reties every think: matching balls still to enter, and spare others that may leave
 	botPlan.needCat = botPlanOut.match - catNow;
 	botPlan.spareOther = (named - catNow) - (botPlanOut.side - botPlanOut.match);
-	botPlan.cost = botPlan.needCat + botPlan.spareOther;
-	if (botPlan.cost < 0) botPlan.cost = 0;
+	botPlan.cost = Math.abs(botPlan.needCat) + Math.abs(botPlan.spareOther);
 	botPlan.active = true;
 	return true;
 }
@@ -225,16 +227,16 @@ function botPredict(cat, isLeft) {
 		// the next crossing always goes to the opposite chamber — a ball moving away from the divider
 		// turns around first — so the side it is on sets the direction, not its velocity sign
 		let dir = simBalls.x[i] < simField.wallX ? 1 : -1;
-		let t = t0;
-		let since = 0;
-		for (let k = 0; k < BOT_CROSS_PASSES && t <= botTune.horizon; k++) {
-			const y = botFoldY(simBalls.y[i], simBalls.vy[i], since, r);
+		// the height of a crossing is the vertical fold at that crossing's own time: reading the
+		// current height instead aims the hole where the ball is now, one crossing behind
+		for (let t = t0, k = 0; k < BOT_CROSS_PASSES && t <= botTune.horizon; k++) {
+			const y = botFoldY(simBalls.y[i], simBalls.vy[i], t, r);
 			botScratch.t[n] = t;
 			botScratch.y[n] = y < yMin ? yMin : (y > yMax ? yMax : y);
+			botScratch.r[n] = r;
 			botScratch.cat[n] = cat0;
 			botScratch.dir[n] = dir;
 			n++;
-			since = t;
 			t += dir > 0 ? right : left;
 			dir = -dir;
 		}
@@ -244,45 +246,73 @@ function botPredict(cat, isLeft) {
 	return n;
 }
 
-// Crossing ledger for one height: a matching ball entering the named chamber or a non-matching one
-// leaving it moves the split toward the plan; the mirror moves it away. A far crossing is worth less
-// than a near one, so the hole opens for the ball it can take now instead of a lane whose traffic is
-// only predicted.
-function botLaneScore(n, yc) {
-	const half = simAperture.size / 2;
-	let net = 0;
-	for (let j = 0; j < n; j++) {
-		const t = botScratch.t[j];
-		if (t > botTune.horizon) continue;
-		if (Math.abs(botScratch.y[j] - yc) > half) continue;
-		// one crossing moves one quota: a matching ball entering fills needCat, another leaving
-		// spends two, and a non-matching ball leaving frees a slot only while spareOther lasts
-		const useful = botCrossUseful(j);
-		net += (botPlan.defend ? (useful ? -1 : 0) : (useful ? 1 : -1)) / (1 + t / botTune.decay);
-	}
-	return net * botTune.cross - Math.abs(yc - simAperture.y) / simAperture.speed;
+// The opening only takes a ball whose whole body fits, so the usable half-height is the aperture's
+// half minus that ball's radius; counting the full half aims at lanes where the plate still blocks.
+function botLaneHalf(j) {
+	const half = simAperture.size / 2 - botScratch.r[j];
+	return half > 0 ? half : 0;
 }
 
-// A crossing is progress while the quota holds: a matching ball entering the named chamber fills the
-// quota, a non-matching ball leaving frees a slot. Once the chamber holds its quota of either, the
-// same crossing is one the objective loses.
+function botLaneTravel(yc) {
+	return Math.abs(yc - simAperture.y) / (simAperture.speed * botTune.mag);
+}
+
+// A crossing is catchable only if the ball fits the opening and arrives after the hole can be there:
+// a ball that reaches the plate first bounces off it, so that lane never paid for the drive.
+function botLaneHits(j, yc, travel) {
+	return botScratch.t[j] >= travel && Math.abs(botScratch.y[j] - yc) <= botLaneHalf(j);
+}
+
+// Crossing ledger for one height, read from the moment the hole arrives: the discount starts there,
+// because a crossing already gone by the time the hole gets there is not the lane's business.
+function botLaneScore(n, yc) {
+	const travel = botLaneTravel(yc);
+	let net = 0;
+	for (let j = 0; j < n; j++) {
+		if (botScratch.t[j] > botTune.horizon || !botLaneHits(j, yc, travel)) continue;
+		const value = 1 / (1 + (botScratch.t[j] - travel) / botTune.decay);
+		net += botCrossUseful(j) ? value : -value;
+	}
+	return net * botTune.cross - travel;
+}
+
+// The hold's mirror of the same ledger: only the crossings that end the hold are counted, so a lane
+// of harmless traffic scores zero and the cheapest safe lane wins.
+function botLaneHarm(n, yc) {
+	const travel = botLaneTravel(yc);
+	let harm = 0;
+	for (let j = 0; j < n; j++) {
+		if (botScratch.t[j] > botTune.horizon || !botLaneHits(j, yc, travel)) continue;
+		if (!botCrossHurts(j)) continue;
+		harm += 1 / (1 + (botScratch.t[j] - travel) / botTune.decay);
+	}
+	return harm;
+}
+
+// The crossing that fills a quota, read from the quota's sign: a matching ball entering the named
+// chamber fills a positive needCat, and one leaving it fills a negative one — "left hot < 40%" is
+// reached by hot leaving the left. Testing only "entering && needCat > 0" scores the crossing a
+// "less than" objective needs as the one it loses.
 function botCrossUseful(j) {
 	const entering = (botScratch.dir[j] < 0) === botScratch.isLeft;
-	if (botScratch.cat[j]) return entering && botPlan.needCat > 0;
-	return !entering && botPlan.spareOther > 0;
+	if (botScratch.cat[j]) return entering ? botPlan.needCat > 0 : botPlan.needCat < 0;
+	return entering ? botPlan.spareOther < 0 : botPlan.spareOther > 0;
+}
+
+// A crossing that raises the named chamber's share: a matching ball entering, or another one leaving.
+// A satisfied hold survives any crossing that only pushes the split further past its threshold.
+function botCrossHurts(j) {
+	const entering = (botScratch.dir[j] < 0) === botScratch.isLeft;
+	const raises = botScratch.cat[j] ? entering : !entering;
+	return botPlan.cmp > 0 ? raises : !raises;
 }
 
 // A lane already held is worth keeping unless it lets a harmful crossing through: staying costs no
 // energy, so any safe lane beats a drive to a marginally better one.
 function botLaneSafe(n, yc) {
-	const half = simAperture.size / 2;
 	for (let j = 0; j < n; j++) {
 		if (botScratch.t[j] > botTune.horizon) continue;
-		if (Math.abs(botScratch.y[j] - yc) > half) continue;
-		if (botPlan.defend) {
-			if (botCrossUseful(j)) return false;
-			continue;
-		}
+		if (Math.abs(botScratch.y[j] - yc) > botLaneHalf(j)) continue;
 		if (!botCrossUseful(j)) return false;
 	}
 	return true;
@@ -296,6 +326,7 @@ function botAim(id) {
 	if (!botPlanOpen(id)) return false;
 	const n = botPredict(tasksCatFromName(tasksView[id].category), tasksView[id].side === 'left');
 	if (!n) return false;
+	if (botPlan.defend) return botAimHold(id, n);
 	let best = 0;
 	let bestY = 0;
 	for (let k = 0; k < n; k++) {
@@ -320,6 +351,26 @@ function botAim(id) {
 		}
 	}
 	if (best <= 0) return false;
+	botState.targetY[id] = bestY;
+	botState.aimed[id] = 1;
+	return true;
+}
+
+// A satisfied hold only has to survive, so nothing scores above zero and the plain lane score would
+// leave the hole wherever it stands. The lane it already holds is the baseline instead: another lane
+// has to be safer by more than the drive costs.
+function botAimHold(id, n) {
+	const half = simAperture.size / 2;
+	const here = simAperture.y < half ? half : (simAperture.y > simField.h - half ? simField.h - half : simAperture.y);
+	let best = -botLaneHarm(n, here) * botTune.cross;
+	let bestY = here;
+	for (let k = 0; k < n; k++) {
+		const yc = botScratch.y[k];
+		const score = -botLaneHarm(n, yc) * botTune.cross - botLaneTravel(yc);
+		if (score <= best) continue;
+		best = score;
+		bestY = yc;
+	}
 	botState.targetY[id] = bestY;
 	botState.aimed[id] = 1;
 	return true;
@@ -362,10 +413,16 @@ if (typeof module !== 'undefined') module.exports = {
 	botAct,
 	botContest,
 	botLaneScore,
+	botLaneHarm,
+	botLaneTravel,
+	botLaneHits,
+	botLaneHalf,
 	botPredict,
 	botPlanOpen,
 	botCrossTime,
 	botCrossUseful,
+	botCrossHurts,
+	botAimHold,
 	botWantsHole,
 	botFoldY,
 	BOT_CONTEST_SEC,
