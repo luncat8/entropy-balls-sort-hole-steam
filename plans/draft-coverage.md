@@ -38,7 +38,8 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 
 | draft asks for | status | where |
 | --- | --- | --- |
-| quest generator over side, comparator, category, threshold | shipped | `tasks.js`, plan 0.4 |
+| quest generator over side, comparator, category, threshold | shipped | `tasks.js`, plan 0.4; thresholds 10–90 and both comparators drawn by equal chance in plan 2.4 |
+| "similar to random color" as a category | **open** | `colorHueNear` exists; only the preview draws a hue range, the generator's categories are hot, cold and six named hues |
 | difficulty metric, label at generation, no free or impossible tasks | shipped | `tasks.js`, plan 0.4 |
 | hold quests and immediate quests | shipped | `tasks.js`, plan 0.2 |
 | task list kept full, a player signs to a task | **partial** | `plan1.0.md`. Both live slots already hold one objective each, so the list is never empty while a slot is playing. The queue, the `open/claimed/complete` states, exclusive claiming and abandon are not built: generation is per slot, not per queue |
@@ -46,7 +47,8 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | target color as ball / range / smooth rectangle | shipped | `preview.js` |
 | new game task once all tasks are solved | shipped | every completion generates a replacement immediately |
 | visual progress of a task | shipped | per-card bar in `quest.js`; bar counts paid crossings, then the hold |
-| either side, either comparator, hot/cold or a named color | shipped | `tasks.js` |
+| either side, either comparator, hot/cold or a named color | shipped | `tasks.js`; `<` objectives are now generated at a playable rate (2.4) |
+| side readable at a glance on the card | shipped | `quest.js` `quest-arrow`, 24 px glyph, plan 2.4 |
 
 ## Field and drawing
 
@@ -66,6 +68,24 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | --- | --- | --- |
 | status bar for constant info and current help | **partial** | constants are shown per feature (task card, force panel, score table). There is no single `status.js` strip: `plangui.1.md` still lists it as the remaining slice of that plan |
 
+## What is open, and is it planned?
+
+Three different things are missing, and they are not the same kind of missing:
+
+- **Planned, with a plan file.** The task queue, task claiming and the open/claimed/complete states
+  (`plan1.0.md`), and the single status strip (`plangui.1.md`, the last unbuilt slice of that plan).
+- **Deferred by a recorded decision, with no plan file.** Ball size and same/random size, the ball
+  collision checkbox, the white/dark theme and the spawn-rate slider. gui.1 trimmed the settings list
+  to four working controls on purpose; each of these four needs a simulation or styling change before
+  a control can exist, so a plan file would be a one-line table entry plus that change. "A player
+  signs to a task" is part of 1.0 and is not needed while every live slot already owns one objective.
+- **Open, with no plan at all.** A near-target quest category — a hue plus a tolerance instead of a
+  named palette colour. `colorHueNear` already answers the question; nothing generates such a task,
+  and no plan file mentions it.
+
+Everything else in `draft.txt` ships. Nothing in the draft is blocked by an architectural gap: each
+open item is a table row, a control or a predicate.
+
 ## Why the gaps are gaps
 
 - The settings list was trimmed on purpose in gui.1: aperture size/speed, energy rates, ball size,
@@ -80,5 +100,7 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 
 ## Next step
 
-Ball size, the collision checkbox and the light theme are the three controls left in the settings
-table; all three need a simulation or styling change rather than a control over an existing setter.
+Plan 2.4 closed the two quest gaps that mattered for play: "less than" objectives are generated and
+solvable, and the bot reads the direction the card states. Ball size, the collision checkbox and the
+light theme are the three controls left in the settings table; a near-target quest category is the
+one draft feature with no plan at all.
