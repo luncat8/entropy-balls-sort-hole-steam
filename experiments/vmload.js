@@ -139,6 +139,7 @@ function makeStubs() {
 		'settings-panel': element({ open: true }),
 		'settings-friction': element({ checked: false }),
 		'settings-humans': element({ checked: false }),
+		'settings-bot': element({ checked: false, disabled: false }),
 		'settings-url-wrap': element({ hidden: true }),
 		'settings-url': element({ value: '' }),
 		'task-list': element({}),

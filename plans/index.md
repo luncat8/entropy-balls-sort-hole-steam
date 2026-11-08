@@ -12,6 +12,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 6. [gui.1 — Settings and status UI](plangui.1.md): settings table and URL persistence landed (friction, two humans); the status strip remains.
 7. [1.0 — Task queue](plan1.0.md): deferred task list and task claiming, after the single-task loop is proven.
 8. [2.0 — Two players and bot](plan2.0.md): independent objectives, shared field and force controls, optional bot.
+9. [2.1 — Bot opponent policy](plan2.1.md): the bot aims, spends its store and rests on the `PLAYER_BOT` slot that 2.0 created.
 
 ## Shared product decisions
 

@@ -50,3 +50,12 @@ an experiment that does `const players = apis['players.js']` shadows the page gl
 
 ## boot order: a settings loader that rebuilds participants needs the participants' consumers (2026-11-08)
 loading settings before the force layer exists makes the rebind project selections into an uninitialised store, and the input layer guards with `if (!inputState.value) return` — a silent no-op that leaves player 1 at zero force after a `?humans=2` reload. when a settings load can rebuild live parts, boot those parts first and load settings last.
+
+## a bot that chases the next matching ball loses to a bot that parks (2026-11-08)
+with a shared field and a small aperture, the metric moves with crossing *volume*: opening for the soonest wanted ball also opens for every ball that arrives at that height meanwhile, so the ratio stays at the ambient mix while the hole burns its store travelling. measured in a dense field over three 60 s runs: "soonest matching ball" let 42 wanted and 69 wrong-way balls through, a lane-density aim (net predicted crossings inside one aperture, minus travel) 38 and 51, and a parked hole 9 and 9. score heights, not balls, and score the height the hole already holds too, otherwise it chases noise across the field.
+
+## a "keep what exists" loop must write both branches (2026-11-08)
+`tasksRestart` cleared every slot and then attached an objective only where the copy said there was none, so every slot that already had a task lost it and only the new one got a task — the first human lost their objective the moment a second player joined, which reads as "toggling two players deletes my quest". when rewriting state from a copy, assert the kept branch explicitly: `if (prior[id]) on[id] = 1; else attach(id)`.
+
+## a policy on the fixed-step hook overwrites hand-made force in display tests (2026-11-08)
+panel tests write `forceSetDirection`/`forceHold` directly and then step to price the store; once a bot policy runs on the same hook, the step replaces the request and the panel shows "No force". detach the hook for those steps (`simSetControlHook(null)`, step, restore) instead of teaching the display tests the policy.

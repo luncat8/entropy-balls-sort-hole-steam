@@ -14,6 +14,7 @@ const settings = apis['settings.js'];
 const players = apis['players.js'];
 const tasks = apis['tasks.js'];
 const goal = apis['goalview.js'];
+const main = apis['main.js'];
 const DT = sim.FIXED_DT;
 const CAP = force.FORCE_CAPACITY;
 
@@ -34,6 +35,13 @@ function near(a, b, tol = 1e-5) {
 
 function step(n) {
 	for (let i = 0; i < n; i++) sim.simStep(DT);
+}
+
+// the panel blocks below write force through the api, so the bot policy must not overwrite it
+function stepQuiet(n) {
+	sim.simSetControlHook(null);
+	step(n);
+	sim.simSetControlHook(main.mainControlStep);
 }
 
 function row(id = 0) {
@@ -284,7 +292,7 @@ force.forceSetDirection(1, -1);
 force.forceSetMagnitude(1, 0.75);
 force.forceHold(1, true);
 force.forceState.energy[1] = 50;
-step(1);
+stepQuiet(1);
 panels.forcePanelPaint();
 check('panels: each participant has a labeled panel and bots are read-only', panels.forcePanels.rows.length === 2
 	&& row(1).panel.getAttribute('aria-label') === 'Player 2 force' && row(1).slider.disabled);
@@ -301,7 +309,7 @@ players.players.type[0] = players.PLAYER_BOT;
 force.forceSetDirection(0, -1);
 force.forceSetMagnitude(0, 0.75);
 force.forceHold(0, true);
-step(1);
+stepQuiet(1);
 panels.forcePanelPaint();
 field.dispatch('pointerdown', { pointerId: 20, clientY: 700 });
 win('keydown', 'Space');

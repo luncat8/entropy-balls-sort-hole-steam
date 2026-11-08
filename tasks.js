@@ -324,7 +324,8 @@ function tasksRestart() {
 	const prior = tasksOn.slice();
 	for (let id = 0; id < TASK_SLOTS; id++) tasksOn[id] = 0;
 	for (let id = 0; id < players.count; id++) {
-		if (!prior[id]) tasksAttach(id);
+		if (prior[id]) tasksOn[id] = 1;
+		else tasksAttach(id);
 	}
 }
 

@@ -63,6 +63,7 @@ getObj().data().action()
 	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
 	canvas.js — owns canvas sizing/drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	force.js — owns per-participant hole requests, energy stores, funding, the combined drive and the store readout. edit for energy rates, funding rules, readout.
+	bot.js — owns the bot opponent's policy: predicted crossings, the lane it parks in, its aim and its energy rests. edit for bot heuristics, aim horizon, rest thresholds. it writes requests through force.js and never reads input.
 	input.js — owns both human control channels: the pointer/wheel channel (player 1) and the keys channel (player 2 with two humans), their selections and holds. edit for bindings, strengths, hold gestures, channel assignment.
 	players.js — owns participant identity, type and lifecycle. edit for the number of humans, adding bots, controller type.
 	tasks.js — owns objective rules, generation, difficulty cost and bands, per-participant lifecycle, the quest list and press reporting. edit for predicates, candidates, band constants, hold duration, list copy.

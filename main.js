@@ -16,6 +16,12 @@ function mainFrame(tMs) {
 	requestAnimationFrame(mainFrame);
 }
 
+// the bot is one more writer of a hole request, so it runs on the same fixed-step hook as the humans
+function mainControlStep(dt) {
+	inputStep();
+	botStep(dt);
+}
+
 function mainBoot() {
 	simInit();
 	playersInit(1);
@@ -28,11 +34,12 @@ function mainBoot() {
 	inputInit();
 	settingsInit();
 	forcePanelInit();
-	simSetControlHook(inputStep);
+	botInit();
+	simSetControlHook(mainControlStep);
 	requestAnimationFrame(mainFrame);
 }
 
 // boot runs in the browser only so every file also loads under bare node
 if (typeof document !== 'undefined') mainBoot();
 
-if (typeof module !== 'undefined') module.exports = { mainBoot, mainFrame, runtime };
+if (typeof module !== 'undefined') module.exports = { mainBoot, mainFrame, mainControlStep, runtime };
