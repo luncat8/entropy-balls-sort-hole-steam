@@ -83,3 +83,15 @@ equal and opposite requests cancel per fixed step while both pay. a fixed 2 s tu
 
 ## a view painted between fixed steps must refresh itself (2026-11-08)
 `tasksView` was only rewritten inside `tasksStep`. `questPaint` runs from the frame loop, so after a ball moved but before the next step the card showed the previous split, and a progress bar could read 0% for a state that had already changed. the paint path now calls `tasksRefresh()` before reading. the same trap applies to any cached value keyed by a revision counter: the cache may be older than the snapshot the reader sees.
+
+## fold a prediction at the crossing's own time (2026-11-08)
+`botFoldY(y, vy, t)` returns the height at time `t`, so a list of future crossings needs each crossing's absolute time, not the time since the last one. the first version passed `0` for the first crossing and then the previous crossing's time, so every entry was the height one crossing earlier — the hole was aimed where the ball already was. horizontal-only test balls (`vy = 0`) hide this completely: add one diagonal ball and assert the predicted height against `y + vy * t`.
+
+## a quota that only tests one sign plays half the grammar backwards (2026-11-08)
+the plan's two counts (`needCat`, `spareOther`) can be negative: `<X%` is reached by matching balls *leaving* the named chamber and other balls *entering* it. a predicate written as `entering && needCat > 0` labels every crossing of a `<` objective as harmful, so the bot avoids the only progress available and those objectives are generated but never completed. derive the useful crossing from the sign, and test both comparators in the smoke rather than only the one the field usually generates.
+
+## an equal-chance draw needs its own grammar check (2026-11-08)
+comparators are not symmetric in a random field: `<70%` is already true 81% of the time, so of 80 playable candidates per direction only 7 were `<` and 58 were `>` — a flat draw over candidates then makes "greater than" the default quest. two fixes compound: span the threshold table over both ends (10-90), and draw the comparator by equal chance inside the chosen difficulty label. measure the assigned mix (48/300 `<`), not the candidate histogram: the histogram looked merely lopsided while the cards were one-directional.
+
+## a satisfied hold has nothing to maximise (2026-11-08)
+a `hold` objective that is already met leaves both quotas at zero, so every crossing is worth `-1` and every lane scores below zero — `botAim` returns false and the bot stops defending exactly when the two-second hold starts. a hold needs its own lane rule: count only the crossings that would end the hold (`>` loses when the named chamber's share drops) and treat the lane the hole already holds as the zero baseline, so a safer lane must beat the drive.
