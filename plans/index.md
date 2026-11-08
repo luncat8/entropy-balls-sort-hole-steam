@@ -13,7 +13,10 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 7. [1.0 — Task queue](plan1.0.md): deferred task list and task claiming, after the single-task loop is proven.
 8. ~~2.0 — Two players and bot~~ — done: [plan](plan2.0.md), independent objectives and shared controls.
 9. ~~2.1 — Bot opponent policy~~ — done: [plan](plan2.1.md), lane aim and energy rests.
-10. [2.2 — Player scoreboard and independent bots](plan2.2.md): score table, per-slot bot checkboxes, two-bot matches and live ball tuning.
+10. ~~2.2 — Player scoreboard and independent bots~~ — done: [plan](plan2.2.md), independent bots and live ball tuning.
+11. ~~2.3 — Bot plan aim~~ — done: bots aim at the split a task needs instead of at traffic.
+12. [0.5 — Aperture and energy settings](plan0.5.md): hole size, hole speed, energy cost and storage.
+13. [draft coverage](draft-coverage.md): what `draft.txt` asks for, what ships, what is still open.
 
 ## Shared product decisions
 

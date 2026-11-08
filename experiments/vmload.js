@@ -143,6 +143,14 @@ function makeStubs() {
 		'settings-ball-speed': element({ value: '175' }),
 		'settings-balls-value': element({ textContent: '24' }),
 		'settings-ball-speed-value': element({ textContent: '175 px/s' }),
+		'settings-hole-size': element({ value: '113' }),
+		'settings-hole-speed': element({ value: '700' }),
+		'settings-energy-cost': element({ value: '25' }),
+		'settings-energy-store': element({ value: '100' }),
+		'settings-hole-size-value': element({ textContent: '113 px' }),
+		'settings-hole-speed-value': element({ textContent: '700 px/s' }),
+		'settings-energy-cost-value': element({ textContent: '25/s' }),
+		'settings-energy-store-value': element({ textContent: '100' }),
 		'score-rows': element({}),
 		'score-mode': element({ textContent: '' }),
 		'score-restart': element({}),
@@ -172,6 +180,7 @@ function makeStubs() {
 		window: win,
 		URL,
 		URLSearchParams,
+		Math,
 		requestAnimationFrame: noop,
 		console
 	};
@@ -190,7 +199,7 @@ function loadGame(rootDir) {
 		vm.runInContext(fs.readFileSync(path.join(rootDir, src), 'utf8'), ctx, { filename: src });
 		apis[src] = sandbox.module.exports;
 	}
-	return { apis, stubs, document: sandbox.document };
+	return { apis, stubs, ctx, document: sandbox.document };
 }
 
 module.exports = { loadGame };

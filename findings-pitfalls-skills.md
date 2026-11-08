@@ -65,3 +65,21 @@ equal opposite requests through a shared aperture cancel while both stores pay; 
 
 ## a restart that clears force stores must reproject human selections (2026-11-08)
 `forceInit()` clears magnitude as well as energy, while the input layer still remembers the slider value. calling it from a restart or roster rebuild without a following `inputRebind()` leaves a human panel showing a nonzero selection that applies zero force until the slider moves. boot the stores first, then rebind/reproject the human channels.
+
+## a bot must aim at the split, not at the direction a ball wants to go (2026-11-08)
+"does this ball belong on that side" cannot tell a task's quota apart from its traffic: a matching ball already standing in the named chamber is a ball the objective *holds*, and opening for its exit spends two crossings, yet a per-ball wanted/harm flag calls it progress. read the exact plan the difficulty priced (`tasksCheapest(..., out)` writes the split; the current counts minus that split are the two quotas left to fill) and score each predicted crossing by whether it moves a quota. in the same dense field, seeded 90 s matches: net helpful crossings 0.67 → 1.47 per minute solo, 3.00 → 6.33 with two bots.
+
+## the cheapest satisfying split can cost zero, and a `best < 0` guard drops it (2026-11-08)
+`tasksCheapest` tracked only strictly cheaper walks, so when a split satisfying the task was already reachable at cost 0 the loop found it but never stored it. every caller saw `-1` (unreachable), and the generator's "reject an already true task" filter checks `cost === 0` — a satisfied objective therefore slipped through as assignable. initialize `best` from the first valid split, and keep a brute-force cross-check of the closed form on the zero case, not only on the expensive ones.
+
+## a ball crossing a divider comes back at a fixed interval (2026-11-08)
+after crossing, a ball is in the other chamber heading for its outer wall, so the next meeting with the divider is `2 * (chamber width - r) / |vx|` later, and the lane it will cross at advances by `|vy|` times that. with two equal chambers the interval alternates slightly but repeats. predicting three crossings per ball instead of one makes a lane score reflect collected traffic instead of a single lucky ball. the direction of the next crossing is decided by which chamber the ball is in, never by the sign of `vx` — a ball moving away from the divider crosses the other way after it turns.
+
+## a policy weight must be relative to its cost term (2026-11-08)
+lane score was `crossings * weight - travelSeconds`. at a weight of 0.6 a single near crossing was worth less than a 0.5 s drive, so every candidate lane scored below zero, `botAim` returned false on nearly every think and the bot sat still — while the harness happily reported "fewer wasted crossings". read the units: one crossing has to buy at least the travel a bot can afford to it, or the optimum is the empty action.
+
+## one owner beats alternating turns when a resource is contested per tick (2026-11-08)
+equal and opposite requests cancel per fixed step while both pay. a fixed 2 s turn is shorter than the travel it authorizes, so each bot undid the other's move and the pair spent 60% of a match in exact opposition with neither objective moving. give the turn to one bot until *it* is done (parked) or a generous cap expires, let a parked bot reserve nothing, and let aligned requests combine.
+
+## a view painted between fixed steps must refresh itself (2026-11-08)
+`tasksView` was only rewritten inside `tasksStep`. `questPaint` runs from the frame loop, so after a ball moved but before the next step the card showed the previous split, and a progress bar could read 0% for a state that had already changed. the paint path now calls `tasksRefresh()` before reading. the same trap applies to any cached value keyed by a revision counter: the cache may be older than the snapshot the reader sees.

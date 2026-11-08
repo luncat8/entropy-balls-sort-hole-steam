@@ -32,8 +32,17 @@ function forcePanelRebuild() {
 	forcePanels.root.textContent = '';
 	forcePanels.rows.length = 0;
 	const frag = document.createDocumentFragment();
-	for (let id = 0; id < players.count; id++) frag.append(forcePanelBuild(id));
+	for (let id = 0; id < players.count; id++) frag.append(forcePanelPair(id));
 	forcePanels.root.append(frag);
+}
+
+// one column per player: the objective that player is chasing sits directly above the controls
+// that chase it, so reading a card and using its force never means looking at two screen corners
+function forcePanelPair(id) {
+	const pair = forcePanelElement('div', 'force-pair');
+	questMount(pair, id);
+	pair.append(forcePanelBuild(id));
+	return pair;
 }
 
 function forcePanelBuild(id) {

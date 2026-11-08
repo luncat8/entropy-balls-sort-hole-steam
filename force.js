@@ -2,7 +2,10 @@
 // edit for: energy rates, funding rules and force views
 
 const FORCE_CAPACITY = 100;
-const FORCE_RECHARGE = 10;
+// recharge is a share of the store, so raising the store does not make a bot or a human wait
+// longer than it did before the setting existed
+const FORCE_RECHARGE_SHARE = 0.1;
+const FORCE_RECHARGE = FORCE_CAPACITY * FORCE_RECHARGE_SHARE;
 const FORCE_COST = 25;
 const FORCE_PREVIEW_SECONDS = 2;
 
@@ -11,6 +14,7 @@ const forceViewScratch = { energy: 0, capacity: 0, share: 0, dir: 0, mag: 0, hel
 
 let forceCost = FORCE_COST;
 let forceCapacity = FORCE_CAPACITY;
+let forceRecharge = FORCE_RECHARGE;
 
 function forceInit() {
 	forceState.dir = new Int8Array(PLAYER_CAP);
@@ -28,6 +32,7 @@ function forceSetCost(cost) {
 
 function forceSetCapacity(capacity) {
 	forceCapacity = capacity > 0 ? capacity : 0;
+	forceRecharge = forceCapacity * FORCE_RECHARGE_SHARE;
 	if (!forceState.energy) return;
 	for (let id = 0; id < PLAYER_CAP; id++) {
 		if (id >= players.count || forceState.energy[id] > forceCapacity) forceState.energy[id] = forceCapacity;
@@ -62,7 +67,7 @@ function forceClear(id) {
 // Stores pay even at a blocked endpoint or when another participant cancels their request.
 function forceFund(id, dt) {
 	const st = forceState;
-	let e = st.energy[id] + FORCE_RECHARGE * dt;
+	let e = st.energy[id] + forceRecharge * dt;
 	if (e > forceCapacity) e = forceCapacity;
 	const mag = st.held[id] && st.dir[id] !== 0 ? st.mag[id] : 0;
 	let cost = forceCost * mag * dt;
@@ -112,6 +117,7 @@ if (typeof module !== 'undefined') module.exports = {
 	forceView,
 	FORCE_CAPACITY,
 	FORCE_RECHARGE,
+	FORCE_RECHARGE_SHARE,
 	FORCE_COST,
 	FORCE_PREVIEW_SECONDS
 };

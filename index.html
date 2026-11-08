@@ -135,12 +135,13 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	padding: 0;
 	list-style: none;
 }
+/* cards live in their player's column; this list is only the mount point before that column exists */
+.quest-list:empty { display: none; }
 .quest {
 	display: grid;
-	grid-template-columns: 26px 1fr;
-	gap: 9px;
-	align-items: center;
-	padding: 8px 10px;
+	gap: 5px;
+	box-sizing: border-box;
+	padding: 7px 9px 6px;
 	border: 1px solid #495263;
 	border-radius: 8px;
 	background: rgba(18, 21, 27, 0.92);
@@ -149,21 +150,47 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	touch-action: none;
 	user-select: none;
 }
+.quest-head { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 7px; align-items: center; }
 .quest + .quest { margin-top: 6px; }
 .quest:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
 .quest[hidden] { display: none; }
 .quest:active { border-color: #83b8ff; }
 .quest-swatch {
-	width: 26px;
-	height: 26px;
+	width: 22px;
+	height: 22px;
 	border-radius: 5px;
 	border: 1px solid rgba(237, 240, 246, 0.25);
 }
-.quest-swatch.target-mean i { width: 20px; height: 20px; }
+.quest-swatch.target-mean i { width: 16px; height: 16px; }
 .quest-swatch.target-range i { width: 4px; height: 4px; }
-.quest-body { display: grid; gap: 1px; min-width: 0; }
-.quest-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.quest-meta { color: #9ba6ba; font-size: 11px; }
+.quest-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.quest-bar {
+	position: relative;
+	display: block;
+	height: 11px;
+	overflow: hidden;
+	border-radius: 3px;
+	background: #0b1119;
+	box-shadow: inset 0 0 0 1px #37424f;
+}
+.quest-bar-fill {
+	display: block;
+	box-sizing: border-box;
+	width: 0;
+	height: 100%;
+	background: linear-gradient(90deg, #4f8fce, #83b8ff);
+	color: #0b1119;
+	font: 700 8px/11px system-ui, sans-serif;
+	font-style: normal;
+	text-align: right;
+	padding-right: 3px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	overflow: hidden;
+	transition: width 0.18s linear;
+}
+.quest[data-done="true"] .quest-bar-fill { background: linear-gradient(90deg, #4faf7f, #75d9a6); }
+.quest-meta { color: #9ba6ba; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .quest-panel {
 	position: fixed;
 	top: 12px;
@@ -230,10 +257,14 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	color: #edf0f6;
 	font: 12px/1.35 system-ui, sans-serif;
 }
+/* the score table, then per player the objective and the control that serves it */
+.force-pair { display: grid; gap: 6px; width: 268px; max-width: 100%; }
+.force-pair .quest { width: 100%; box-shadow: none; }
+.force-pair .quest + .quest { margin-top: 0; }
 .force-panel {
 	box-sizing: border-box;
 	flex: 0 0 auto;
-	width: 194px;
+	width: 268px;
 	min-width: 145px;
 	padding: 10px 11px 9px;
 	border: 1px solid #445263;
@@ -379,6 +410,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	}
 	.bottom-panels > * { position: static; pointer-events: auto; }
 	.force-panels { flex: 0 1 auto; max-width: 100%; overflow-x: auto; }
+	.force-pair { width: auto; }
 	.force-panel { font-size: 12px; }
 	.quest-panel { box-sizing: border-box; flex: 0 1 calc(50% - 4px); min-width: 0; }
 	.quest-panel-swatch { height: 40px; }
@@ -386,7 +418,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 @media (max-width: 700px) {
 	.force-panels { flex-direction: row; width: 100%; gap: 6px; }
-	.force-panel { flex: 1 1 0; width: auto; min-width: 0; }
+	.force-pair { flex: 1 1 0; min-width: 0; width: auto; }
+	.force-panel { flex: 1 1 auto; width: auto; min-width: 0; }
 }
 @media (max-width: 360px) {
 	.force-panel { min-width: 0; padding-right: 8px; padding-left: 8px; }
@@ -400,13 +433,14 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 @media (max-height: 600px) {
 	.force-panels { flex-direction: row; align-items: flex-end; }
+	.quest-meta { display: none; }
+	.quest { padding: 5px 8px; gap: 3px; }
+	.quest-swatch { width: 20px; height: 20px; }
+	.quest-head { grid-template-columns: 20px minmax(0, 1fr); }
 	.score-panel { padding: 6px 9px; }
 	.score-table { margin-top: 2px; }
 	.score-row th { padding: 3px 0; }
 	.score-mode { margin-top: 3px; }
-	.quest { padding: 5px 8px; gap: 7px; }
-	.quest-swatch { width: 22px; height: 22px; }
-	.quest + .quest { margin-top: 4px; }
 	.force-panel { padding-top: 7px; padding-bottom: 7px; }
 	.force-status { margin-top: 2px; }
 	.force-panel-body { margin-top: 5px; }
@@ -427,7 +461,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	.force-panel::after { content: attr(data-hint); display: block; margin-top: 3px; color: #93a3b7; font-size: 9px; }
 }
 @media (max-height: 450px) {
-	.quest-meta { display: none; }
+	.quest-bar { height: 9px; }
+	.quest-head { grid-template-columns: 18px minmax(0, 1fr); }
 }
 </style>
 </head>
@@ -475,9 +510,21 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 			<label><input id="draw-slow-fade-hit-spot" type="checkbox"> Slow fade hit spot</label>
 		</div>
 		<div class="draw-options-group">
-			<span class="draw-options-heading">Hole movement</span>
+			<span class="draw-options-heading">Hole</span>
+			<label class="settings-range-label" for="settings-hole-size"><span>Hole size</span><output id="settings-hole-size-value" for="settings-hole-size">113 px</output></label>
+			<input id="settings-hole-size" type="range" min="60" max="240" step="1" value="113">
+			<label class="settings-range-label" for="settings-hole-speed"><span>Max hole speed</span><output id="settings-hole-speed-value" for="settings-hole-speed">700 px/s</output></label>
+			<input id="settings-hole-speed" type="range" min="200" max="1400" step="10" value="700">
 			<label><input id="settings-friction" type="checkbox"> Friction force</label>
 			<span class="settings-note">Faster movement meets more resistance.</span>
+		</div>
+		<div class="draw-options-group">
+			<span class="draw-options-heading">Energy</span>
+			<label class="settings-range-label" for="settings-energy-cost"><span>Spend per second</span><output id="settings-energy-cost-value" for="settings-energy-cost">25/s</output></label>
+			<input id="settings-energy-cost" type="range" min="5" max="80" step="1" value="25">
+			<label class="settings-range-label" for="settings-energy-store"><span>Storage</span><output id="settings-energy-store-value" for="settings-energy-store">100</output></label>
+			<input id="settings-energy-store" type="range" min="25" max="300" step="5" value="100">
+			<span class="settings-note">Recharge is a tenth of the storage per second.</span>
 		</div>
 		<div class="draw-options-group">
 			<span class="draw-options-heading">Balls</span>

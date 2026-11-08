@@ -89,8 +89,21 @@ quest.questPaint();
 check('checkbox: checking an open slot joins a bot', players.players.count === 2
 	&& players.players.type[1] === players.PLAYER_BOT && settings.settingsState.bots === 2
 	&& row(1).el.getAttribute('data-active') === 'true');
+// the objective sits in the same column as the control that serves it: card, then panel, per player
+check('layout: each player column is an objective above that player\'s force panel', (() => {
+	const root = stubs.els['force-panels'];
+	if (root.children.length !== players.players.count) return false;
+	for (let id = 0; id < root.children.length; id++) {
+		const pair = root.children[id].children;
+		if (pair.length !== 2) return false;
+		if (pair[0].className !== 'quest' || pair[1].className !== 'force-panel') return false;
+		if (pair[0].children[1].className !== 'quest-bar') return false;
+	}
+	return true;
+})());
+
 check('table: controller changes keep the same rows and add player prefixes', row(0).el === persistentRow
-	&& stubs.els['task-list'].children[0].children[1].children[0].textContent.indexOf('P1 · ') === 0);
+	&& stubs.els['task-list'].children[0].children[0].children[1].textContent.indexOf('P1 ') === 0);
 
 row(0).checkbox.checked = true;
 row(0).checkbox.dispatch('change');

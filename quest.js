@@ -1,10 +1,11 @@
-// owns: quest list items, their swatches, press gestures and repaint scheduling
-// edit for: item layout, list copy, press gestures
+// owns: task cards, their swatches, press gestures and repaint scheduling
+// edit for: card layout, card copy, press gestures
 
 const QUEST_IDLE = -1;
+const QUEST_BAR_RATE = 0.2;
 
 const quest = {
-	listEl: null,
+	home: null,
 	items: [],
 	paintSig: NaN,
 	swatchSig: -1,
@@ -25,10 +26,22 @@ function questClose() {
 	if (quest.paintHook) quest.paintHook(false, QUEST_IDLE);
 }
 
+// a card outside its player's column covers the field on top of an unrelated control, so it is
+// collected back into the list the page provides; the force column calls the other hook
+function questHome() {
+	if (!quest.home) quest.home = $('task-list');
+	return quest.home;
+}
+
+// the caller owns the card once it is mounted; a rebuild moves it rather than duplicating it
+function questMount(parent, id) {
+	questBuildItems();
+	parent.append(quest.items[id].el);
+}
+
 function questPaint() {
-	if (!quest.listEl) quest.listEl = $('task-list');
-	if (!quest.listEl) return;
 	if (!tasksAny()) return;
+	tasksRefresh();
 	questBuildItems();
 	const swatchSig = questSwatchSig();
 	const sig = questStateSig();
@@ -65,6 +78,7 @@ function questStateSig() {
 		sig = (sig * 31 + (tasksOn[id] ? 1 : 0) + (v.waiting ? 2 : 0) + (v.satisfied ? 4 : 0)) | 0;
 		sig = (sig * 31 + v.sideTotal * 2 + v.match * 128 + v.cost * 4096) | 0;
 		sig = (sig * 31 + ((v.holdSec * 10) | 0)) | 0;
+		sig = (sig * 31 + ((v.progress * 1000) | 0)) | 0;
 	}
 	return sig;
 }
@@ -76,24 +90,31 @@ function questSwatchSig() {
 	return sig;
 }
 
-// items are built once; a held item survives list repaints because only text and marks change
+// one card per slot, each a title line, a bar and a meta line; the card lives for the whole round
+// because only text, colour and the bar width change
 function questBuildItems() {
 	if (quest.items.length) return;
+	const home = questHome();
 	const frag = document.createDocumentFragment();
 	for (let id = 0; id < TASK_SLOTS; id++) {
 		const item = document.createElement('li');
 		item.className = 'quest';
 		item.tabIndex = 0;
+		const head = document.createElement('span');
+		head.className = 'quest-head';
 		const swatch = document.createElement('span');
 		swatch.className = 'quest-swatch';
-		const body = document.createElement('span');
-		body.className = 'quest-body';
 		const text = document.createElement('span');
 		text.className = 'quest-text';
+		head.append(swatch, text);
+		const bar = document.createElement('span');
+		bar.className = 'quest-bar';
+		const fill = document.createElement('i');
+		fill.className = 'quest-bar-fill';
+		bar.append(fill);
 		const meta = document.createElement('span');
 		meta.className = 'quest-meta';
-		body.append(text, meta);
-		item.append(swatch, body);
+		item.append(head, bar, meta);
 		item.addEventListener('pointerdown', e => questItemDown(e, id));
 		item.addEventListener('pointerup', e => questItemUp(e, id));
 		item.addEventListener('pointercancel', e => questItemUp(e, id));
@@ -102,9 +123,9 @@ function questBuildItems() {
 		item.addEventListener('keyup', e => questItemKey(e, id));
 		item.addEventListener('blur', e => questItemUp(e, id));
 		frag.append(item);
-		quest.items.push({ id, el: item, swatch, text, meta, held: false });
+		quest.items.push({ id, el: item, swatch, text, bar, fill, meta, held: false, pct: -1 });
 	}
-	quest.listEl.append(frag);
+	if (home) home.append(frag);
 	window.addEventListener('blur', questReleaseAll);
 }
 
@@ -119,26 +140,39 @@ function questPaintItems(swatchChanged) {
 		const it = quest.items[id];
 		it.el.hidden = !tasksOn[id];
 		if (!tasksOn[id]) continue;
-		it.text.textContent = (players.count > 1 ? 'P' + (id + 1) + ' · ' : '') + questObjectiveText(v);
+		it.text.textContent = (players.count > 1 ? 'P' + (id + 1) + ' ' : '') + questObjectiveText(v);
 		it.meta.textContent = questMetaText(v);
+		questPaintBar(it, v);
 		if (!swatchChanged) continue;
 		const h = tasksHueView[id];
 		quest.swatchFn(it.swatch, h.hue, h.count);
 	}
 }
 
+// the bar is a width percentage written only when the rounded value changes, and the readout sits
+// inside it so the same number is a label and a shape
+function questPaintBar(it, v) {
+	const pct = v.waiting ? 0 : ((v.progress * 100) | 0);
+	if (pct === it.pct) return;
+	it.pct = pct;
+	it.fill.style.width = pct + '%';
+	it.fill.textContent = v.waiting ? '' : pct + '%';
+	it.el.setAttribute('data-done', pct >= 100 ? 'true' : 'false');
+}
+
 function questMetaText(v) {
+	if (v.waiting) return 'waiting for a feasible task';
 	let meta = v.difficulty;
 	if (v.satisfied) meta += ' · met';
 	if (v.mode === 'hold' && v.holdSec > 0) meta += ' · ' + ((v.holdSec * 10) | 0) / 10 + '/' + TASK_HOLD_SEC + 's';
 	return meta;
 }
 
+// the side is an arrow and the condition a sign, so the line reads at a glance: → >40% red · 1/6
 function questObjectiveText(v) {
 	if (v.waiting) return 'waiting for a feasible task';
-	let text = v.side + ' ' + v.cmp + v.threshold + '% ' + v.category;
+	let text = tasksSideArrow(v.side) + ' ' + v.cmp + v.threshold + '% ' + v.category;
 	text += v.sideTotal === 0 ? ' · empty' : ' · ' + v.match + '/' + v.sideTotal;
-	if (v.mode === 'hold') text += ' · hold ' + TASK_HOLD_SEC + 's';
 	return text;
 }
 
@@ -179,6 +213,9 @@ if (typeof module !== 'undefined') module.exports = {
 	questSetSwatches,
 	questSetPaintHook,
 	questObjectiveText,
+	questMetaText,
+	questMount,
+	questHome,
 	questOpen,
 	questClose,
 	questReleaseAll,

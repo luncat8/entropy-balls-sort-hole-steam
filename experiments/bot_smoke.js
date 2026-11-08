@@ -122,9 +122,13 @@ bot.botAct(1);
 check('aim: a ball already on the hole line costs nothing', force.forceState.held[1] === 0
 	&& force.forceState.dir[1] !== -1);
 
-field(1150, 200, 280, 0, 'hot');
+// the ball is on the right, heading right: it must bounce off the right wall before it can cross
+field(1000, 200, 280, 0, 'hot');
 check('aim: a ball that bounces back in time is waited for', bot.botAim(1) === true
 	&& near(bot.botState.targetY[1], 200, 40));
+// a matching ball leaving the named chamber is the objective's loss, not its traffic
+field(100, 200, -280, 0, 'hot');
+check('aim: a matching ball leaving the named chamber draws no lane', bot.botAim(1) === false);
 field(900, 200, 200, 0, 'hot');
 check('aim: a ball that cannot come back inside the horizon is no lane', bot.botAim(1) === false);
 
@@ -223,6 +227,49 @@ check('contest: aligned aims do not reserve a turn', bot.botContest() === -1);
 bot.botState.rest[0] = 1;
 bot.botState.targetY[1] = 700;
 check('contest: a resting bot does not block the other', bot.botContest() === -1);
+
+// the plan reads a split, not a direction: with the named chamber already all matching, a matching
+// ball can only leave it, which is the crossing the objective loses
+field(300, 200, 200, 0, 'hot');
+sim.simAperture.y = 200;
+bot.botPlanOpen(1);
+check('plan: a met quota leaves no matching ball to fill', bot.botPlan.needCat === 0);
+check('plan: the same crossing then counts against the objective', (() => {
+	const n = bot.botPredict(0, true);
+	return n === 1 && bot.botCrossUseful(0) === false;
+})());
+check('plan: a crossing that loses the quota raises no lane', bot.botAim(1) === false);
+
+// the physics repeats: a ball crossing the divider keeps returning, so the prediction lists more
+// than one crossing inside a horizon long enough to hold them
+field(900, 200, -200, 0, 'hot');
+const longCross = 20;
+bot.botSetTuning({ horizon: longCross });
+const passes = bot.botPredict(0, true);
+bot.botSetTuning({ horizon: bot.BOT_AIM_HORIZON });
+check('predict: a ball repeats its crossing inside a long horizon', passes > 1
+	&& bot.botScratch.dir[0] === -1 && bot.botScratch.t[1] > bot.botScratch.t[0]);
+check('predict: a crossing flips the chamber it comes back from', (() => {
+	for (let j = 1; j < passes; j++) if (bot.botScratch.dir[j] === bot.botScratch.dir[j - 1]) return false;
+	return true;
+})());
+
+// a bot that owns the hole keeps it while it drives, and only hands it over when it parks
+field(900, 200, -200, 0, 'hot');
+players.playersInit(2, 3);
+input.inputRebind();
+force.forceInit();
+bot.botInit();
+bot.botState.targetY[0] = 120;
+bot.botState.targetY[1] = 700;
+bot.botState.aimed.fill(1);
+sim.simAperture.y = 400;
+check('contest: one bot owns the hole', bot.botContest() === 0);
+// The owner arrives: a parked bot wants nothing, so the opposition ends and the hole is released
+// rather than held against a bot that has nowhere to go
+sim.simAperture.y = 120;
+check('contest: an owner that arrived releases the hole', bot.botContest() === -1);
+check('contest: the released hole leaves no owner', bot.botState.owner === -1);
 
 check('wiring: the fixed-step hook runs both control channels', typeof main.mainControlStep === 'function');
 

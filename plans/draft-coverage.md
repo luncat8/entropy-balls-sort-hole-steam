@@ -1,0 +1,84 @@
+# draft coverage
+
+What `draft.txt` asks for, what ships, and where the rest is planned. Written as a status
+document: read it when asking "is this in the plan or still missing?".
+
+Status words: **shipped**, **partial**, **planned** (a plan file names it), **open** (no plan yet).
+
+## Settings panel
+
+| draft asks for | status | where |
+| --- | --- | --- |
+| settings save to the URL | shipped | `settings.js`, gui.1 |
+| slider hole size | shipped | `holeSize`, 60–240 px, plan 0.5 |
+| slider max hole speed | shipped | `holeSpeed`, 200–1400 px/s, plan 0.5 |
+| slider energy consumption to move the hole | shipped | `energyCost`, plan 0.5 |
+| slider energy storage | shipped | `energyStore`, plan 0.5 |
+| slider ball generation | open | spawn rate is a constant; the count limit is a different knob |
+| slider ball size, same or random size | open | sizes are a random range, not a setting |
+| average ball speed | shipped | `ballSpeed`, 50–350 px/s |
+| checkbox ball collisions | open | `simSetBallCollisions` exists, no control |
+| white/dark theme, hole as background color | open | one dark theme is hard-coded in the canvas and CSS |
+
+## Force and hole control
+
+| draft asks for | status | where |
+| --- | --- | --- |
+| two players with a bot checkbox each | shipped | `players.js`, `scoreboard.js`, plan 2.2 |
+| push and pull the hole, energy with storage and a constant source | shipped | `force.js`, plan 0.3 |
+| vertical force slider, green zero mark, force by distance | shipped | `forcepanel.js` |
+| energy storage bar with a red two-second usage segment | shipped | `forcepanel.js` |
+| wheel changes force, press slider or field to apply | shipped | `input.js` |
+| pointer direction when the field is pressed | shipped | `input.js` |
+| force panels show what a bot applies | shipped | `forcepanel.js`, plan 2.2 |
+| two humans: mouse and ↑↓ with Right to apply | shipped | `input.js`, plan gui.1 |
+| friction force checkbox | shipped | `settings.js` |
+
+## Quests and the task list
+
+| draft asks for | status | where |
+| --- | --- | --- |
+| quest generator over side, comparator, category, threshold | shipped | `tasks.js`, plan 0.4 |
+| difficulty metric, label at generation, no free or impossible tasks | shipped | `tasks.js`, plan 0.4 |
+| hold quests and immediate quests | shipped | `tasks.js`, plan 0.2 |
+| task list kept full, a player signs to a task | **partial** | `plan1.0.md`. Both live slots already hold one objective each, so the list is never empty while a slot is playing. The queue, the `open/claimed/complete` states, exclusive claiming and abandon are not built: generation is per slot, not per queue |
+| hold a list item to preview a winning field | shipped | `goalview.js`, `preview.js`, plan 1.1 |
+| target color as ball / range / smooth rectangle | shipped | `preview.js` |
+| new game task once all tasks are solved | shipped | every completion generates a replacement immediately |
+| visual progress of a task | shipped | per-card bar in `quest.js`; bar counts paid crossings, then the hold |
+| either side, either comparator, hot/cold or a named color | shipped | `tasks.js` |
+
+## Field and drawing
+
+| draft asks for | status | where |
+| --- | --- | --- |
+| field split by a movable-wall hole, balls reflect off walls | shipped | `simulation.js`, plan 0.1 |
+| balls fly without friction | shipped | `simulation.js` |
+| random ball colors with good saturation and light | shipped | `color.js`; six palette hues with random S/L, not a full wheel |
+| warm/cold/near-target color tests | shipped | `color.js` |
+| draw the trajectory of balls heading for the wall, in the ball's color | shipped | `canvas.js` |
+| predicted position and trajectory lines, off by default where noted | shipped | `canvas.js` |
+| slow fade hit spot after a hit | shipped | `canvas.js` |
+
+## Status and help
+
+| draft asks for | status | where |
+| --- | --- | --- |
+| status bar for constant info and current help | **partial** | constants are shown per feature (task card, force panel, score table). There is no single `status.js` strip: `plangui.1.md` still lists it as the remaining slice of that plan |
+
+## Why the gaps are gaps
+
+- The settings list was trimmed on purpose in gui.1: aperture size/speed, energy rates, ball size,
+  collision reflections and theme were deferred so the settings table could ship with four working
+  controls and a tested URL format. Adding a key is one table entry (`SETTINGS_KEYS`) plus one
+  normalize/encode branch, so the deferred sliders are cheap follow-ups, not a redesign.
+- The task queue (1.0) was deferred behind the two-slot objective model. 2.0–2.2 gave each slot its
+  own objective, which is a stronger version of "one task per player" for the two-player game; the
+  queue is only needed if a player must choose among several open tasks.
+- `status.js` is the only planned file that has never been written. Its content exists, scattered
+  across the three panels; the plan asked for one strip so a narrow screen keeps one source of truth.
+
+## Next step
+
+Ball size, the collision checkbox and the light theme are the three controls left in the settings
+table; all three need a simulation or styling change rather than a control over an existing setter.

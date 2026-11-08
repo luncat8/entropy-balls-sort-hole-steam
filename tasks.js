@@ -5,6 +5,8 @@ const TASK_SLOTS = 2;
 const TASK_HOLD_SEC = 2;
 const TASK_THRESH = [30, 40, 50, 60, 70];
 const TASK_SIDE_NAME = ['left', 'right'];
+// the list shows the side as an arrow, and the arrow carries the meaning better than the word
+const TASK_SIDE_ARROW = ['←', '→'];
 const TASK_CMP_NAME = ['>', '<'];
 const TASK_MODE_NAME = ['immediate', 'hold'];
 const TASK_ORDER_CAP = 512;
@@ -30,6 +32,9 @@ const tasksHold = new Float32Array(TASK_SLOTS);
 const tasksHoldSteps = new Uint16Array(TASK_SLOTS);
 const tasksWaitRev = new Uint32Array(TASK_SLOTS);
 const tasksCostAssigned = new Uint16Array(TASK_SLOTS);
+// the crossings still needed, recomputed only when the distribution changes: the same walk the
+// difficulty priced, so the bar measures progress in the unit the objective is scored in
+const tasksRemaining = new Uint16Array(TASK_SLOTS);
 const tasksOrder = new Uint16Array(TASK_ORDER_CAP);
 const tasksCostScratch = new Int16Array(TASK_ORDER_CAP);
 const tasksLabelCounts = new Uint16Array(TASK_LABEL_NAME.length);
@@ -59,6 +64,10 @@ function tasksCatFromName(name) {
 		if (PALETTE[i][0] === name) return i + 2;
 	}
 	return 0;
+}
+
+function tasksSideArrow(side) {
+	return TASK_SIDE_ARROW[side === 'right' ? 1 : 0];
 }
 
 function tasksCatName(cat) {
@@ -155,6 +164,8 @@ function tasksCheapest(cat, cmp, thresh, isLeft, out) {
 		// equal cost picks the split nearest the current chamber size, so a goal is not drawn as an
 		// almost empty chamber when staying put costs the same as emptying it
 		const close = Math.abs(s - sn);
+		// first hit wins too: a reachable zero costs nothing better, and dropping it would let a
+		// satisfied objective read as unreachable to every caller of the cost
 		if (best >= 0 && (c > best || (c === best && close >= bestClose))) continue;
 		best = c;
 		bestClose = close;
@@ -233,6 +244,26 @@ function tasksFillView(id) {
 	v.satisfied = tasksMeets(v.match, v.sideTotal, tasksCmp[id], v.threshold);
 	v.cost = tasksCostAssigned[id];
 	v.difficulty = v.waiting ? 'waiting' : tasksDifficulty(v.cost);
+	v.need = tasksNeed(v);
+	v.progress = tasksProgress(id, v);
+}
+
+// A hold objective's bar counts the hold itself once the split is met; otherwise the bar counts how
+// much of the priced crossing distance is already paid. Both read 1 when the objective is done.
+function tasksProgress(id, v) {
+	if (v.waiting) return 0;
+	if (v.satisfied && tasksMode[id]) return v.holdSec / TASK_HOLD_SEC;
+	if (v.satisfied) return 1;
+	// the view is painted between fixed steps, so the snapshot can be new while the cached walk is
+	// not: recompute against this snapshot instead of a revision the next view may not have seen
+	tasksRemaining[id] = tasksCostAssigned[id] < 1 ? 0
+		: tasksCost(tasksCat[id], tasksCmp[id], tasksThresh[id], tasksSide[id] === 0);
+	const left = tasksRemaining[id];
+	if (left < 0) return 0;
+	const start = tasksCostAssigned[id];
+	if (start <= 0) return 1;
+	const share = 1 - left / start;
+	return share < 0 ? 0 : (share > 1 ? 1 : share);
 }
 
 // the label is drawn first, then a candidate inside it: bands differ in width, so a flat draw
@@ -350,6 +381,14 @@ function tasksAssign(id, sideName, catName, cmpStr, threshold, modeName) {
 	tasksFillView(id);
 }
 
+// the card paints between fixed steps, so it reads the view it just refreshed rather than the one
+// the last step left behind
+function tasksRefresh() {
+	for (let id = 0; id < TASK_SLOTS; id++) {
+		if (tasksOn[id]) tasksFillView(id);
+	}
+}
+
 function tasksGenCount() {
 	return tasksGenCalls;
 }
@@ -409,6 +448,7 @@ if (typeof module !== 'undefined') module.exports = {
 	tasksInBand,
 	tasksDifficulty,
 	tasksCatFromName,
+	tasksSideArrow,
 	tasksCatTotal,
 	tasksCatSide,
 	tasksView,
@@ -417,6 +457,7 @@ if (typeof module !== 'undefined') module.exports = {
 	tasksWait,
 	tasksHold,
 	tasksGenCount,
+	tasksRefresh,
 	TASK_HOLD_SEC,
 	TASK_THRESH,
 	TASK_SLOTS,

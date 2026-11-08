@@ -39,7 +39,17 @@ function questItems() {
 
 function questText(id) {
 	const items = questItems();
-	return items[id] ? items[id].children[1].children[0].textContent : '';
+	return items[id] ? items[id].children[0].children[1].textContent : '';
+}
+
+function questMeta(id) {
+	const items = questItems();
+	return items[id] ? items[id].children[2].textContent : '';
+}
+
+function questBar(id) {
+	const items = questItems();
+	return items[id] ? items[id].children[1].children[0] : null;
 }
 
 function place(i, x, palette) {
@@ -205,7 +215,7 @@ sim.simFillDist();
 tasks.tasksAssign(0, 'left', 'red', '<', 40, 'immediate');
 quest.questPaint();
 check('quest item: shows side cmp threshold category and counts',
-	questText(0).indexOf('left') !== -1
+	questText(0).indexOf('←') !== -1
 	&& questText(0).indexOf('<40%') !== -1
 	&& questText(0).indexOf('red') !== -1
 	&& questText(0).indexOf('1/1') !== -1);
@@ -266,7 +276,32 @@ place(1, RIGHT, 5);
 sim.simFillDist();
 tasks.tasksAssign(0, 'left', 'red', '<', 40, 'immediate');
 quest.questPaint();
-check('quest item: shows the difficulty label', ['easy', 'normal', 'hard', 'expert'].includes(stubs.els['task-list'].children[0].children[1].children[1].textContent.split(' ')[0]));
+check('quest item: shows the difficulty label', ['easy', 'normal', 'hard', 'expert'].includes(questMeta(0).split(' ')[0]));
+
+reset();
+// left holds two blues, right a red and two yellows: one red in and one blue out is the priced walk
+place(0, LEFT, 4);
+place(1, LEFT, 4);
+place(2, RIGHT, 0);
+place(3, RIGHT, 2);
+place(4, RIGHT, 2);
+sim.simFillDist();
+tasks.tasksAssign(0, 'left', 'red', '>', 50, 'immediate');
+quest.questPaint();
+check('quest bar: starts at zero progress', questBar(0).style.width === '0%' && tasks.tasksView[0].cost === 3);
+sim.simBalls.x[2] = LEFT;
+sim.simFillDist();
+quest.questPaint();
+check('quest bar: crossing work moves the bar', questBar(0).style.width === '33%', questBar(0).style.width);
+// the priced walk finishes: the red arrives and both blues leave, so the chamber is all red
+sim.simBalls.x[0] = RIGHT;
+sim.simBalls.x[1] = RIGHT;
+sim.simBalls.x[2] = LEFT;
+sim.simFillDist();
+quest.questPaint();
+check('quest bar: a met objective fills the bar', tasks.tasksView[0].satisfied
+	&& questBar(0).style.width === '100%'
+	&& stubs.els['task-list'].children[0].getAttribute('data-done') === 'true');
 
 console.log('pass=' + pass + ' fail=' + fail);
 process.exitCode = fail ? 1 : 0;

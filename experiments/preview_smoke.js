@@ -348,7 +348,7 @@ held.dispatch('pointerdown', { pointerId: 3 });
 for (const fn of stubs.listeners.blur || []) fn();
 check('hold: window blur closes even an unfocused pointer hold', panel().hidden === true && goal.goalField.on === false);
 
-check('list: items keep the objective words', item(0).children[1].children[0].textContent
+check('list: items keep the objective words', item(0).children[0].children[1].textContent
 	=== quest.questObjectiveText(tasks.tasksView[0]));
 
 // the frame keeps the field still while a goal is shown, so the picture cannot drift from the plan

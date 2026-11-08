@@ -329,14 +329,17 @@ check('panels: zero capacity has an empty, finite meter', row().fill.style.heigh
 	&& row().usage.style.height === '0%' && row().meter.getAttribute('aria-valuenow') === '0');
 
 reset();
-force.forceSetCapacity(40);
+// capacity is a setting now, so the store is resized through the same path the panel uses
+settings.settingsSetEnergyStore(40, false);
+force.forceInit();
 check('stores: the first participant starts at the current capacity', force.forceState.energy[0] === 40);
-force.forceSetCapacity(80);
+settings.settingsSetEnergyStore(80, false);
 settings.settingsSetHumans(2, false);
 force.forceInit();
 panels.forcePanelPaint();
 check('stores: enabling player 2 gives it a full store at the current capacity', force.forceState.energy[0] === 80
 	&& force.forceState.energy[1] === 80 && row(1).energyNumber.textContent === '80');
+settings.settingsSetEnergyStore(settings.settingsDefaults.energyStore, false);
 settings.settingsSetHumans(1, false);
 
 reset(2);
@@ -457,6 +460,28 @@ settings.settingsSetFriction(true, true);
 check('settings: rejected file URL updates expose a copyable restoring URL', !stubs.els['settings-url-wrap'].hidden
 	&& stubs.els['settings-url'].value === 'file:///tmp/game/index.html?other=keep&friction=1#field');
 stubs.win.history.replaceState = replaceState;
+
+// plan 0.5: aperture and energy settings share the same normalize/encode/apply path
+check('settings: hole size clamps, round-trips and omits its default',
+	settings.settingsFromSearch('?hole=240').holeSize === 240
+	&& settings.settingsFromSearch('?hole=900').holeSize === 240
+	&& settings.settingsFromSearch('?hole=1').holeSize === 60
+	&& settings.settingsEncode('holeSize', 113) === undefined
+	&& settings.settingsEncode('holeSize', 180) === '180');
+check('settings: hole speed and energy keys round-trip',
+	settings.settingsFromSearch('?holeSpeed=900&cost=40&store=200')
+		.holeSpeed === 900 && settings.settingsEncode('holeSpeed', 700) === undefined);
+settings.settingsSetHoleSize(200, false);
+settings.settingsSetHoleSpeed(400, false);
+settings.settingsSetEnergyCost(40, false);
+settings.settingsSetEnergyStore(150, false);
+check('settings: aperture and energy settings reach their owners',
+	sim.simAperture.size === 200 && sim.simAperture.speed === 400
+	&& force.forceView(0).capacity === 150);
+settings.settingsSetEnergyStore(settings.settingsDefaults.energyStore, false);
+sim.simSetApertureSize(sim.APERTURE_SIZE);
+sim.simSetApertureSpeed(sim.APERTURE_SPEED);
+force.forceSetCost(force.FORCE_COST);
 
 console.log('pass=' + pass + ' fail=' + fail);
 process.exitCode = fail ? 1 : 0;

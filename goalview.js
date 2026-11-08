@@ -188,7 +188,7 @@ function goalClamp(i) {
 }
 
 function goalText(v) {
-	let text = v.side + ' ' + v.cmp + v.threshold + '% ' + v.category;
+	let text = tasksSideArrow(v.side) + ' ' + v.cmp + v.threshold + '% ' + v.category;
 	text += ' · goal ' + goalPlan.match + '/' + goalPlan.side;
 	text += goalField.moved
 		? ' · ' + goalField.moved + ' ball' + (goalField.moved === 1 ? '' : 's') + ' cross'

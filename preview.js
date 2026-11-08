@@ -119,7 +119,7 @@ function previewPaint() {
 		? 'no feasible objective for this distribution yet'
 		: v.difficulty + ' · ' + PREVIEW_MODE_NAME[preview.modeIndex]
 			+ (goal ? ' · goal ' + goalSummary.match + '/' + goalSummary.side : ' · needs ' + need + ' of ' + v.sideTotal)
-			+ ' on the ' + v.side + ', now ' + v.match + (goal ? '/' + v.sideTotal : '');
+			+ ' on the ' + tasksSideArrow(v.side) + ' side, now ' + v.match + (goal ? '/' + v.sideTotal : '');
 	previewPaintDots(need, v.match);
 }
 

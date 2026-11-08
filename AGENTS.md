@@ -63,10 +63,10 @@ getObj().data().action()
 	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
 	canvas.js — owns canvas sizing/drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	force.js — owns per-participant hole requests, energy stores, funding, the combined drive and the store readout. edit for energy rates, funding rules, readout.
-	bot.js — owns bot policy: predicted crossings, lane aim, energy rests and alternating priority when bots contest the hole. edit for heuristics, aim horizon, rest thresholds, contest turns. it writes through force.js and never reads input.
+	bot.js — owns bot policy: the objective's remaining quota, predicted crossings (every repeat inside the horizon), lane aim, energy rests and one-owner turns when bots contest the hole. edit for heuristics, aim horizon, rest thresholds, contest turns. it reads tasks.js's view and writes only through force.js; never reads input.
 	input.js — owns both human control channels: the pointer/wheel channel (player 1) and the keys channel (player 2 with two humans), their selections and holds. edit for bindings, strengths, hold gestures, channel assignment.
 	players.js — owns participant identity, type and lifecycle. edit for the roster, controller mask, adding bots.
-	tasks.js — owns objective rules, generation, difficulty, completion scores, per-participant lifecycle and the quest list. edit for predicates, candidates, bands, hold duration, scores, list copy.
+	tasks.js — owns objective rules, generation, difficulty, completion scores, per-participant lifecycle and the task view model (side, counts, need, progress). edit for predicates, candidates, bands, hold duration, scores, progress measure.
 	scoreboard.js — owns the player table, per-slot bot checkboxes, mode readout and restart control. edit for score columns, controller controls, table copy.
 	preview.js — owns quest target appearance modes, their shapes and samples, the hold preview panel and its mode radios. edit for appearance modes, target shapes, panel copy.
 	goalview.js — owns the held-quest goal view: which balls cross, goal layout, goal label. edit for goal layout, crossing rules, goal copy.
@@ -139,10 +139,11 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-plan 2.2 is in place: scoreboard.js owns the player table and bot checkboxes; settings.js stores a bots mask plus ball count/speed; status.js remains unwritten.
-a held quest freezes the field and draws the goal instead, so forcePaint still runs but forceDrive does not.
-input channels follow humans: the first human owns pointer/wheel, the second arrows; a lone human owns both even in slot 2.
-either slot can be a bot; conflicting bot aims alternate the right to drive the shared hole.
+plan 2.3 and 0.5 are in place. task cards mount inside each player's force column, above that player's panel; `#task-list` is only the pre-column mount point.
+a task card carries a progress bar measured in priced crossings (then hold time), so the bar and the difficulty share one unit.
+the bot decides from the objective's remaining quota, not from per-ball direction: matching balls already in the named chamber are quota, not traffic.
+plans/draft-coverage.md is the answer to "is this in the plan or still missing" — update it when a draft feature ships.
+status.js remains unwritten; its content lives in the task card, force panel and score table.
 
 ## housekeeping
 

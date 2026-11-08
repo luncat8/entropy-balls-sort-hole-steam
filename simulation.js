@@ -16,7 +16,11 @@ const BALL_SPEED_MAX = 350;
 const BALL_SPEED_DEFAULT = 175;
 const SPAWN_RATE = 5 / 3;
 const APERTURE_SIZE = 113;
+const APERTURE_SIZE_MIN = 60;
+const APERTURE_SIZE_MAX = 240;
 const APERTURE_SPEED = 700;
+const APERTURE_SPEED_MIN = 200;
+const APERTURE_SPEED_MAX = 1400;
 const APERTURE_FRICTION = 1;
 const FIXED_DT = 1 / 120;
 const MAX_CATCHUP = 0.25;
@@ -69,6 +73,25 @@ function simSetFriction(on) {
 
 function simSetControlHook(hook) {
 	simControlHook = hook;
+}
+
+// the centre stays put and the hole is pushed back inside the walls, so a big aperture never
+// hangs past a corner
+function simSetApertureSize(size) {
+	const next = Math.max(APERTURE_SIZE_MIN, Math.min(APERTURE_SIZE_MAX, Math.round(size)));
+	if (next === simAperture.size) return false;
+	simAperture.size = next;
+	const half = next / 2;
+	if (simAperture.y < half) simAperture.y = half;
+	else if (simAperture.y > simField.h - half) simAperture.y = simField.h - half;
+	return true;
+}
+
+function simSetApertureSpeed(speed) {
+	const next = Math.max(APERTURE_SPEED_MIN, Math.min(APERTURE_SPEED_MAX, speed));
+	if (next === simAperture.speed) return false;
+	simAperture.speed = next;
+	return true;
 }
 
 function simSetBallCollisions(on) {
@@ -332,6 +355,8 @@ function simAdvance(dtSec) {
 if (typeof module !== 'undefined') module.exports = {
 	simField, simBalls, simAperture, simDist, simBallConfig, simInit, simAdvance, simStep, simSpawn, simFillDist,
 	simSetBallCollisions, simSetSpawnRate, simSetBallCount, simSetBallSpeed, simSetFriction, simSetControlHook,
+	simSetApertureSize, simSetApertureSpeed,
 	BALL_CAP, BALL_COUNT_MIN, BALL_COUNT_DEFAULT, BALL_START_COUNT, BALL_V_MIN, BALL_V_MAX,
-	BALL_SPEED_MIN, BALL_SPEED_MAX, BALL_SPEED_DEFAULT, APERTURE_FRICTION, FIXED_DT
+	BALL_SPEED_MIN, BALL_SPEED_MAX, BALL_SPEED_DEFAULT, APERTURE_FRICTION, FIXED_DT,
+	APERTURE_SIZE, APERTURE_SIZE_MIN, APERTURE_SIZE_MAX, APERTURE_SPEED, APERTURE_SPEED_MIN, APERTURE_SPEED_MAX
 };
