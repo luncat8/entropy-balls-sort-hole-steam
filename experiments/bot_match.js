@@ -50,9 +50,26 @@ function match(seed, seconds, opts) {
 	let help = 0;
 	let harm = 0;
 	let crossings = 0;
+	let doneGt = 0;
+	let doneLt = 0;
+	let doneHold = 0;
+	const prevScore = new Uint32Array(2);
+	const prevCmp = new Uint8Array(2);
+	const prevMode = new Uint8Array(2);
 	for (let i = 0; i < sim.simBalls.count; i++) side[i] = sim.simBalls.x[i] < sim.simField.wallX ? 1 : 0;
 	for (let i = 0; i < steps; i++) {
+		for (let id = 0; id < 2; id++) {
+			prevCmp[id] = tasks.tasksView[id].cmp === '<' ? 1 : 0;
+			prevMode[id] = tasks.tasksView[id].mode === 'hold' ? 1 : 0;
+		}
 		sim.simStep(sim.FIXED_DT);
+		for (let id = 0; id < 2; id++) {
+			if (tasks.tasksScore[id] === prevScore[id]) continue;
+			prevScore[id] = tasks.tasksScore[id];
+			if (prevCmp[id]) doneLt++;
+			else doneGt++;
+			if (prevMode[id]) doneHold++;
+		}
 		travelled += Math.abs(sim.simAperture.velocity) * sim.FIXED_DT;
 		for (let id = 0; id < roster.players.count; id++) {
 			if (roster.players.type[id] === roster.PLAYER_BOT && force.forceState.held[id]) heldSteps++;
@@ -85,7 +102,10 @@ function match(seed, seconds, opts) {
 		waiting: waitingSteps / (steps * roster.players.count),
 		help,
 		harm,
-		crossings
+		crossings,
+		doneGt,
+		doneLt,
+		doneHold
 	};
 }
 
@@ -95,7 +115,7 @@ const humans = Number(process.argv[4] || 1);
 const parked = process.argv.includes('parked');
 const tuning = process.env.BOT_TUNE ? JSON.parse(process.env.BOT_TUNE) : null;
 const label = process.argv[5] || 'policy';
-const totals = { gen: 0, travelled: 0, opposite: 0, held: 0, waiting: 0, help: 0, harm: 0, crossings: 0 };
+const totals = { gen: 0, travelled: 0, opposite: 0, held: 0, waiting: 0, help: 0, harm: 0, crossings: 0, doneGt: 0, doneLt: 0, doneHold: 0 };
 let bad = 0;
 for (let seed = 1; seed <= SEEDS; seed++) {
 	const r = match(seed * 7919, SECONDS, { humans, parked, label, tuning });
@@ -117,4 +137,5 @@ console.log('policy=' + label + ' runs=' + SEEDS + ' seconds=' + SECONDS + ' bot
 	+ ' opposite_share=' + (totals.opposite / SEEDS).toFixed(3)
 	+ ' held_share=' + (totals.held / SEEDS).toFixed(3)
 	+ ' waiting_share=' + (totals.waiting / SEEDS).toFixed(3)
-	+ ' zero_runs=' + bad);
+	+ ' completed_gt=' + totals.doneGt + ' completed_lt=' + totals.doneLt
+	+ ' completed_hold=' + totals.doneHold + ' zero_runs=' + bad);
