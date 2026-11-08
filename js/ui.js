@@ -50,7 +50,7 @@ var UI = {
 	buildBottomBar: function () {
 		const el = document.getElementById('bottombar');
 		if (!el) return;
-		el.innerHTML = '<span id="help-text"></span> <span id="energy-text"></span>';
+		el.innerHTML = '<span id="help-text"></span> <span id="energy-text"></span> <span class="ebar"><i id="ebar0"></i></span> <span class="ebar"><i id="ebar1"></i></span>';
 	},
 	buildTaskPanel: function () {
 		const panel = document.getElementById('task-panel');
@@ -215,7 +215,7 @@ var UI = {
 		let help = '';
 		if (UI.panelOpen) help = 'Settings are saved in the URL.';
 		else if (p0.energy <= 0 || p1.energy <= 0) help = 'Energy empty — wait to recharge.';
-		else if (p0.task) help = 'Keep ' + p0.task.side + ' ' + p0.task.op + p0.task.pct + '% ' + ((typeof p0.task.category === 'string') ? p0.task.category : p0.task.category.color) + ' balls (' + (p0.task.mode || 'hold') + ').';
+		else if (p0.task) help = 'Keep ' + p0.task.side + ' ' + (p0.task.op === '>' ? 'above' : 'below') + ' ' + p0.task.pct + '% ' + ((typeof p0.task.category === 'string') ? p0.task.category : p0.task.category.color) + ' balls.';
 		else if (Settings.bot0 || Settings.bot1) help = 'Hold mouse/touch to push or pull the hole.';
 		else help = 'Drag the hole to let balls pass.';
 		const tips = ['Settings are saved in the URL.', 'Keep the target side above the threshold.'];
@@ -223,6 +223,10 @@ var UI = {
 		if (!help) help = tips[this.helpIndex];
 		const ht = document.getElementById('help-text');
 		if (ht && ht.textContent !== help) ht.textContent = help;
+		const e0 = document.getElementById('ebar0');
+		if (e0) { const w = (p0.energy / (p0.energyMax || 1) * 100).toFixed(0) + '%'; if (e0.style.width !== w) e0.style.width = w; }
+		const e1 = document.getElementById('ebar1');
+		if (e1) { const w = (p1.energy / (p1.energyMax || 1) * 100).toFixed(0) + '%'; if (e1.style.width !== w) e1.style.width = w; }
 		this.refreshTaskPanel();
 	}
 };
