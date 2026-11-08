@@ -28,7 +28,7 @@ function questClose() {
 function questPaint() {
 	if (!quest.listEl) quest.listEl = $('task-list');
 	if (!quest.listEl) return;
-	if (!tasksOn[0]) return;
+	if (!tasksAny()) return;
 	questBuildItems();
 	const swatchSig = questSwatchSig();
 	const sig = questStateSig();
@@ -71,7 +71,7 @@ function questStateSig() {
 
 // integer on purpose: a swatch string is only built when a category changes, never per frame
 function questSwatchSig() {
-	let sig = tasksOn[0] ? 1 : 0;
+	let sig = tasksAny() ? 1 : 0;
 	for (let id = 0; id < TASK_SLOTS; id++) sig = sig * 8 + tasksCat[id] + (tasksOn[id] ? 1 : 0);
 	return sig;
 }
@@ -119,7 +119,7 @@ function questPaintItems(swatchChanged) {
 		const it = quest.items[id];
 		it.el.hidden = !tasksOn[id];
 		if (!tasksOn[id]) continue;
-		it.text.textContent = questObjectiveText(v);
+		it.text.textContent = (players.count > 1 ? 'P' + (id + 1) + ' · ' : '') + questObjectiveText(v);
 		it.meta.textContent = questMetaText(v);
 		if (!swatchChanged) continue;
 		const h = tasksHueView[id];

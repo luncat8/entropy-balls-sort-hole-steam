@@ -313,6 +313,21 @@ function tasksAttach(id) {
 	tasksGenerate(id);
 }
 
+// One objective per live participant: a participant leaving takes its objective with it,
+// so the one left is never measured against a slot nobody is playing.
+function tasksAny() {
+	for (let id = 0; id < TASK_SLOTS; id++) if (tasksOn[id]) return true;
+	return false;
+}
+
+function tasksRestart() {
+	const prior = tasksOn.slice();
+	for (let id = 0; id < TASK_SLOTS; id++) tasksOn[id] = 0;
+	for (let id = 0; id < players.count; id++) {
+		if (!prior[id]) tasksAttach(id);
+	}
+}
+
 function tasksAssign(id, sideName, catName, cmpStr, threshold, modeName) {
 	tasksOn[id] = 1;
 	tasksWait[id] = 0;
@@ -368,6 +383,8 @@ function tasksStepOne(id, dt) {
 if (typeof module !== 'undefined') module.exports = {
 	tasksInit,
 	tasksAttach,
+	tasksRestart,
+	tasksAny,
 	tasksAssign,
 	tasksStep,
 	tasksSetRand,

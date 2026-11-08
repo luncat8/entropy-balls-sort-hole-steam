@@ -2,40 +2,44 @@
 
 ## Outcome
 
-Two participants share one field and hole while pursuing independent objectives. Either participant can be human or bot. A settings option enables two humans on the same device: player 1 uses the mouse or touch, and player 2 uses the keyboard. One human remains the default; no network connection is needed.
+Two participants share one field and hole while pursuing independent objectives. A setting enables a second human on the same device: player 1 uses the mouse or touch, player 2 uses the keyboard. With the setting off there is one human, controlled by the pointer and the arrow/Space keys. Bot behaviour stays deferred; the bot controller type, its read-only panel and its funding path already exist.
 
 ## Design
 
 ### Participants and settings
 
-- Extend `players.js` to enable or disable participant 2 and choose human or bot for each participant. Expose these choices in settings and persist them with the other URL settings. Keep one-human mode available. Switching a controller must release its old input before changing type, without resetting that participant's task or energy. Disabling a participant clears its held force and removes its panel and objective.
-- Reuse the existing per-participant task lifecycle. Each player has an independent objective; completion replaces only that objective. Avoid assigning identical active tasks when alternatives exist. Label both objectives and their progress by participant. Do not add scoring or a winner without a product decision.
-- Reuse the per-participant force panels and funding interface. Both participants pay from separate stores, their funded requests sum and clamp, and opposing requests can cancel. Panels show each participant's selected force, actual funded contribution, energy and two-second cost, including a read-only panel for every bot.
+- `players.js` owns participant slots and controller type. `playersInit(humans)` builds one or two human slots; further slots are added by `playersAdd` for bots. A slot keeps its identity, so slot 1 is always player 2 and its task, panel and energy belong to whoever controls that slot.
+- `settings.js` owns the `humans` setting (`1` or `2`) next to the existing `friction` key. Both keys are one table (`SETTINGS_KEYS`) with one normalization, one encoding and one URL write. Two humans is written as `humans=2` and omitted otherwise; unknown values fall back to one human; other query parameters, the hash and the file:// copyable-URL fallback behave as for any settings key.
+- Changing the number of humans rebuilds the participant list, then re-attaches objectives only to live slots (`tasksRestart`), clears both channels' holds and reprojects the stored selections into the force layer. Rebuilding never resets the ball field, the hole or an unrelated setting. Turning the second human off drops that slot's objective with it, so the player who stays is not measured against a slot nobody plays.
+- The participant list is the single source for the panels: `forcePanelPaint` rebuilds when a count, controller type or control channel changed.
 
-### Two humans on one device
+### Control channels
 
-- When the two-human setting is active, player 1 controls their own slider or the canvas with the mouse/touch and may adjust the slider with the wheel. Player 2 uses **Up/Down arrows** to move their own signed vertical slider by 5 percentage points per step, including through the green zero mark. Holding **Right arrow** applies player 2's selected signed force; keyup stops it without changing the selection. Repeated keydown must not toggle the hold, and adjusting a slider alone never applies force.
-- The two control paths are independent: player 2 may hold Right while player 1 presses the slider or field, and releasing either participant's input must not clear the other participant's request. The same zero, energy and opposing-force rules apply to both. Suspend player 1's global arrow/Space shortcuts in this mode so the keyboard belongs to player 2.
-- Route player 2's keys while focus is on the field or a force slider, including after player 1 clicks a slider. Suppress native range/scroll behavior only for keys the game consumes. Other form fields, settings controls and quest interactions retain their own keys; always honor Right-arrow keyup for an already-held request even if focus moved.
-- Release player 2 on keyup, window blur, document hiding, disabling the participant or switching its controller. Pointer cancellation, lost capture and blur independently release player 1. Make the player 2 panel and its keyboard instructions accessible without making the bot panel interactive.
+- Channels are participant ids. `inputState.mouse` owns the pointer (field and slider) and the wheel; `inputState.keys` owns the arrow keys. With one human both channels are that human. `inputRebind` recomputes both from the participant list and releases every hold first.
+- Per participant, state is a selected signed value (−100…+100 in 5-point steps), at most one slider pointer, at most one canvas pointer, and a key hold flag. Direction is `sign(value)` except while a canvas pointer is held, which aims the hole at the pointer's vertical position with the slider's magnitude and a half-step dead zone.
+- A player applies force only while holding a source: their slider, their field pointer, or the key apply key. Releasing a source releases only that player, keeping the selection. Pointer release, cancellation, lost capture, window blur, document hiding and a channel change clear holds; `keyup` always releases a held key even after focus moved.
+- Player 2 uses **↑/↓** to move their own slider in 5-point steps, including through the green zero mark, and holds **→** to apply the selection. A repeated keydown does not toggle the hold; the keyup releases it. In two-human mode the single-human shortcuts are suspended, so ↑/↓ are not double-bound: player 1 uses only the pointer and the wheel. With one human, **Space** applies and ↑/↓ adjust.
+- Keys are consumed only when they belong to the game's own controls; form fields, settings, quest items and a consumed event keep their keys. A keyboard-owned slider ignores the pointer (`pointer-events: none`) so a click on it cannot move a value the keyboard owns, while `↑/↓` still reach the window.
+- Panels label the channel rather than the species: `Mouse`, `Arrows`, `Read only`, with per-channel one-line hints for short screens and a full help line otherwise. The player marker changes colour by channel, and the quest list prefixes objectives with `P1`/`P2` when two humans are active.
 
 ### Bots
 
-- A bot observes its own task, ball distribution, hole and crossing opportunities, then submits a bounded request through the same force API. A straightforward heuristic is sufficient; it must not mutate physics or energy directly. Do not run bot decisions while a held quest freezes simulation. Controller changes clear stale requests before the new controller can submit its own.
+- A bot submits requests through the same force API and appears in a read-only panel with its own store; `PLAYER_BOT` slots are added through `playersAdd` and never read pointer or key input. A decision policy is a later slice.
 
 ## Files and ownership
 
-- `players.js` — participant lifecycle and controller selection; `settings.js` — player count, controller choices and URL persistence.
-- New `bot.js` — bot decision policy; `input.js` — independent human pointer and keyboard paths.
-- `force.js`, `forcepanel.js`, `tasks.js`, `quest.js` — participant funding, controls and objective presentation.
-- `main.js` — wiring only; update `AGENTS.md` for new ownership.
+- `players.js` — participant lifecycle and controller type; `settings.js` — the `humans` and `friction` settings, URL persistence.
+- `input.js` — both human channels, holds and bindings; `forcepanel.js` — channel labels, hints and panel rebuilds.
+- `tasks.js` — objectives per live participant; `quest.js` — list copy and the two-player prefix.
+- `main.js` — boot order (participants, force layer, input, settings) and wiring; `index.html` — script order and the setting control.
+- `force.js`, `simulation.js`, `canvas.js` unchanged by this slice: energy, funding, hole physics and coordinate conversion already serve every participant.
 
 ## Validation
 
-- L0: `node --check` on touched JavaScript.
-- L1: enabling/disabling participants, URL round trips, independent task completion and energy, opposing forces, controller switches, bot request limits, and empty-objective waiting. Cover player 2 arrow repeats, center crossing, hold/release, simultaneous mouse and keyboard input, focus changes, blur and hidden-document cleanup, and form-control key isolation.
-- L2: full available suite and manual human/human, human/bot, bot/human and bot/bot play at desktop and narrow sizes. Verify both panels and objectives, touch/keyboard releases, independent energy, goal-preview pause and settings restoration without networking.
+- L0: `node --check` on every touched file.
+- L1: `experiments/force_smoke.js` — channel assignment for one and two humans, per-player selection steps, apply-key hold/release, simultaneous pointer and key holds, independent energy, hold release on blur, panel labels and rebuilds, `humans` URL round trip and default omission.
+- L2: the available simulations, tasks, quest-preview and force suites, because boot order, the participant list and the settings URL writer are shared. Manual pass: enable the second player, hold both controls at once, release each in turn, turn the mode off, reload a copied `?humans=2` URL, confirm both panels and objectives stay readable on a narrow screen.
 
 ## Dependencies and next step
 
-Requires 0.1–0.3 and settings integration from gui.1. Plan 1.0 is optional; define task-queue assignment separately when needed.
+Requires the field, tasks and force/energy layers of 0.1–0.3 and settings persistence from gui.1. Next: a bot decision policy on the existing `PLAYER_BOT` slot, then the task queue in 1.0.

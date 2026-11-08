@@ -19,7 +19,9 @@ function forcePanelMatchesPlayers() {
 	if (forcePanels.rows.length !== players.count) return false;
 	for (let id = 0; id < players.count; id++) {
 		const row = forcePanels.rows[id];
-		if (row.type !== players.type[id] || row.controlled !== inputControls(id)) return false;
+		const controls = inputControls(id);
+		if (row.type !== players.type[id] || row.controlled !== controls) return false;
+		if (controls && row.channel !== inputChannel(id)) return false;
 	}
 	return true;
 }
@@ -41,7 +43,7 @@ function forcePanelBuild(id) {
 	panel.setAttribute('aria-label', 'Player ' + (id + 1) + ' force');
 	const header = forcePanelElement('div', 'force-panel-header');
 	const player = forcePanelElement('span', 'force-player', 'Player ' + (id + 1));
-	const kind = forcePanelElement('span', 'force-kind', bot ? 'Bot' : 'Human');
+	const kind = forcePanelElement('span', 'force-kind');
 	header.append(player, kind);
 	const status = forcePanelElement('div', 'force-status', 'No force');
 
@@ -95,17 +97,42 @@ function forcePanelBuild(id) {
 
 	const row = {
 		type, panel, slider, thumb, selected, status, meter, fill, usage, energyNumber, energyCapacity, cost,
-		controlled: false, value: null, shownEnergy: -1, shownCapacity: -1, shownShare: -1,
+		controlled: false, channel: null, kind: '', value: null, shownEnergy: -1, shownCapacity: -1, shownShare: -1,
 		shownUsage: -1, shownCost: -1, shownStatus: ''
 	};
 	forcePanels.rows.push(row);
 	row.controlled = inputBindPanel(id, panel, slider);
+	row.channel = inputChannel(id);
+	kind.textContent = forcePanelKind(row);
+	row.kind = kind.textContent;
 	slider.disabled = !row.controlled;
-	panel.setAttribute('data-hint', row.controlled ? 'Hold to move' : 'Read only');
-	help.textContent = row.controlled ? 'Hold slider or field · scroll / ↑↓ to adjust · hold Space'
-		: (bot ? 'Bot control · read only' : 'Read only');
-	forcePanelSetValue(id, row.controlled ? inputValue() : 0);
+	panel.setAttribute('data-channel', row.channel || 'read');
+	panel.setAttribute('data-hint', forcePanelHint(row));
+	help.textContent = forcePanelHelp(row, bot);
+	forcePanelSetValue(id, row.controlled ? inputValue(id) : 0);
 	return panel;
+}
+
+// Two human panels must be told apart by their control, not by a shared "human" label.
+function forcePanelKind(row) {
+	if (row.type === PLAYER_BOT) return 'Bot';
+	if (row.channel === 'keys') return 'Arrows';
+	if (row.channel === 'mouse') return 'Mouse';
+	return 'Human';
+}
+
+// The hint is one line because a short screen shows only this; the help line has room to explain.
+function forcePanelHint(row) {
+	if (!row.controlled) return 'Read only';
+	if (row.channel === 'keys') return 'Arrows + Right';
+	return inputTwoHumans() ? 'Slider · wheel' : 'Hold to move';
+}
+
+function forcePanelHelp(row, bot) {
+	if (!row.controlled) return bot ? 'Bot control · read only' : 'Read only';
+	if (row.channel === 'keys') return '↑↓ move slider · hold Right to apply';
+	if (inputTwoHumans()) return 'Press slider, field or Space · scroll changes force';
+	return 'Hold slider or field · scroll / ↑↓ to adjust · hold Space';
 }
 
 function forcePanelSetValue(id, value) {
@@ -172,5 +199,5 @@ function forcePanelPaint() {
 }
 
 if (typeof module !== 'undefined') module.exports = {
-	forcePanels, forcePanelInit, forcePanelRebuild, forcePanelSetValue, forcePanelPaint
+	forcePanels, forcePanelInit, forcePanelRebuild, forcePanelSetValue, forcePanelPaint, forcePanelKind, forcePanelHint, forcePanelHelp
 };

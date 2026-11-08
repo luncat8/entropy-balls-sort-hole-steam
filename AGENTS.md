@@ -63,12 +63,12 @@ getObj().data().action()
 	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
 	canvas.js — owns canvas sizing/drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	force.js — owns per-participant hole requests, energy stores, funding, the combined drive and the store readout. edit for energy rates, funding rules, readout.
-	input.js — owns the human hole controls: direction, strength, hold gesture and the participant the controls drive. edit for bindings, strength steps, hold regions.
-	players.js — owns participant identity, type and lifecycle. edit for adding participants, controller type.
+	input.js — owns both human control channels: the pointer/wheel channel (player 1) and the keys channel (player 2 with two humans), their selections and holds. edit for bindings, strengths, hold gestures, channel assignment.
+	players.js — owns participant identity, type and lifecycle. edit for the number of humans, adding bots, controller type.
 	tasks.js — owns objective rules, generation, difficulty cost and bands, per-participant lifecycle, the quest list and press reporting. edit for predicates, candidates, band constants, hold duration, list copy.
 	preview.js — owns quest target appearance modes, their shapes and samples, the hold preview panel and its mode radios. edit for appearance modes, target shapes, panel copy.
 	goalview.js — owns the held-quest goal view: which balls cross, goal layout, goal label. edit for goal layout, crossing rules, goal copy.
-	settings.js — (planned) theme default, URL persistence, UI binding and theme application. edit for theme keys, new settings keys.
+	settings.js — owns the settings table, its defaults, URL persistence and the settings controls. edit for settings keys, URL keys, controls.
 	status.js — (planned) status/help presentation. not implemented yet.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
@@ -141,9 +141,10 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-plan gui.1 next: settings.js owns the aperture max speed, energy cost and store capacity seams that 0.3 exposed (forceSetCost, simAperture.speed); status.js takes the per-player energy row from forceView.
+plan gui.1 continues: settings.js is the settings table (friction, humans); status.js is still unwritten and owns the persistent status strip and contextual help.
 a held quest freezes the field and draws the goal instead, so forcePaint still runs but forceDrive does not.
-settings.js and status.js stay out of index.html until gui.1 creates them.
+input.js state is indexed by participant: inputState.mouse owns the pointer, inputState.keys the arrows; both are the same human when players.count is 1.
+bots exist only as a controller type (playersAdd(PLAYER_BOT)); nothing submits their force yet.
 
 ## housekeeping
 

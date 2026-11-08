@@ -41,3 +41,12 @@ a held preview that must not drift is simplest as "do not call simAdvance": one 
 
 ## an option label must show its own shape (2026-11-08)
 three "representations" that all render as a gradient rectangle make two of the labels false. give each mode its own DOM shape (one ball, a row of balls, one bar) behind one `previewFill(el, base, hue, count, mode)` path, and let the caller's base class carry the size. keep the base class in the assignment — overwriting `className` wholesale silently drops the size rules the layout depends on.
+
+## a control channel, not a control mode (2026-11-08)
+two humans on one device is the same problem as human-versus-bot: both need "who may write this participant's request". model it as a channel per participant (`mouse`, `keys`) rather than an `inputMode` flag threaded through the gesture code, and the second human is a second channel with different event sources. the panel labels the channel (`Mouse`/`Arrows`), so it stays honest for a bot slot with no channel at all.
+
+## a shadowing `const` in an experiment reads as undefined (2026-11-08)
+an experiment that does `const players = apis['players.js']` shadows the page global, so a loop `for (let id = 0; id < players.count; id++)` reads `undefined`, compares false and silently skips the body. the run then "passes" with stale state, or fails far away in an unrelated check. always spell the state field (`players.players.count`) in harness code; a loop whose body never runs is invisible in a pass/fail count. a shared reset should also call the same setters the ui calls (`inputSetValue(id, start)`) instead of poking the state array, so the test exercises the shipped path.
+
+## boot order: a settings loader that rebuilds participants needs the participants' consumers (2026-11-08)
+loading settings before the force layer exists makes the rebind project selections into an uninitialised store, and the input layer guards with `if (!inputState.value) return` — a silent no-op that leaves player 1 at zero force after a `?humans=2` reload. when a settings load can rebuild live parts, boot those parts first and load settings last.

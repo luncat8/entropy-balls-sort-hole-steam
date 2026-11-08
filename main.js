@@ -18,15 +18,15 @@ function mainFrame(tMs) {
 
 function mainBoot() {
 	simInit();
-	playersInit();
+	playersInit(1);
 	tasksInit();
 	for (let i = 0; i < players.count; i++) tasksAttach(i);
 	canvasInit();
-	settingsInit();
 	goalInit();
 	previewInit();
 	forceInit();
 	inputInit();
+	settingsInit();
 	forcePanelInit();
 	simSetControlHook(inputStep);
 	requestAnimationFrame(mainFrame);

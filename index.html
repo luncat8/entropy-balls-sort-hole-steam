@@ -189,15 +189,16 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	bottom: 12px;
 	z-index: 1;
 	display: flex;
+	flex-direction: column;
 	align-items: flex-end;
-	gap: 8px;
+	gap: 10px;
 	max-width: calc(100vw - 24px);
 	color: #edf0f6;
 	font: 12px/1.35 system-ui, sans-serif;
 }
 .force-panel {
 	box-sizing: border-box;
-	flex: 1 1 194px;
+	flex: 0 0 auto;
 	width: 194px;
 	min-width: 145px;
 	padding: 10px 11px 9px;
@@ -217,6 +218,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	border-radius: 50%;
 	background: #75d9a6;
 }
+/* the marker carries the control channel, so two players read as two colours, not two identical cards */
+.force-panel[data-channel="keys"] .force-player::before { background: #f3c567; }
 .force-kind { color: #9caabd; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
 .force-status { margin-top: 5px; color: #93a3b7; font-size: 11px; font-variant-numeric: tabular-nums; }
 .force-status[data-active="true"] { color: #a8d3ff; }
@@ -288,6 +291,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	cursor: ns-resize;
 }
 .force-slider:disabled { cursor: default; }
+/* a keyboard-owned slider still takes focus so its keys reach the window, but the pointer is player 1's */
+.force-slider-keys { cursor: default; pointer-events: none; }
 .force-selected { margin-top: 5px; color: #aab9c9; font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .force-energy-body { display: flex; align-items: stretch; gap: 7px; height: 146px; }
 .force-meter {
@@ -407,6 +412,11 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 			<label><input id="settings-friction" type="checkbox"> Friction force</label>
 			<span class="settings-note">Faster movement meets more resistance.</span>
 		</div>
+		<div class="draw-options-group">
+			<span class="draw-options-heading">Second player</span>
+			<label><input id="settings-humans" type="checkbox"> Two players on this device</label>
+			<span class="settings-note">Player 1: mouse, touch and wheel. Player 2: ↑↓ set the force, hold → to apply.</span>
+		</div>
 		<div class="draw-options-group settings-url" id="settings-url-wrap" hidden>
 			<label for="settings-url">Copy settings URL</label>
 			<input id="settings-url" type="text" readonly>
@@ -422,9 +432,9 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 <script src="color.js"></script>
 <script src="simulation.js"></script>
 <script src="canvas.js"></script>
-<script src="input.js"></script>
 <script src="players.js"></script>
 <script src="force.js"></script>
+<script src="input.js"></script>
 <script src="forcepanel.js"></script>
 <script src="settings.js"></script>
 <script src="tasks.js"></script>

@@ -1,17 +1,34 @@
-// owns: the human player's signed force selection and hold gestures
-// edit for: pointer, wheel and keyboard controls
+// owns: the human players' hole controls — pointer, wheel and keys per participant
+// edit for: bindings, hold gestures, channel assignment
 
 const INPUT_FORCE_STEP = 5;
 const INPUT_FORCE_START = 60;
 const INPUT_SLIDER_INSET = 10;
+const INPUT_NONE = -1;
 
-const inputUi = { canvas: null, panel: null, slider: null };
+const inputUi = { canvas: null, sliders: [] };
+// mouse and keys are participant ids: one human owns the pointer, a second human owns the arrows
 const inputState = {
-	player: 0, value: INPUT_FORCE_START, sliderPointer: null, canvasPointer: null,
-	canvasClientY: 0, targetY: 0, keyHeld: false
+	mouse: 0,
+	keys: 0,
+	value: null,
+	sliderPointer: null,
+	canvasPointer: null,
+	canvasClientY: null,
+	targetY: null,
+	keyHold: null
 };
 
 function inputInit() {
+	inputState.value = new Int16Array(PLAYER_CAP);
+	inputState.sliderPointer = new Int32Array(PLAYER_CAP);
+	inputState.canvasPointer = new Int32Array(PLAYER_CAP);
+	inputState.canvasClientY = new Float32Array(PLAYER_CAP);
+	inputState.targetY = new Float32Array(PLAYER_CAP);
+	inputState.keyHold = new Uint8Array(PLAYER_CAP);
+	inputState.value.fill(INPUT_FORCE_START);
+	inputState.sliderPointer.fill(INPUT_NONE);
+	inputState.canvasPointer.fill(INPUT_NONE);
 	inputUi.canvas = $('canv');
 	inputUi.canvas.addEventListener('pointerdown', inputCanvasDown);
 	inputUi.canvas.addEventListener('pointermove', inputCanvasMove);
@@ -21,29 +38,47 @@ function inputInit() {
 	inputUi.canvas.addEventListener('wheel', inputWheel, { passive: false });
 	window.addEventListener('keydown', inputKeyDown);
 	window.addEventListener('keyup', inputKeyUp);
-	window.addEventListener('blur', inputRelease);
+	window.addEventListener('blur', inputReleaseAll);
 	window.addEventListener('resize', inputResize);
 	document.addEventListener('visibilitychange', inputVisibilityChanged);
-	inputState.player = 0;
-	inputState.sliderPointer = null;
-	inputState.canvasPointer = null;
-	inputState.keyHeld = false;
-	inputSetValue(INPUT_FORCE_START);
+	inputRebind();
+}
+
+function inputTwoHumans() {
+	return inputState.keys !== inputState.mouse;
 }
 
 function inputControls(id) {
-	return id === inputState.player && players.type[id] === PLAYER_HUMAN;
+	if (id < 0 || id >= players.count || players.type[id] !== PLAYER_HUMAN) return false;
+	return id === inputState.mouse || id === inputState.keys;
 }
 
-function inputValue() {
-	return inputState.value;
+// the pointer belongs to player 1, the arrows to player 2; one human owns both
+function inputChannel(id) {
+	if (!inputControls(id)) return null;
+	return id === inputState.mouse ? 'mouse' : 'keys';
+}
+
+function inputValue(id) {
+	return inputState.value[id];
+}
+
+// the keys of the second human; the single human keeps the field's own shortcuts
+function inputApplyKey() {
+	return inputTwoHumans() ? 'ArrowRight' : 'Space';
 }
 
 function inputBindPanel(id, panel, slider) {
 	if (!inputControls(id)) return false;
-	inputUi.panel = panel;
-	inputUi.slider = slider;
-	panel.addEventListener('wheel', inputWheel, { passive: false });
+	slider.inputId = id;
+	// the second human drives their panel with keys only, so the pointer never reaches it
+	if (id !== inputState.mouse) {
+		slider.className = slider.className + ' force-slider-keys';
+		return true;
+	}
+	inputUi.sliders[id] = slider;
+	panel.inputId = id;
+	panel.addEventListener('wheel', inputPanelWheel, { passive: false });
 	slider.addEventListener('pointerdown', inputSliderDown);
 	slider.addEventListener('pointermove', inputSliderMove);
 	slider.addEventListener('pointerup', inputSliderEnd);
@@ -54,163 +89,210 @@ function inputBindPanel(id, panel, slider) {
 }
 
 function inputPreparePanels() {
-	inputRelease();
-	inputUi.panel = null;
-	inputUi.slider = null;
+	inputReleaseAll();
+	inputUi.sliders.length = 0;
 }
 
-function inputSetPlayer(id) {
-	if (id === inputState.player || id < 0 || id >= players.count || players.type[id] !== PLAYER_HUMAN) return;
-	inputRelease();
-	inputState.player = id;
-	inputSetValue(inputState.value);
-	forcePanelRebuild();
+// re-reads the participants: participant 1 owns the pointer, participant 2 the arrows
+function inputRebind() {
+	// boot creates the participants (and can rebuild them from the URL) before this layer exists
+	if (!inputState.value) return;
+	inputReleaseAll();
+	inputState.mouse = 0;
+	inputState.keys = players.count > 1 && players.type[1] === PLAYER_HUMAN ? 1 : 0;
+	inputApplyAll();
 }
 
-function inputSetValue(value) {
-	if (!inputControls(inputState.player) || !Number.isFinite(value)) return;
+function inputApplyAll() {
+	for (let id = 0; id < players.count; id++) if (inputControls(id)) inputApplyValue(id);
+}
+
+function inputApplyValue(id) {
+	forceSetMagnitude(id, Math.abs(inputState.value[id]) / 100);
+	forcePanelSetValue(id, inputState.value[id]);
+	inputRefresh(id);
+}
+
+function inputSetValue(id, value) {
+	if (!inputControls(id) || !Number.isFinite(value)) return;
 	let next = Math.round(value / INPUT_FORCE_STEP) * INPUT_FORCE_STEP;
 	if (next < -100) next = -100;
 	else if (next > 100) next = 100;
-	inputState.value = next;
-	forceSetMagnitude(inputState.player, Math.abs(next) / 100);
-	forcePanelSetValue(inputState.player, next);
-	inputRefreshRequest();
+	inputState.value[id] = next;
+	inputApplyValue(id);
 }
 
-function inputTargetDirection() {
-	const delta = inputState.targetY - simAperture.y;
+function inputHeld(id) {
+	return inputState.sliderPointer[id] !== INPUT_NONE || inputState.canvasPointer[id] !== INPUT_NONE
+		|| inputState.keyHold[id] === 1;
+}
+
+function inputTargetDirection(id) {
+	const delta = inputState.targetY[id] - simAperture.y;
 	// Half a maximum fixed-step movement prevents a held pointer from oscillating around its target.
 	const deadZone = simAperture.speed * FIXED_DT / 2 + 0.01;
 	return delta < -deadZone ? -1 : (delta > deadZone ? 1 : 0);
 }
 
-function inputRefreshRequest() {
-	if (!inputControls(inputState.player)) return;
-	const canvasHeld = inputState.canvasPointer !== null;
-	const dir = canvasHeld ? inputTargetDirection() : Math.sign(inputState.value);
-	forceSetDirection(inputState.player, dir);
-	forceHold(inputState.player, canvasHeld || inputState.sliderPointer !== null || inputState.keyHeld);
+// The held field aims the hole at the pointer; every other source uses the slider's signed value.
+function inputRefresh(id) {
+	if (!inputControls(id)) return;
+	const aiming = inputState.canvasPointer[id] !== INPUT_NONE;
+	forceSetDirection(id, aiming ? inputTargetDirection(id) : Math.sign(inputState.value[id]));
+	forceHold(id, inputHeld(id));
 }
 
 function inputStep() {
-	if (inputState.canvasPointer !== null) inputRefreshRequest();
+	const id = inputState.mouse;
+	if (inputState.canvasPointer[id] !== INPUT_NONE) inputRefresh(id);
 }
 
-function inputReleaseCapture(el, id) {
-	if (id !== null && el && el.hasPointerCapture && el.hasPointerCapture(id)) el.releasePointerCapture(id);
+function inputReleaseCapture(el, pointerId) {
+	if (pointerId === INPUT_NONE || !el || !el.hasPointerCapture) return;
+	if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
 }
 
-function inputRelease() {
-	const sliderId = inputState.sliderPointer;
-	const canvasId = inputState.canvasPointer;
-	inputState.sliderPointer = null;
-	inputState.canvasPointer = null;
-	inputState.keyHeld = false;
-	inputReleaseCapture(inputUi.slider, sliderId);
-	inputReleaseCapture(inputUi.canvas, canvasId);
-	inputRefreshRequest();
+function inputReleasePlayer(id) {
+	inputReleaseCapture(inputUi.sliders[id], inputState.sliderPointer[id]);
+	inputReleaseCapture(inputUi.canvas, inputState.canvasPointer[id]);
+	inputState.sliderPointer[id] = INPUT_NONE;
+	inputState.canvasPointer[id] = INPUT_NONE;
+	inputState.keyHold[id] = 0;
+	inputRefresh(id);
+}
+
+function inputReleaseAll() {
+	for (let id = 0; id < PLAYER_CAP; id++) inputReleasePlayer(id);
+}
+
+function inputRelease(id) {
+	if (id === undefined) inputReleaseAll();
+	else inputReleasePlayer(id);
 }
 
 function inputVisibilityChanged() {
-	if (document.hidden) inputRelease();
+	if (document.hidden) inputReleaseAll();
 }
 
 function inputSliderDown(e) {
-	if ((e.button !== undefined && e.button !== 0) || inputState.sliderPointer !== null) return;
+	const id = e.currentTarget.inputId;
+	if (!inputControls(id)) return;
+	if ((e.button !== undefined && e.button !== 0) || inputState.sliderPointer[id] !== INPUT_NONE) return;
 	e.preventDefault();
-	inputState.sliderPointer = e.pointerId;
+	inputState.sliderPointer[id] = e.pointerId;
 	if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
 	e.currentTarget.focus({ preventScroll: true });
 	inputSliderMove(e);
 }
 
 function inputSliderMove(e) {
-	if (e.pointerId !== inputState.sliderPointer) return;
+	const id = e.currentTarget.inputId;
+	if (e.pointerId !== inputState.sliderPointer[id]) return;
 	const rect = e.currentTarget.getBoundingClientRect();
 	const ratio = (e.clientY - rect.top - INPUT_SLIDER_INSET) / (rect.height - 2 * INPUT_SLIDER_INSET);
-	inputSetValue(-100 + ratio * 200);
+	inputSetValue(id, -100 + ratio * 200);
 }
 
 function inputSliderEnd(e) {
-	if (e.pointerId !== inputState.sliderPointer) return;
-	inputState.sliderPointer = null;
-	inputRefreshRequest();
+	const id = e.currentTarget.inputId;
+	if (e.pointerId !== inputState.sliderPointer[id]) return;
+	inputState.sliderPointer[id] = INPUT_NONE;
+	inputRefresh(id);
 }
 
 function inputSliderChanged(e) {
-	inputSetValue(Number(e.currentTarget.value));
+	inputSetValue(e.currentTarget.inputId, Number(e.currentTarget.value));
 }
 
-function inputTargetAt(clientY) {
-	inputState.canvasClientY = clientY;
+function inputTargetAt(id, clientY) {
+	inputState.canvasClientY[id] = clientY;
 	const half = simAperture.size / 2;
 	const y = canvasFieldY(clientY);
-	inputState.targetY = Math.max(half, Math.min(simField.h - half, y));
+	inputState.targetY[id] = Math.max(half, Math.min(simField.h - half, y));
 }
 
 function inputCanvasDown(e) {
-	if (!inputControls(inputState.player)) return;
-	if ((e.button !== undefined && e.button !== 0) || inputState.canvasPointer !== null) return;
+	const id = inputState.mouse;
+	if (!inputControls(id)) return;
+	if ((e.button !== undefined && e.button !== 0) || inputState.canvasPointer[id] !== INPUT_NONE) return;
 	e.preventDefault();
-	inputState.canvasPointer = e.pointerId;
+	inputState.canvasPointer[id] = e.pointerId;
 	if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
-	inputTargetAt(e.clientY);
-	inputRefreshRequest();
+	inputTargetAt(id, e.clientY);
+	inputRefresh(id);
 }
 
 function inputCanvasMove(e) {
-	if (e.pointerId !== inputState.canvasPointer) return;
-	inputTargetAt(e.clientY);
-	inputRefreshRequest();
+	const id = inputState.mouse;
+	if (e.pointerId !== inputState.canvasPointer[id]) return;
+	inputTargetAt(id, e.clientY);
+	inputRefresh(id);
 }
 
 function inputCanvasEnd(e) {
-	if (e.pointerId !== inputState.canvasPointer) return;
-	inputState.canvasPointer = null;
-	inputRefreshRequest();
+	const id = inputState.mouse;
+	if (e.pointerId !== inputState.canvasPointer[id]) return;
+	inputState.canvasPointer[id] = INPUT_NONE;
+	inputRefresh(id);
 }
 
 function inputResize() {
-	if (inputState.canvasPointer !== null) inputTargetAt(inputState.canvasClientY);
+	for (let id = 0; id < PLAYER_CAP; id++) {
+		if (inputState.canvasPointer[id] === INPUT_NONE) continue;
+		inputTargetAt(id, inputState.canvasClientY[id]);
+		inputRefresh(id);
+	}
 }
 
-// A wheel over the field or this player's panel changes selection, never activation.
+// A wheel changes selection, never activation; it moves the participant whose control it is over.
+function inputWheelStep(id, deltaY) {
+	if (!inputControls(id) || !deltaY) return false;
+	inputSetValue(id, inputState.value[id] + (deltaY > 0 ? INPUT_FORCE_STEP : -INPUT_FORCE_STEP));
+	return true;
+}
+
 function inputWheel(e) {
-	if (!inputControls(inputState.player) || !e.deltaY) return;
-	e.preventDefault();
-	inputSetValue(inputState.value + (e.deltaY > 0 ? INPUT_FORCE_STEP : -INPUT_FORCE_STEP));
+	if (inputWheelStep(inputState.mouse, e.deltaY)) e.preventDefault();
+}
+
+function inputPanelWheel(e) {
+	if (inputWheelStep(e.currentTarget.inputId, e.deltaY)) e.preventDefault();
 }
 
 function inputOwned(e) {
 	if (e.defaultPrevented) return true;
-	if (e.target === inputUi.slider) return false;
+	if (e.target && e.target.inputId !== undefined) return false;
 	const tag = e.target && e.target.tagName;
 	return e.target && e.target.isContentEditable || tag === 'INPUT' || tag === 'BUTTON'
 		|| tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'A' || tag === 'SUMMARY';
 }
 
 function inputKeyDown(e) {
-	if (!inputControls(inputState.player) || inputOwned(e)) return;
-	if (e.code === 'Space') {
+	const id = inputState.keys;
+	if (!inputControls(id) || inputOwned(e)) return;
+	if (e.code === inputApplyKey()) {
 		e.preventDefault();
-		inputState.keyHeld = true;
-		inputRefreshRequest();
+		inputState.keyHold[id] = 1;
+		inputRefresh(id);
 		return;
 	}
 	if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return;
 	e.preventDefault();
-	inputSetValue(inputState.value + (e.code === 'ArrowUp' ? -INPUT_FORCE_STEP : INPUT_FORCE_STEP));
+	inputSetValue(id, inputState.value[id] + (e.code === 'ArrowUp' ? -INPUT_FORCE_STEP : INPUT_FORCE_STEP));
 }
 
+// Releases whatever key still holds a request, even after focus or channel changes.
 function inputKeyUp(e) {
-	if (e.code !== 'Space' || !inputState.keyHeld) return;
-	inputState.keyHeld = false;
-	inputRefreshRequest();
+	if (e.code !== 'Space' && e.code !== 'ArrowRight') return;
+	for (let id = 0; id < PLAYER_CAP; id++) {
+		if (!inputState.keyHold[id]) continue;
+		inputState.keyHold[id] = 0;
+		inputRefresh(id);
+	}
 }
 
 if (typeof module !== 'undefined') module.exports = {
 	inputUi, inputState, inputInit, inputControls, inputValue, inputBindPanel, inputPreparePanels,
-	inputSetPlayer, inputSetValue, inputRelease, inputStep,
-	INPUT_FORCE_STEP, INPUT_FORCE_START, INPUT_SLIDER_INSET
+	inputChannel, inputSetValue, inputRebind, inputRelease, inputStep, inputTwoHumans, inputApplyKey,
+	INPUT_FORCE_STEP, INPUT_FORCE_START, INPUT_SLIDER_INSET, INPUT_NONE
 };
