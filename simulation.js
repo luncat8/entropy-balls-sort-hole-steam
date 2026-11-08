@@ -1,5 +1,5 @@
-// owns: field, balls, aperture, physics, ball color generation
-// edit for: constants, spawn, stepping
+// owns: field, balls, aperture, physics, ball color generation, distribution snapshot
+// edit for: constants, spawn, stepping, snapshot fields
 
 const simField = { w: 1200, h: 800, wallX: 600, wallT: 8 };
 
@@ -28,6 +28,24 @@ const simBalls = {
 };
 
 const simAperture = { y: 400, targetY: 400, size: APERTURE_SIZE, speed: APERTURE_SPEED };
+
+const DIST_PALETTE = 6;
+const simDist = {
+	total: 0,
+	left: 0,
+	right: 0,
+	hot: 0,
+	cold: 0,
+	leftHot: 0,
+	leftCold: 0,
+	rightHot: 0,
+	rightCold: 0,
+	palette: new Uint16Array(DIST_PALETTE),
+	leftPalette: new Uint16Array(DIST_PALETTE),
+	rightPalette: new Uint16Array(DIST_PALETTE),
+	sig: 0,
+	rev: 0
+};
 
 let simBallCollisions = true;
 let spawnRate = SPAWN_RATE;
@@ -83,6 +101,60 @@ function simSpawn() {
 	simBalls.count = i + 1;
 }
 
+function simDistSig() {
+	let s = simDist.total + 1;
+	s = (s * 33 + simDist.left) | 0;
+	s = (s * 33 + simDist.right) | 0;
+	for (let p = 0; p < DIST_PALETTE; p++) {
+		s = (s * 33 + simDist.leftPalette[p]) | 0;
+		s = (s * 33 + simDist.rightPalette[p]) | 0;
+	}
+	return s;
+}
+
+function simFillDist() {
+	const oldSig = simDist.sig;
+	simDist.total = 0;
+	simDist.left = 0;
+	simDist.right = 0;
+	simDist.hot = 0;
+	simDist.cold = 0;
+	simDist.leftHot = 0;
+	simDist.leftCold = 0;
+	simDist.rightHot = 0;
+	simDist.rightCold = 0;
+	simDist.palette.fill(0);
+	simDist.leftPalette.fill(0);
+	simDist.rightPalette.fill(0);
+	const wallX = simField.wallX;
+	for (let i = 0; i < simBalls.count; i++) {
+		const p = simBalls.palette[i];
+		simDist.total++;
+		simDist.palette[p]++;
+		if (simBalls.x[i] < wallX) {
+			simDist.left++;
+			simDist.leftPalette[p]++;
+		} else {
+			simDist.right++;
+			simDist.rightPalette[p]++;
+		}
+	}
+	for (let p = 0; p < DIST_PALETTE; p++) {
+		const hue = PALETTE[p][1];
+		if (colorIsWarm(hue)) {
+			simDist.hot += simDist.palette[p];
+			simDist.leftHot += simDist.leftPalette[p];
+			simDist.rightHot += simDist.rightPalette[p];
+		} else if (colorIsCold(hue)) {
+			simDist.cold += simDist.palette[p];
+			simDist.leftCold += simDist.leftPalette[p];
+			simDist.rightCold += simDist.rightPalette[p];
+		}
+	}
+	simDist.sig = simDistSig();
+	if (simDist.sig !== oldSig) simDist.rev++;
+}
+
 function simInit() {
 	simBalls.count = 0;
 	spawnAcc = 0;
@@ -90,6 +162,7 @@ function simInit() {
 	simAperture.y = simField.h / 2;
 	simAperture.targetY = simField.h / 2;
 	for (let k = 0; k < 13; k++) simSpawn();
+	simFillDist();
 }
 
 function simMoveAperture(dt) {
@@ -196,6 +269,8 @@ function simStep(dt) {
 	simSpawnTick(dt);
 	for (let i = 0; i < simBalls.count; i++) simMoveBall(i, dt);
 	if (simBallCollisions) simCollideBalls();
+	simFillDist();
+	tasksStep(dt); // per fixed step so catch-up still evaluates hold time (plan 0.2)
 }
 
 function simAdvance(dtSec) {
@@ -206,4 +281,4 @@ function simAdvance(dtSec) {
 	}
 }
 
-if (typeof module !== 'undefined') module.exports = { simField, simBalls, simAperture, simInit, simAdvance, simStep, simSpawn, simSetApertureTarget, simSetBallCollisions, simSetSpawnRate, BALL_CAP, BALL_V_MAX };
+if (typeof module !== 'undefined') module.exports = { simField, simBalls, simAperture, simDist, simInit, simAdvance, simStep, simSpawn, simFillDist, simSetApertureTarget, simSetBallCollisions, simSetSpawnRate, BALL_CAP, BALL_V_MAX, FIXED_DT };
