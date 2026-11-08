@@ -63,8 +63,7 @@ var UI = {
 		let html = '<b>open tasks</b>';
 		for (const t of TaskGen.queue) {
 			const cat = (typeof t.category === 'string') ? t.category : t.category.color;
-			const diff = t.difficulty ? (' [' + t.difficulty + ']') : '';
-			html += '<div style="margin:4px 0;">' + (t.difficulty || '') + ' ' + t.side + ' ' + t.op + t.pct + '% ' + cat + diff +
+			html += '<div style="margin:4px 0;">' + (t.difficulty ? (t.difficulty + ' ') : '') + t.side + ' ' + t.op + t.pct + '% ' + cat +
 				' <button data-task="' + t.id + '" data-player="0">sign P0</button>' +
 				' <button data-task="' + t.id + '" data-player="1">sign P1</button></div>';
 		}
