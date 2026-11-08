@@ -5,8 +5,8 @@ var Input = {
 	init: function () {
 		const c = Sim.canvas;
 		c.addEventListener('pointerdown', (e) => {
-			Sim.hole.targetY = e.clientY;
 			if (e.button !== 0) return;
+			Sim.hole.targetY = e.clientY;
 			if (Players.list[0].force !== 0) {
 				Players.list[0].active = true;
 			} else {

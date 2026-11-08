@@ -2,7 +2,7 @@
 // edit for: load order is in index.html; boot sequence
 const $ = id => document.getElementById(id);
 
-var App = { running: true, lastTime: 0, fpsAcc: 0, fpsFrames: 0, fps: 60 };
+var Loop = { running: true, lastTime: 0, fps: 60 };
 
 function boot() {
 	Sim.init();
@@ -14,12 +14,15 @@ function boot() {
 	TaskGen.initQueue();
 	UI.refreshTaskPanel();
 	Sim.ensureCount(Settings.ballCount);
-	App.lastTime = performance.now();
+	Loop.lastTime = performance.now();
 	requestAnimationFrame(loop);
 }
 
 function loop(now) {
-	if (!App.running) return;
+	if (!Loop.running) return;
+	const frameDt = now - Loop.lastTime;
+	if (frameDt > 0) Loop.fps = 1000 / frameDt;
+	Loop.lastTime = now;
 	const DT = Sim.DT;
 	Players.update(DT);
 	Sim.stepBalls(DT);
@@ -31,4 +34,4 @@ function loop(now) {
 
 window.addEventListener('DOMContentLoaded', boot);
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { App: App };
+if (typeof module !== 'undefined' && module.exports) module.exports = { Loop: Loop };

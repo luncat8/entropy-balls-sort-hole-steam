@@ -190,7 +190,8 @@ var UI = {
 		const bcStr = 'balls:' + Sim.ballCount;
 		if (bc && bc.textContent !== bcStr) bc.textContent = bcStr;
 		const fps = document.getElementById('fps-text');
-		const fpsStr = 'fps:' + Math.round(1 / DT);
+		const fpsVal = (typeof Loop !== 'undefined' && Loop.fps) ? Loop.fps : (1 / DT);
+		const fpsStr = 'fps:' + Math.round(fpsVal);
 		if (fps && fps.textContent !== fpsStr) fps.textContent = fpsStr;
 		const energy = document.getElementById('energy-text');
 		const energyStr = 'E0:' + p0.energy.toFixed(0) + '/' + p0.energyMax + ' E1:' + p1.energy.toFixed(0) + '/' + p1.energyMax;

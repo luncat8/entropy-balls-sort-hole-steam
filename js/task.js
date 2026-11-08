@@ -71,7 +71,7 @@ var TaskGen = {
 		const task = players[playerIndex].task;
 		if (task && task.claimedBy === playerIndex) {
 			task.claimedBy = null;
-			this.queue.push(task);
+			if (this.queue.length < this.queueSize) this.queue.push(task);
 		}
 		players[playerIndex].task = null;
 		players[playerIndex].holdTime = 0;
