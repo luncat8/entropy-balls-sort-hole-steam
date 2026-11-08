@@ -63,7 +63,8 @@ var UI = {
 		let html = '<b>open tasks</b>';
 		for (const t of TaskGen.queue) {
 			const cat = (typeof t.category === 'string') ? t.category : t.category.color;
-			html += '<div style="margin:4px 0;">' + t.side + ' ' + t.op + t.pct + '% ' + cat +
+			const diff = t.difficulty ? (' [' + t.difficulty + ']') : '';
+			html += '<div style="margin:4px 0;">' + (t.difficulty || '') + ' ' + t.side + ' ' + t.op + t.pct + '% ' + cat + diff +
 				' <button data-task="' + t.id + '" data-player="0">sign P0</button>' +
 				' <button data-task="' + t.id + '" data-player="1">sign P1</button></div>';
 		}
@@ -72,7 +73,7 @@ var UI = {
 		for (let i = 0; i < Players.list.length; i++) {
 			const p = Players.list[i];
 			const t = p.task;
-			const txt = t ? (t.side + ' ' + t.op + t.pct + '% ' + ((typeof t.category === 'string') ? t.category : t.category.color)) : 'none';
+			const txt = t ? ((t.difficulty ? t.difficulty + ' ' : '') + t.side + ' ' + t.op + t.pct + '% ' + ((typeof t.category === 'string') ? t.category : t.category.color)) : 'none';
 			html += '<div>P' + i + ': ' + txt + (t ? ' <button data-abandon="' + i + '">abandon</button>' : '') + '</div>';
 		}
 		if (panel.innerHTML === html) return;
@@ -217,7 +218,8 @@ function taskTextForm(t) {
 	if (!t) return '';
 	const cat = (typeof t.category === 'string') ? t.category : t.category.color;
 	const mode = (t.mode === 'immediate') ? 'immediate' : 'hold 2s';
-	return t.side + ' ' + t.op + t.pct + '% ' + cat + ' (' + mode + ')';
+	const diff = t.difficulty ? (t.difficulty + ' ') : '';
+	return diff + t.side + ' ' + t.op + t.pct + '% ' + cat + ' (' + mode + ')';
 }
 
 function clampSetting() {
