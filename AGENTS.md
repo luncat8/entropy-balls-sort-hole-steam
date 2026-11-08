@@ -60,10 +60,10 @@ getObj().data().action()
 - keep this map updated when ownership changes:
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
 	simulation.js — owns field, balls, aperture, physics, ball color generation. edit for constants, spawn, stepping.
-	color.js — owns color conversions and warm/cold/near-target tests. edit for hue boundaries, distance metric.
+	color.js — owns color conversions and warm/cold/near-target tests. edit for palette hues, hue boundaries, distance metric.
 	canvas.js — owns canvas sizing/drawing and impact/forecast buffers. edit for draw styles.
 	input.js — owns pointer/keyboard aperture input. edit for bindings, clamping.
-	settings.js — owns theme default, URL persistence, UI binding and theme application. edit for theme keys, new settings keys.
+	settings.js — (planned) theme default, URL persistence, UI binding and theme application. edit for theme keys, new settings keys.
 	status.js — (planned) status/help presentation. not implemented yet.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
@@ -136,8 +136,8 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-e.g. splitting ui.js per plan 0.4: dom_smoke after each move, benches at end only.
-e.g. experiment loader derives scripts from index.html and runs them in one VM context.
+plan 0.2 next: give simulation.js a distribution snapshot API before task evaluation. smoke = node experiments/sim_smoke.js.
+settings.js and status.js stay out of index.html until gui.1 creates them.
 
 ## housekeeping
 
