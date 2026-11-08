@@ -10,6 +10,7 @@ function boot() {
 	GoalView.init();
 	UI.init();
 	Players.init();
+	if (typeof Bot !== 'undefined' && Bot.init) Bot.init();
 	Input.init();
 	applySettings();
 	TaskGen.initQueue();

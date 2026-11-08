@@ -65,6 +65,7 @@ getObj().data().action()
 	ui.js — owns settings, status bar, help, URL persistence. edit for controls.
 	task.js — owns task generation and solve detection.
 	player.js — owns players, energy, forces, bots.
+	bot.js — owns bot opponent policy: lane aim, prediction, rests, contested hole. edit for bot heuristics.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.

@@ -26,7 +26,16 @@ var Players = {
 		for (let i = 0; i < this.list.length; i++) {
 			const p = this.list[i];
 			p.energy = Math.min(p.energyMax, p.energy + p.recharge * DT);
-			if (p.isBot) this.botStep(p);
+		}
+		if (typeof Bot !== 'undefined') {
+			for (let i = 0; i < this.list.length; i++) if (this.list[i].isBot) Bot.think(i, DT);
+			const priority = (typeof Bot.contest === 'function') ? Bot.contest() : -1;
+			for (let i = 0; i < this.list.length; i++) if (this.list[i].isBot) Bot.act(i, priority);
+		} else {
+			for (let i = 0; i < this.list.length; i++) {
+				const p = this.list[i];
+				if (p.isBot) this.botStep(p);
+			}
 		}
 		// drag has priority
 		if (Input.dragging) {

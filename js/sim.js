@@ -43,8 +43,8 @@ var Sim = {
 		this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		this.CX = this.W / 2;
 		if (!this.hole.y) this.hole.y = this.H / 2;
-		this.hole.targetY = this.hole.y;
 		this.hole.y = clamp(this.hole.y, this.hole.r, this.H - this.hole.r);
+		this.hole.targetY = this.hole.y;
 	},
 	countSide: function (side) {
 		let n = 0;
