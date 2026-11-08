@@ -5,7 +5,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 ## Build order
 
 1. ~~0.1 — Field simulation and canvas~~ — done: [plan](../archive/0.1-plan.md), [worklog](../archive/0.1-worklog.md).
-2. [0.2 — Sorting objectives and progression](plan0.2.md): define measurable tasks, completion, and single-player task renewal.
+2. ~~0.2 — Sorting objectives and progression~~ — done: [plan](../archive/0.2-plan.md), [worklog](../archive/0.2-worklog.md).
 3. [0.3 — Hole force and energy](plan0.3.md): add held push/pull controls and the energy budget.
 4. [gui.1 — Settings and status UI](plangui.1.md): expose simulation parameters, URL persistence, and in-game help/status.
 5. [1.0 — Task queue](plan1.0.md): deferred task list and task claiming, after the single-task loop is proven.
