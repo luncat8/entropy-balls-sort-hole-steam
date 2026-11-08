@@ -65,7 +65,8 @@ getObj().data().action()
 	input.js — owns pointer/keyboard aperture input. edit for bindings, clamping.
 	players.js — owns participant identity, type and lifecycle. edit for adding participants, controller type.
 	tasks.js — owns objective rules, generation, difficulty cost and bands, per-participant lifecycle, the quest list and press reporting. edit for predicates, candidates, band constants, hold duration, list copy.
-	preview.js — owns quest target appearance modes, their samples, the hold preview panel and its mode radios. edit for appearance modes, swatch sampling, panel copy.
+	preview.js — owns quest target appearance modes, their shapes and samples, the hold preview panel and its mode radios. edit for appearance modes, target shapes, panel copy.
+	goalview.js — owns the held-quest goal view: which balls cross, goal layout, goal label. edit for goal layout, crossing rules, goal copy.
 	settings.js — (planned) theme default, URL persistence, UI binding and theme application. edit for theme keys, new settings keys.
 	status.js — (planned) status/help presentation. not implemented yet.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
@@ -139,7 +140,7 @@ getObj().data().action()
 
 [rewritten each phase, never accumulated. only constraints that matter right now. delete lines that stopped mattering.]
 
-plan 0.3 next: force.js energy-limited aperture control.
+plan 0.3 next: force.js energy-limited aperture control. a held quest freezes the field and draws the goal instead.
 settings.js and status.js stay out of index.html until gui.1 creates them.
 
 ## housekeeping

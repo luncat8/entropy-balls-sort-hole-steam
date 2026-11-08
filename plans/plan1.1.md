@@ -2,7 +2,7 @@
 
 ## Outcome
 
-A quest item states its objective in words and in color. Holding the item open shows what the goal looks like: the target color range, the minimum composition that satisfies the objective, and the current count. How the target range is drawn is a display choice with three representations, and each option shows its own representation in its label.
+A quest item states its objective in words and in color. Holding the item open shows the goal twice: on the canvas, where the live balls are rearranged into the split that satisfies the objective, and in a panel beside the list, where the target color, the difficulty, the count the goal needs and the current count are stated. How the target color is drawn is a display choice with three shapes, and each option shows its own shape in its label.
 
 ## Design
 
@@ -13,17 +13,30 @@ The target of an objective is a set of palette hues plus the envelope every ball
 - `color.js` owns the envelope: `BALL_SAT_MIN/MAX` and `BALL_LIGHT_MIN/MAX`. `simulation.js` spawn reads them, so the preview and the field cannot drift apart. `color.js` also owns `colorMeanHue`, the circular mean used by the mean representation.
 - `tasks.js` owns category membership and exposes `tasksCatHues(name, out)`: the hues of `hot`, `cold`, or one palette color, written into a caller buffer. A preview therefore never decides what counts as warm or cold.
 
-Three representations sample one function, `t` in `[0, 1]` across the possible range:
+The shape is part of the mode: a mode that names balls must show balls. All three sample one ramp of `t` in `[0, 1]`:
 
-| mode | default | drawing |
+| mode | default | shape |
 | --- | --- | --- |
 | `mean` | | one ball of the mean hue at the middle of the envelope |
-| `range` | | five balls stepping the range, lightness alternating across the envelope |
-| `smooth` | yes | a continuous gradient across the whole range |
+| `range` | | a row of five balls stepping the ramp |
+| `smooth` | yes | one bar, a continuous gradient across the ramp |
 
-- A multi-hue target spans its hues. A single-hue target has no hue span, so its range runs through the saturation/lightness envelope instead: dark and saturated through light and pale. Each representation reads that the same way, so `smooth` is never a flat rectangle.
-- The mode is a radio group next to the existing draw options, and each label carries a small live sample of its own representation. The default is `smooth`.
-- Swatch strings are built when the objective, mode, or category changes, never per frame.
+- A multi-hue target spans its hues. A single-hue target has no hue span, so its ramp runs through the saturation/lightness envelope instead: dark and saturated through light and pale. Every shape reads the same ramp, sampled at one point, five points, or continuously, so `smooth` is never flat and `range` is never one color.
+- `previewFill(el, base, hue, count, mode)` is the only drawing path, used by the option samples, the list swatches and the panel. `base` is the caller's size class, so the same ramp renders at chip, swatch and panel scale.
+- The mode is a radio group next to the existing draw options; each label appends a small live sample of its own shape, and the samples follow the objective currently held (or the first attached one). The default is `smooth`.
+- Targets are built when the objective, mode, or category changes, never per frame.
+
+### Goal view on the canvas
+
+The panel answers "what is the number"; the canvas answers "what does the field have to look like". Holding an item freezes the field and draws the goal instead.
+
+- The goal is the cheapest satisfying split `tasks.js` already prices, not an illustration of it. `tasksCheapest(cat, cmp, thresh, isLeft, out)` writes that split as `(side, match)`: the named chamber ends with `match` category balls out of `side`. `tasksCost` is the same call without the output.
+- Equal-cost splits are broken toward the split nearest the current chamber size, so a goal is not drawn as an almost empty chamber when staying put costs the same as emptying it.
+- Placement fills the quota from the balls already in the named chamber, category balls first, then the remaining quota from balls that cross. A ball that moves is therefore always a crossing, and `moved` counts exactly the crossings the difficulty score reported; that identity is asserted in the smoke.
+- A crossing ball is mirrored across the divider into the destination chamber at its own height. Moved balls are then separated from their neighbours and clamped inside their chamber; balls that stayed keep their exact field position, so the view reads as "these balls went over there".
+- The canvas dims the balls that stay and rings the ones that cross (`GOAL_DIM_ALPHA`, `GOAL_RING`), so one picture states both the end state and the work. A small label at the lower edge states the split and the crossing count, or why no goal can be drawn: waiting, empty side, unreachable.
+- An unreachable or waiting objective draws the live field, not an empty board; the label carries the reason.
+- The frame skips `inputUpdate` and `simAdvance` while a goal is shown, in `main.js` only. The goal therefore cannot drift away from a moving population, and no goal state has to live in the simulation.
 
 ### Quest list and hold preview
 
@@ -36,25 +49,28 @@ Three representations sample one function, `t` in `[0, 1]` across the possible r
 ### Wiring
 
 - `tasks.js` owns rules and the view model and knows nothing about painting or presses. `quest.js` owns items and reports a hold through `questSetPaintHook(hook)`. `preview.js` registers that hook plus `questSetSwatches(fn)` for the swatch function, so the list never renders a swatch itself.
-- `main.js` connects and boots them; it calls `questPaint()` per frame.
-- `preview.js` reads tasks only through `tasksView`, `tasksHueView`, `tasksNeed`, and `tasksCatHues`.
+- `preview.js` owns the panel and the target shapes; `goalview.js` owns the canvas goal layout and label. The hold hook drives both, so they open and close together.
+- The canvas asks for a replacement ball layer through `canvasSetGoalHook(fn)`: the hook returns a ball layer with a `moved` flag per ball, or `null` to keep the live field. `canvas.js` owns the dimming and rings, `goalview.js` owns which balls moved.
+- `main.js` connects and boots them; it calls `questPaint()` per frame and gates the step on `goalHolding()`.
+- `preview.js` and `goalview.js` read tasks only through `tasksView`, `tasksHueView`, `tasksNeed`, `tasksCatHues`, `tasksCatPalette`, `tasksCheapest`, and `tasksCatFromName`.
 
 ## Files and ownership
 
 - `color.js` — ball color envelope constants, `colorMeanHue`.
 - `simulation.js` — spawn reads the envelope constants.
-- `tasks.js` — `tasksCatHues`, `tasksNeed`, target hues in the view model.
+- `tasks.js` — `tasksCatPalette` as the single category-membership rule, `tasksCatHues` built on it, `tasksCheapest` reporting its split, `tasksNeed`, target hues in the view model.
 - New `quest.js` — list items, swatches, press gestures, repaint scheduling.
-- New `preview.js` — appearance modes, samples, hold panel.
+- New `preview.js` — appearance modes, their shapes and samples, hold panel.
+- New `goalview.js` — the goal layout, its label, and the ball layer the canvas draws while held.
 - `index.html` — appearance radios, quest list and panel styles, script order.
 - `main.js` — wiring only.
 
 ## Validation
 
 - L0: `node --check` on touched JavaScript.
-- L1: `tasksNeed` is the smallest count its own predicate accepts; the hue set of `hot`, `cold`, and each palette color; the three representations differ and `smooth` produces a gradient; a single-hue target still spans its envelope; the ramp interpolates in hue order and means hues circularly; `smooth` is the wired default with one radio checked; press opens and release, cancellation, focus loss, and Space/Enter close; dot count and filled count; switching mode repaints the open panel; items keep the objective words.
+- L1: `tasksNeed` is the smallest count its own predicate accepts; the hue set and palette membership of `hot`, `cold`, and each palette color agree; the three modes draw a different shape (1 ball / 5 balls / 1 gradient bar) in the panel, the list and the option samples; a single-hue target still spans its envelope; the ramp interpolates in hue order and means hues circularly; `smooth` is the wired default with one radio checked; press opens and release, cancellation, focus loss, and Space/Enter close both the panel and the goal view; dot count and filled count; switching mode repaints the open panel; the goal split satisfies its own predicate, only crossing balls move, unchanged balls keep their position, crossings stay inside the field, and the drawn crossings equal `tasksCost`; the frame does not advance the field while held; items keep the objective words.
 - L2: `sim_smoke`, `task_smoke`, `difficulty_sweep`, and a boot check that the page builds a quest item and a panel without `NaN` or `undefined`.
-- Manual: hold each quest item and confirm the panel matches the field, switch representations and watch the swatch and panel follow, and confirm a release outside the panel closes it.
+- Manual: hold each quest item and confirm the canvas shows a goal that meets it and that the rings mark the balls that have to cross, switch shapes and watch the swatches, panel and samples follow, and confirm a release outside the panel closes everything and resumes the field.
 
 ## Dependencies and next step
 

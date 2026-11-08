@@ -79,19 +79,19 @@ function tasksCatSide(cat, isLeft) {
 	return pal[cat - 2];
 }
 
+// palette membership of a category: hot and cold span several palette entries, a named color one
+function tasksCatHas(cat, p) {
+	if (cat > 1) return cat - 2 === p ? 1 : 0;
+	const hue = PALETTE[p][1];
+	return (cat === 0 ? colorIsWarm(hue) : colorIsCold(hue)) ? 1 : 0;
+}
+
 // the hues an objective accepts, so a preview shows the same colors the evaluator counts
 function tasksCatHues(name, out) {
 	const cat = tasksCatFromName(name);
-	if (cat === 0 || cat === 1) {
-		let n = 0;
-		for (let i = 0; i < PALETTE.length; i++) {
-			const hue = PALETTE[i][1];
-			if (cat === 0 ? colorIsWarm(hue) : colorIsCold(hue)) out[n++] = hue;
-		}
-		return n;
-	}
-	out[0] = PALETTE[cat - 2][1];
-	return 1;
+	let n = 0;
+	for (let p = 0; p < PALETTE.length; p++) if (tasksCatHas(cat, p)) out[n++] = PALETTE[p][1];
+	return n;
 }
 
 // how many category balls the named chamber needs; the same count tasksCost enumerates downwards
@@ -118,15 +118,23 @@ function tasksFeasible(cat, cmp, thresh) {
 	return tasksCost(cat, cmp, thresh, true) >= 0;
 }
 
+function tasksCost(cat, cmp, thresh, isLeft) {
+	return tasksCheapest(cat, cmp, thresh, isLeft, null);
+}
+
 // a ball crossing the opening is the only way to change (sideTotal, match); for a fixed side total
 // the cheapest plan is the unit-L1 walk from the current (other, category) counts. plan 0.4.
-function tasksCost(cat, cmp, thresh, isLeft) {
+// `out` receives that plan as (side total, category count): the goal view moves exactly those balls.
+function tasksCheapest(cat, cmp, thresh, isLeft, out) {
 	const nAll = simDist.total;
 	const nCat = tasksCatTotal(cat);
 	const sn = isLeft ? simDist.left : simDist.right;
 	const sc = tasksCatSide(cat, isLeft);
 	const u = sn - sc;
 	let best = -1;
+	let bestClose = 0;
+	let bestSide = 0;
+	let bestMatch = 0;
 	for (let s = 1; s <= nAll; s++) {
 		const mHi = nCat < s ? nCat : s;
 		const mMin = nCat - (nAll - s);
@@ -143,7 +151,18 @@ function tasksCost(cat, cmp, thresh, isLeft) {
 		const flat = sc < s - u ? sc : s - u;
 		const at = flat < from ? from : (flat > to ? to : flat);
 		const c = Math.abs(at - sc) + Math.abs(s - at - u);
-		if (best < 0 || c < best) best = c;
+		// equal cost picks the split nearest the current chamber size, so a goal is not drawn as an
+		// almost empty chamber when staying put costs the same as emptying it
+		const close = Math.abs(s - sn);
+		if (best >= 0 && (c > best || (c === best && close >= bestClose))) continue;
+		best = c;
+		bestClose = close;
+		bestSide = s;
+		bestMatch = at;
+	}
+	if (out && best >= 0) {
+		out.side = bestSide;
+		out.match = bestMatch;
 	}
 	return best;
 }
@@ -353,10 +372,12 @@ if (typeof module !== 'undefined') module.exports = {
 	tasksStep,
 	tasksSetRand,
 	tasksCatHues,
+	tasksCatHas,
 	tasksNeed,
 	tasksMeets,
 	tasksFeasible,
 	tasksCost,
+	tasksCheapest,
 	tasksBand,
 	tasksInBand,
 	tasksDifficulty,

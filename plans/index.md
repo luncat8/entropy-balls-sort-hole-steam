@@ -7,7 +7,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 1. ~~0.1 — Field simulation and canvas~~ — done: [plan](../archive/0.1-plan.md), [worklog](../archive/0.1-worklog.md).
 2. ~~0.2 — Sorting objectives and progression~~ — done: [plan](../archive/0.2-plan.md), [worklog](../archive/0.2-worklog.md).
 3. ~~0.4 — Objective difficulty~~ — done: [plan](../archive/0.4-plan.md), [worklog](../archive/0.4-worklog.md).
-4. [1.1 — Quest goal preview](plan1.1.md): show the target range, hold a quest for detail, pick how targets are drawn.
+4. [1.1 — Quest goal preview](plan1.1.md): hold a quest to draw the goal on the canvas and open its panel, pick how target colors are drawn.
 5. [0.3 — Hole force and energy](plan0.3.md): add held push/pull controls and the energy budget.
 6. [gui.1 — Settings and status UI](plangui.1.md): expose simulation parameters, URL persistence, and in-game help/status.
 7. [1.0 — Task queue](plan1.0.md): deferred task list and task claiming, after the single-task loop is proven.
@@ -28,8 +28,9 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 - At narrow and wide viewport sizes, both chambers and the central passage remain visible and usable.
 - Balls remain inside the field, pass only through the opening, and do not acquire drift from drag.
 - The task's displayed category, side, comparator, and threshold agree with the measured ball distribution, and its difficulty label is shown.
-- Holding a quest item shows its goal panel, and the panel closes on release, pointer cancellation, or focus loss.
-- Every target swatch agrees with the selected appearance mode, and each mode option previews its own representation.
+- Holding a quest item draws the goal on the canvas and opens its panel; the field stops while held and resumes on release, pointer cancellation, or focus loss.
+- The goal drawn on the canvas satisfies the held objective, rings only the balls that have to cross, and states its split and crossing count.
+- Every target swatch agrees with the selected appearance mode, and each mode option previews its own shape: one ball, a row of balls, or a palette bar.
 - Holding a force control spends energy; releasing it stops force immediately. Each participant’s energy regenerates only as specified by storage/source settings.
 - Opening a copied URL restores settings without requiring a server; gameplay state is not persisted.
 - Mouse and touch controls both activate and release cleanly; status/help does not cover the field or primary controls.

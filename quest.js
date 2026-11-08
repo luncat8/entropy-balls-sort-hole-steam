@@ -112,15 +112,11 @@ function questPaintItems(swatchChanged) {
 		const it = quest.items[id];
 		it.el.hidden = !tasksOn[id];
 		if (!tasksOn[id]) continue;
-		if (!swatchChanged) {
-			it.text.textContent = questObjectiveText(v);
-			it.meta.textContent = questMetaText(v);
-			continue;
-		}
 		it.text.textContent = questObjectiveText(v);
 		it.meta.textContent = questMetaText(v);
+		if (!swatchChanged) continue;
 		const h = tasksHueView[id];
-		it.swatch.style.background = h.count ? quest.swatchFn(tasksCatName(tasksCat[id]), h.hue, h.count) : 'transparent';
+		quest.swatchFn(it.swatch, h.hue, h.count);
 	}
 }
 

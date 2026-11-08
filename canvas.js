@@ -1,4 +1,4 @@
-// owns: canvas sizing/drawing, impact/forecast buffers, and visual cue controls
+// owns: canvas sizing/drawing, impact/forecast buffers, visual cue controls, and the held quest goal layer
 // edit for: drawing options and styles
 
 const IMPACT_TTL = 3;
@@ -8,6 +8,9 @@ const STYLE_BG = '#12151b';
 const STYLE_WALL = '#495263';
 const FORECAST_ALPHA = 0.55;
 const FORECAST_W = 2;
+const GOAL_RING = 'rgba(237, 240, 246, 0.9)';
+const GOAL_RING_W = 2;
+const GOAL_DIM_ALPHA = 0.35;
 
 const canvasView = { scale: 1, offX: 0, offY: 0, w: 0, h: 0 };
 const canvasDrawOptions = { predictedPosition: true, trajectoryLines: true, slowFadeHitSpot: false };
@@ -28,6 +31,7 @@ const forecastScratch = new Float32Array(4);
 
 let cvEl = null;
 let cvCtx = null;
+let goalBallsHook = null;
 let predictedPositionInput = null;
 let trajectoryLinesInput = null;
 let slowFadeHitSpotInput = null;
@@ -79,6 +83,11 @@ function canvasResize() {
 	canvasView.offY = (h - simField.h * canvasView.scale) / 2;
 }
 
+// the goal layer is optional: no hook or a null result means the live field is what gets drawn
+function canvasSetGoalHook(hook) {
+	goalBallsHook = hook;
+}
+
 function canvasToWorldY(clientY) {
 	const rect = cvEl.getBoundingClientRect();
 	return ((clientY - rect.top) * (canvasView.h / rect.height) - canvasView.offY) / canvasView.scale;
@@ -120,7 +129,9 @@ function canvasDraw(dtSec) {
 	ctx.fillRect(f.w - f.wallT, 0, f.wallT, f.h);
 	ctx.fillRect(f.wallX - f.wallT / 2, 0, f.wallT, apTop);
 	ctx.fillRect(f.wallX - f.wallT / 2, apBot, f.wallT, f.h - apBot);
-	if (canvasDrawOptions.slowFadeHitSpot) {
+	// impact and forecast cues describe live motion; a goal layer is a still frame, so they would lie
+	const goal = goalBallsHook ? goalBallsHook() : null;
+	if (!goal && canvasDrawOptions.slowFadeHitSpot) {
 		for (let i = 0; i < IMPACT_CAP; i++) {
 			const age = impactMarks.age[i];
 			if (age > IMPACT_TTL) continue;
@@ -129,8 +140,8 @@ function canvasDraw(dtSec) {
 			canvasFillWallPatch(ctx, impactMarks.x[i], impactMarks.y[i], impactMarks.radius[i], impactMarks.side[i]);
 		}
 	}
-	const showPredictedPosition = canvasDrawOptions.predictedPosition;
-	const showTrajectoryLines = canvasDrawOptions.trajectoryLines;
+	const showPredictedPosition = !goal && canvasDrawOptions.predictedPosition;
+	const showTrajectoryLines = !goal && canvasDrawOptions.trajectoryLines;
 	if (showPredictedPosition || showTrajectoryLines) {
 		ctx.globalAlpha = FORECAST_ALPHA;
 		if (showTrajectoryLines) ctx.lineWidth = FORECAST_W;
@@ -151,12 +162,26 @@ function canvasDraw(dtSec) {
 		}
 	}
 	ctx.globalAlpha = 1;
-	for (let i = 0; i < simBalls.count; i++) {
-		ctx.fillStyle = simBalls.css[i];
+	canvasDrawBalls(ctx, goal || simBalls, goal);
+}
+
+// a goal layer dims the balls that stay put and rings the ones that cross, so the same picture answers
+// "what will the field look like" and "which balls does the objective need me to move"
+function canvasDrawBalls(ctx, balls, goal) {
+	const solid = goal ? GOAL_DIM_ALPHA : 1;
+	for (let i = 0; i < balls.count; i++) {
+		const moved = !!goal && balls.moved[i] === 1;
+		ctx.globalAlpha = moved ? 1 : solid;
+		ctx.fillStyle = balls.css[i];
 		ctx.beginPath();
-		ctx.arc(simBalls.x[i], simBalls.y[i], simBalls.r[i], 0, Math.PI * 2);
+		ctx.arc(balls.x[i], balls.y[i], balls.r[i], 0, Math.PI * 2);
 		ctx.fill();
+		if (!moved) continue;
+		ctx.strokeStyle = GOAL_RING;
+		ctx.lineWidth = GOAL_RING_W;
+		ctx.stroke();
 	}
+	ctx.globalAlpha = 1;
 }
 
 function canvasFillWallPatch(ctx, faceX, centerY, radius, side) {
@@ -207,7 +232,11 @@ if (typeof module !== 'undefined') module.exports = {
 	canvasResize,
 	canvasDraw,
 	canvasAddImpact,
+	canvasSetGoalHook,
 	canvasToWorldY,
+	GOAL_RING,
+	GOAL_RING_W,
+	GOAL_DIM_ALPHA,
 	IMPACT_CAP,
 	IMPACT_TTL
 };

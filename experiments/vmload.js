@@ -8,6 +8,7 @@ const vm = require('vm');
 const noop = () => {};
 
 function makeStubs() {
+	// the goal-view label is a single text field; a plain element is enough for it
 	const listeners = {};
 	const win = {
 		devicePixelRatio: 1,
@@ -50,6 +51,10 @@ function makeStubs() {
 				}
 			},
 			querySelector(selector) {
+				if (selector[0] === '.') {
+					const cls = selector.slice(1);
+					return node.children.find(c => String(c.className).split(' ').includes(cls)) || null;
+				}
 				const field = /^\[data-field="([^"]+)"\]$/.exec(selector);
 				if (!field) return null;
 				for (const child of node.children) if (child['data-field'] === field[1]) return child;
@@ -67,9 +72,14 @@ function makeStubs() {
 				for (const fn of handlers[type] || []) fn.call(node, e);
 			},
 			fields: {},
+			className: '',
 			setPointerCapture() {},
 			hidden: false,
-			textContent: ''
+			get textContent() { return node._text || ''; },
+			set textContent(v) {
+				node._text = v;
+				if (v === '') node.children.length = 0;
+			}
 		};
 		Object.defineProperty(node, 'firstElementChild', {
 			get() { return node.children[0] || null; }
@@ -108,6 +118,7 @@ function makeStubs() {
 		'draw-slow-fade-hit-spot': element({ checked: true }),
 		'task-list': element({}),
 		'quest-panel': questPanel(),
+		'quest-goal': element({ hidden: true, textContent: '' }),
 		'preview-mode': element({ inputs: [] })
 	};
 	// each radio sits in its own label, which carries that option's sample
@@ -143,7 +154,7 @@ function loadGame(rootDir) {
 		vm.runInContext(fs.readFileSync(path.join(rootDir, src), 'utf8'), ctx, { filename: src });
 		apis[src] = sandbox.module.exports;
 	}
-	return { apis, stubs };
+	return { apis, stubs, document: sandbox.document };
 }
 
 module.exports = { loadGame };

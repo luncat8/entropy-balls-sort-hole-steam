@@ -9,8 +9,11 @@ function mainFrame(tMs) {
 	const dtSec = runtime.timeMs === 0 ? 0 : (tMs - runtime.timeMs) / 1000;
 	runtime.timeMs = tMs;
 	runtime.dtMs = dtSec * 1000;
-	inputUpdate(dtSec);
-	simAdvance(dtSec);
+	// a held quest shows a goal, so the field holds still: a moving goal view would read as the live field
+	if (!goalHolding()) {
+		inputUpdate(dtSec);
+		simAdvance(dtSec);
+	}
 	questPaint();
 	canvasDraw(dtSec);
 	requestAnimationFrame(mainFrame);
@@ -22,8 +25,9 @@ function mainBoot() {
 	playersInit();
 	tasksInit();
 	for (let i = 0; i < players.count; i++) tasksAttach(i);
-	previewInit();
 	canvasInit();
+	goalInit();
+	previewInit();
 	inputInit();
 	requestAnimationFrame(mainFrame);
 }

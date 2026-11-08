@@ -29,3 +29,15 @@ bands of different width do not have equal candidate counts, so picking uniforml
 
 ## rejecting already-true tasks needs the cheapest reachable plan (2026-11-08)
 the 0.2 filter only rejected a task satisfied on its named side, which left half of all candidates (4763/9600) already true by construction: a looser threshold on a category that is already ahead costs nothing. a cost of 0 has to be rejected globally, and so does a task that costs 1–2 crossings — those are decided by one or two balls, and random drift through the opening flips them without the player acting.
+
+## a preview that is drawn, not priced, lies (2026-11-08)
+a goal picture assembled from percentages drifts from the rule that decides the objective. return the plan from the solver that already prices it (`tasksCheapest(..., out)` writes the split; `tasksCost` is that call without the output) and place balls from the plan: fill the quota from balls already in the named chamber first, then from balls that cross. moved balls then equal the reported cost by construction, and one assertion (`moved === tasksCost(...)`) protects the whole picture. drawing state belongs to the drawing file; the simulation must not learn about previews.
+
+## a minimised goal can contradict the panel (2026-11-08)
+the cost is total crossings, so `s - m` small (an almost empty chamber) can tie with staying put: ">40% violet of 2/2" showed next to "needs 2 of 4". break cost ties toward the split nearest the current chamber size inside the solver, not in the view; every consumer of the cost then agrees.
+
+## freeze the field instead of copying it (2026-11-08)
+a held preview that must not drift is simplest as "do not call simAdvance": one guard in main.js, no ghost state in simulation.js, and the live arrays are still the fallback when a goal cannot be drawn. the cost is that input is paused too, which is the intent while reading a goal.
+
+## an option label must show its own shape (2026-11-08)
+three "representations" that all render as a gradient rectangle make two of the labels false. give each mode its own DOM shape (one ball, a row of balls, one bar) behind one `previewFill(el, base, hue, count, mode)` path, and let the caller's base class carry the size. keep the base class in the assignment — overwriting `className` wholesale silently drops the size rules the layout depends on.
