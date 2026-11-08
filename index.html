@@ -5,14 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Entropy Balls Hole</title>
 <style>
+html, body { margin: 0; height: 100%; overflow: hidden; background: #12151b; }
+#app { position: fixed; inset: 0; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 </style>
 </head>
 <body>
 <div id="app">
-  <canvas id="canv"></canvas>
+	<canvas id="canv"></canvas>
 </div>
 <script src="color.js"></script>
-<script src="settings.js"></script>
 <script src="simulation.js"></script>
 <script src="canvas.js"></script>
 <script src="input.js"></script>
