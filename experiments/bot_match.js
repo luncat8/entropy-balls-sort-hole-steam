@@ -4,13 +4,25 @@
 const path = require('path');
 const { loadGame } = require('./vmload');
 
-function classify(apis, id, ballIndex, sideLeft, isLeft, cmpGt) {
+// A crossing helps when it shortens the priced distance to a satisfying split, which is the same
+// value the bot scores lanes with: for a chamber-share objective that is a matching ball entering or
+// another ball leaving, and for a whole-canvas objective the other balls do not count at all.
+function classify(apis, id, ballIndex, nowLeft) {
 	const tasks = apis['tasks.js'];
+const tcost = apis['taskcost.js'];
 	const sim = apis['simulation.js'];
-	const matches = tasks.tasksCatHas(tasks.tasksCatFromName(tasks.tasksView[id].category), sim.simBalls.palette[ballIndex]) === 1;
-	const inNamed = sideLeft === isLeft;
-	const wanted = matches === inNamed;
-	return cmpGt ? wanted : !wanted;
+	const v = tasks.tasksView[id];
+	const cat = tasks.tasksCatFromName(v.category);
+	const isCat = tasks.tasksCatHas(cat, sim.simBalls.palette[ballIndex]) === 1;
+	const entering = (nowLeft === (v.side === 'left'));
+	return tcost.tasksCrossValue(cat, v.cmp === '>' ? 0 : 1, v.threshold,
+		v.side === 'left', v.measure === 'total' ? 1 : 0, isCat, entering);
+}
+
+function taskSig(apis, id) {
+	const tasks = apis['tasks.js'];
+	const v = tasks.tasksView[id];
+	return v.category + '|' + v.cmp + v.threshold + '|' + v.measure + '|' + v.side + '|' + v.mode + '|' + v.cost;
 }
 
 function match(seed, seconds, opts) {
@@ -35,12 +47,14 @@ function match(seed, seconds, opts) {
 	bot.botInit();
 	if (opts.tuning) bot.botSetTuning(opts.tuning);
 	tasks.tasksInit();
+	// task generation draws from its own seed slot, so a match is only reproducible when it is set
+	tasks.tasksSetRand(ctx.Math.random);
 	tasks.tasksAttach(0);
 	if ((opts.humans || 2) === 2) tasks.tasksAttach(1);
 	if (opts.parked) sim.simSetControlHook(null);
 	const steps = Math.round(seconds / sim.FIXED_DT);
 	const gen0 = tasks.tasksGenCount();
-	const assigned = {};
+
 	const side = new Uint8Array(sim.BALL_CAP);
 	const ids = [];
 	let travelled = 0;
@@ -53,11 +67,26 @@ function match(seed, seconds, opts) {
 	let doneGt = 0;
 	let doneLt = 0;
 	let doneHold = 0;
+	let doneSide = 0;
+	let doneTotal = 0;
 	const prevScore = new Uint32Array(2);
 	const prevCmp = new Uint8Array(2);
 	const prevMode = new Uint8Array(2);
+	// per-label accounting of assigned and finished objectives, so a difficulty label can be checked
+	// against the time it actually took instead of the crossings it guessed
+	const labelStat = {};
+	const live = [null, null];
+	function note(id, v) {
+		const key = v.waiting ? 'waiting' : v.difficulty;
+		const s = labelStat[key] = labelStat[key] || { assigned: 0, done: 0, seconds: 0 };
+		s.assigned++;
+		live[id] = { key, at: stepNow, measure: v.measure, mode: v.mode, cost: v.cost };
+	}
+	let stepNow = 0;
+	for (let id = 0; id < roster.players.count; id++) note(id, tasks.tasksView[id]);
 	for (let i = 0; i < sim.simBalls.count; i++) side[i] = sim.simBalls.x[i] < sim.simField.wallX ? 1 : 0;
 	for (let i = 0; i < steps; i++) {
+		stepNow = i * sim.FIXED_DT;
 		for (let id = 0; id < 2; id++) {
 			prevCmp[id] = tasks.tasksView[id].cmp === '<' ? 1 : 0;
 			prevMode[id] = tasks.tasksView[id].mode === 'hold' ? 1 : 0;
@@ -69,6 +98,17 @@ function match(seed, seconds, opts) {
 			if (prevCmp[id]) doneLt++;
 			else doneGt++;
 			if (prevMode[id]) doneHold++;
+			const was = live[id];
+			if (was) {
+				const stat = labelStat[was.key];
+				if (stat) {
+					stat.done++;
+					stat.seconds += stepNow - was.at;
+				}
+				if (was.measure === 'total') doneTotal++;
+				else doneSide++;
+			}
+			note(id, tasks.tasksView[id]);
 		}
 		travelled += Math.abs(sim.simAperture.velocity) * sim.FIXED_DT;
 		for (let id = 0; id < roster.players.count; id++) {
@@ -82,19 +122,23 @@ function match(seed, seconds, opts) {
 			crossings++;
 			for (let id = 0; id < roster.players.count; id++) {
 				if (!tasks.tasksOn[id] || tasks.tasksWait[id]) continue;
-				const cmpGt = tasks.tasksView[id].cmp === '>';
-				if (classify(apis, id, b, nowLeft === 1 ? true : false, tasks.tasksView[id].side === 'left', cmpGt)) help++;
-				else harm++;
+				const v = classify(apis, id, b, nowLeft === 1);
+				if (v > 0) help++;
+				else if (v < 0) harm++;
 			}
 			side[b] = nowLeft;
 		}
 	}
 	const gen = tasks.tasksGenCount() - gen0;
-	for (let id = 0; id < roster.players.count; id++) {
-		const label = tasks.tasksView[id].difficulty;
-		assigned[label] = (assigned[label] || 0) + 1;
+	const labels = [];
+	for (const key of Object.keys(labelStat)) {
+		const s = labelStat[key];
+		labels.push(key + ':' + s.assigned + '/' + (s.done ? (s.seconds / s.done).toFixed(1) : '-'));
 	}
 	return {
+		labels: labels.join(','),
+		doneSide,
+		doneTotal,
 		gen,
 		travelled,
 		opposite: opposite / steps,
@@ -115,10 +159,21 @@ const humans = Number(process.argv[4] || 1);
 const parked = process.argv.includes('parked');
 const tuning = process.env.BOT_TUNE ? JSON.parse(process.env.BOT_TUNE) : null;
 const label = process.argv[5] || 'policy';
-const totals = { gen: 0, travelled: 0, opposite: 0, held: 0, waiting: 0, help: 0, harm: 0, crossings: 0, doneGt: 0, doneLt: 0, doneHold: 0 };
+const totals = { gen: 0, travelled: 0, opposite: 0, held: 0, waiting: 0, help: 0, harm: 0, crossings: 0, doneGt: 0, doneLt: 0, doneHold: 0, doneSide: 0, doneTotal: 0 };
+const labelsAll = {};
 let bad = 0;
 for (let seed = 1; seed <= SEEDS; seed++) {
 	const r = match(seed * 7919, SECONDS, { humans, parked, label, tuning });
+	for (const entry of r.labels.split(',').filter(Boolean)) {
+		const [key, pair] = entry.split(':');
+		const [assignedN, secs] = pair.split('/');
+		const acc = labelsAll[key] = labelsAll[key] || { assigned: 0, secs: 0, done: 0 };
+		acc.assigned += Number(assignedN);
+		if (secs !== '-') {
+			acc.secs += Number(secs);
+			acc.done += 1;
+		}
+	}
 	for (const k of Object.keys(totals)) totals[k] += r[k];
 	if (r.gen === 0) bad++;
 	console.log('seed=' + seed + ' completed=' + r.gen + ' help=' + r.help + ' harm=' + r.harm
@@ -128,7 +183,7 @@ for (let seed = 1; seed <= SEEDS; seed++) {
 }
 console.log('policy=' + label + ' runs=' + SEEDS + ' seconds=' + SECONDS + ' bots=' + (humans === 2 ? 2 : 1)
 	+ ' parked=' + parked
-	+ ' completed_total=' + totals.gen
+	+ ' completed_all=' + totals.gen
 	+ ' completed_per_min=' + (totals.gen / (SEEDS * SECONDS / 60)).toFixed(2)
 	+ ' help_total=' + totals.help + ' harm_total=' + totals.harm
 	+ ' net_per_min=' + ((totals.help - totals.harm) / (SEEDS * SECONDS / 60)).toFixed(2)
@@ -138,4 +193,10 @@ console.log('policy=' + label + ' runs=' + SEEDS + ' seconds=' + SECONDS + ' bot
 	+ ' held_share=' + (totals.held / SEEDS).toFixed(3)
 	+ ' waiting_share=' + (totals.waiting / SEEDS).toFixed(3)
 	+ ' completed_gt=' + totals.doneGt + ' completed_lt=' + totals.doneLt
-	+ ' completed_hold=' + totals.doneHold + ' zero_runs=' + bad);
+	+ ' completed_hold=' + totals.doneHold
+	+ ' completed_side=' + totals.doneSide + ' completed_measure_total=' + totals.doneTotal
+	+ ' zero_runs=' + bad);
+console.log('labels=' + Object.keys(labelsAll).sort().map(k => {
+	const a = labelsAll[k];
+	return k + ':' + a.assigned + 'assigned/' + a.done + 'runs/' + (a.done ? (a.secs / a.done).toFixed(1) + 's' : '-');
+}).join(','));

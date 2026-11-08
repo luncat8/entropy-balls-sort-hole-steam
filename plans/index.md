@@ -17,15 +17,18 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 11. ~~2.3 — Bot plan aim~~ — done: bots aim at the split a task needs instead of at traffic.
 12. ~~2.4 — A bot that reads the objective~~ — done: signed quotas (`<` objectives), crossing-time
     aim, arrival gate, hold defence, thresholds 10-90, large side arrow on the card.
-13. [0.5 — Aperture and energy settings](plan0.5.md): hole size, hole speed, energy cost and storage.
-14. [draft coverage](draft-coverage.md): what `draft.txt` asks for, what ships, what is still open.
+13. ~~2.5 — Both denominators, priced scarcity, a bot that reads the plan~~ — done: [plan](plan2.5.md),
+    [worklog](../archive/2.5-worklog.md). Chamber-share and whole-canvas objectives, palette-range
+    categories, difficulty with a demand ceiling, crossing values in the bot.
+14. [0.5 — Aperture and energy settings](plan0.5.md): hole size, hole speed, energy cost and storage.
+15. [draft coverage](draft-coverage.md): what `draft.txt` asks for, what ships, what is still open.
 
 ## Shared product decisions
 
 - The play area is divided into left and right chambers by a vertical central wall. Its only passage is a movable aperture.
 - Balls are circles. They travel without drag, reflect off the outer walls and solid portions of the divider, and can cross chambers only through the aperture. Ball-to-ball collision response is a setting.
-- A task measures the fraction of balls on a specified side that belong to the specified category. “Hot” and “cold” are visual categories, not a simulated temperature. A color task names a particular color. Each task carries a difficulty label derived from the fewest balls it needs to cross the divider; tasks that are already true, or that need more crossings than the field can pay for, are never assigned.
-- Progress is evaluated on fixed simulation steps. Each generated task requires either immediate satisfaction or a continuous two-second hold; a new task follows completion. An empty side never completes a task.
+- A task measures a fraction against one of two totals: the balls on the specified side (chamber share) or every ball of that category on the canvas (whole-canvas share). The category is hot, cold, a named palette colour, or a range of two adjacent palette colours. The comparator, the threshold, the side and the total are all drawn from the field's playable candidates. “Hot” and “cold” are visual categories, not a simulated temperature. A color task names a particular color. Each task carries a difficulty label derived from the fewest balls it needs to cross the divider; tasks that are already true, or that need more crossings than the field can pay for, are never assigned.
+- Progress is evaluated on fixed simulation steps. Each generated task requires either immediate satisfaction or a continuous two-second hold; a new task follows completion. An empty side never completes a task. Difficulty is banded on the fewest crossings the objective needs; a scarcity-scaled ceiling rejects objectives that only one or two balls can supply.
 - The control model is explicit signed push/pull along the aperture’s vertical track. Pointer hold/touch hold activates it; mouse wheel and a visible slider adjust force magnitude. This avoids relying on ambiguous pointer gestures.
 - Settings and live gameplay values have one owner each, and the browser URL is the shareable settings representation. The design remains local and file:// friendly, with classic script tags and no build or network dependency.
 - Single-player starts with one human. The player table exposes both slots; either can be a bot, and two bots can play while the user spectates. Each participant keeps its own task, input channel and energy store.
@@ -34,7 +37,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 
 - At narrow and wide viewport sizes, both chambers and the central passage remain visible and usable.
 - Balls remain inside the field, pass only through the opening, and do not acquire drift from drag.
-- The task's displayed category, side, comparator, and threshold agree with the measured ball distribution, and its difficulty label is shown.
+- The task's displayed category, side, comparator, threshold and denominator agree with the measured ball distribution, and its difficulty label is shown.
 - Holding a quest item draws the goal on the canvas and opens its panel; the field stops while held and resumes on release, pointer cancellation, or focus loss.
 - The goal drawn on the canvas satisfies the held objective, rings only the balls that have to cross, and states its split and crossing count.
 - Every target swatch agrees with the selected appearance mode, and each mode option previews its own shape: one ball, a row of balls, or a palette bar.

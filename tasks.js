@@ -11,16 +11,14 @@ const TASK_SIDE_NAME = ['left', 'right'];
 const TASK_SIDE_ARROW = ['←', '→'];
 const TASK_CMP_NAME = ['>', '<'];
 const TASK_MODE_NAME = ['immediate', 'hold'];
-const TASK_ORDER_CAP = 1024;
-const TASK_HUE_CAP = 6;
-
-// crossings: the fewest balls that must change chamber. below the floor the outcome is decided by
-// two balls, which random drift flips on its own; the ceiling is three quarters of the live balls
-const TASK_COST_MIN = 3;
-const TASK_COST_FRAC = 0.75;
-const TASK_COST_CAP = 27;
 const TASK_LABEL_NAME = ['easy', 'normal', 'hard', 'expert'];
-const TASK_LABEL_COST = [5, 10, 17];
+// The percentage can be read against two denominators, and the draft asks for both: the share of the
+// named chamber that is the category ("40% of left is hot"), and the share of the whole category that
+// sits in the named chamber ("90% of red is on the left"). Same predicate, different total.
+const TASK_MEASURE_NAME = ['side', 'total'];
+const TASK_MEASURE_PREFIX = ['', ' of'];
+const TASK_ORDER_CAP = 4096;
+const TASK_HUE_CAP = 6;
 
 const tasksOn = new Uint8Array(TASK_SLOTS);
 const tasksScore = new Uint32Array(TASK_SLOTS);
@@ -28,27 +26,33 @@ const tasksWait = new Uint8Array(TASK_SLOTS);
 const tasksSide = new Uint8Array(TASK_SLOTS);
 const tasksCat = new Uint8Array(TASK_SLOTS);
 const tasksCmp = new Uint8Array(TASK_SLOTS);
+const tasksMeasure = new Uint8Array(TASK_SLOTS);
 const tasksThresh = new Uint8Array(TASK_SLOTS);
 const tasksMode = new Uint8Array(TASK_SLOTS);
 const tasksHold = new Float32Array(TASK_SLOTS);
 const tasksHoldSteps = new Uint16Array(TASK_SLOTS);
 const tasksWaitRev = new Uint32Array(TASK_SLOTS);
 const tasksCostAssigned = new Uint16Array(TASK_SLOTS);
+const tasksDemandAssigned = new Uint16Array(TASK_SLOTS);
 // the crossings still needed, recomputed only when the distribution changes: the same walk the
 // difficulty priced, so the bar measures progress in the unit the objective is scored in
 const tasksRemaining = new Uint16Array(TASK_SLOTS);
 const tasksOrder = new Uint16Array(TASK_ORDER_CAP);
 const tasksCostScratch = new Int16Array(TASK_ORDER_CAP);
+const tasksDemandScratch = new Int16Array(TASK_ORDER_CAP);
+const tasksBandScratch = new Int8Array(TASK_ORDER_CAP);
+const tasksCmpScratch = new Uint8Array(TASK_ORDER_CAP);
+const tasksMeasureScratch = new Uint8Array(TASK_ORDER_CAP);
 const tasksLabelCounts = new Uint16Array(TASK_LABEL_NAME.length);
-const tasksDecoded = { side: 0, cat: 0, cmp: 0, thresh: 0, mode: 0 };
+const tasksDecoded = { side: 0, cat: 0, cmp: 0, measure: 0, thresh: 0, mode: 0 };
 const TASK_HUE_VIEW = [
 	{ hue: new Uint16Array(TASK_HUE_CAP), count: 0 },
 	{ hue: new Uint16Array(TASK_HUE_CAP), count: 0 }
 ];
 const tasksHueView = TASK_HUE_VIEW;
 const tasksView = [
-	{ id: 0, waiting: true, side: 'left', category: 'hot', cmp: '>', threshold: 50, mode: 'immediate', match: 0, sideTotal: 0, holdSec: 0, holdNeed: TASK_HOLD_SEC, satisfied: false, cost: 0, difficulty: 'waiting' },
-	{ id: 1, waiting: true, side: 'left', category: 'hot', cmp: '>', threshold: 50, mode: 'immediate', match: 0, sideTotal: 0, holdSec: 0, holdNeed: TASK_HOLD_SEC, satisfied: false, cost: 0, difficulty: 'waiting' }
+	{ id: 0, waiting: true, side: 'left', category: 'hot', cmp: '>', measure: 'side', threshold: 50, mode: 'immediate', match: 0, denom: 0, sideTotal: 0, holdSec: 0, holdNeed: TASK_HOLD_SEC, satisfied: false, cost: 0, difficulty: 'waiting' },
+	{ id: 1, waiting: true, side: 'left', category: 'hot', cmp: '>', measure: 'side', threshold: 50, mode: 'immediate', match: 0, denom: 0, sideTotal: 0, holdSec: 0, holdNeed: TASK_HOLD_SEC, satisfied: false, cost: 0, difficulty: 'waiting' }
 ];
 
 let tasksCandN = 0;
@@ -59,11 +63,23 @@ function tasksSetRand(fn) {
 	tasksRand = fn;
 }
 
+// 0 hot, 1 cold, then one entry per palette color, then one per adjacent pair: a pair is the hue
+// window a "similar to this color" target covers, and with six palette hues every such window is a
+// single color or two neighbours, so the discrete set is the whole grammar, not an approximation
+function tasksCatCount() {
+	return 2 + PALETTE.length * 2;
+}
+
+function tasksCatPair(cat) {
+	return cat >= 2 + PALETTE.length ? cat - 2 - PALETTE.length : -1;
+}
+
 function tasksCatFromName(name) {
 	if (name === 'hot') return 0;
 	if (name === 'cold') return 1;
-	for (let i = 0; i < PALETTE.length; i++) {
-		if (PALETTE[i][0] === name) return i + 2;
+	const n = tasksCatCount();
+	for (let cat = 2; cat < n; cat++) {
+		if (tasksCatName(cat) === name) return cat;
 	}
 	return 0;
 }
@@ -75,27 +91,36 @@ function tasksSideArrow(side) {
 function tasksCatName(cat) {
 	if (cat === 0) return 'hot';
 	if (cat === 1) return 'cold';
-	return PALETTE[cat - 2][0];
+	const pair = tasksCatPair(cat);
+	if (pair < 0) return PALETTE[cat - 2][0];
+	return PALETTE[pair][0] + '/' + PALETTE[(pair + 1) % PALETTE.length][0];
 }
 
 function tasksCatTotal(cat) {
 	if (cat === 0) return simDist.hot;
 	if (cat === 1) return simDist.cold;
-	return simDist.palette[cat - 2];
+	const pair = tasksCatPair(cat);
+	if (pair < 0) return simDist.palette[cat - 2];
+	return simDist.palette[pair] + simDist.palette[(pair + 1) % PALETTE.length];
 }
 
 function tasksCatSide(cat, isLeft) {
 	if (cat === 0) return isLeft ? simDist.leftHot : simDist.rightHot;
 	if (cat === 1) return isLeft ? simDist.leftCold : simDist.rightCold;
 	const pal = isLeft ? simDist.leftPalette : simDist.rightPalette;
-	return pal[cat - 2];
+	const pair = tasksCatPair(cat);
+	if (pair < 0) return pal[cat - 2];
+	return pal[pair] + pal[(pair + 1) % PALETTE.length];
 }
 
-// palette membership of a category: hot and cold span several palette entries, a named color one
+// palette membership of a category: hot and cold span several palette entries, a named color one,
+// a range the two neighbors its window covers
 function tasksCatHas(cat, p) {
-	if (cat > 1) return cat - 2 === p ? 1 : 0;
-	const hue = PALETTE[p][1];
-	return (cat === 0 ? colorIsWarm(hue) : colorIsCold(hue)) ? 1 : 0;
+	if (cat === 0) return colorIsWarm(PALETTE[p][1]) ? 1 : 0;
+	if (cat === 1) return colorIsCold(PALETTE[p][1]) ? 1 : 0;
+	const pair = tasksCatPair(cat);
+	if (pair < 0) return cat - 2 === p ? 1 : 0;
+	return p === pair || p === (pair + 1) % PALETTE.length ? 1 : 0;
 }
 
 // the hues an objective accepts, so a preview shows the same colors the evaluator counts
@@ -108,13 +133,11 @@ function tasksCatHues(name, out) {
 
 // how many category balls the named chamber needs; the same count tasksCost enumerates downwards
 function tasksNeed(v) {
-	if (v.sideTotal === 0) return 0;
+	if (v.denom === 0) return 0;
 	return v.cmp === '>'
-		? Math.floor(v.threshold * v.sideTotal / 100) + 1
-		: Math.floor((v.threshold * v.sideTotal - 1) / 100);
+		? Math.floor(v.threshold * v.denom / 100) + 1
+		: Math.floor((v.threshold * v.denom - 1) / 100);
 }
-
-
 
 function tasksMeets(match, total, cmp, thresh) {
 	if (total === 0) return false;
@@ -124,85 +147,7 @@ function tasksMeets(match, total, cmp, thresh) {
 	return left < right;
 }
 
-// reachability reads only the live population: every split of it is realizable from either
-// chamber, so the named side cannot change the answer and any side may stand in for it
-function tasksFeasible(cat, cmp, thresh) {
-	return tasksCost(cat, cmp, thresh, true) >= 0;
-}
 
-function tasksCost(cat, cmp, thresh, isLeft) {
-	return tasksCheapest(cat, cmp, thresh, isLeft, null);
-}
-
-// a ball crossing the opening is the only way to change (sideTotal, match); for a fixed side total
-// the cheapest plan is the unit-L1 walk from the current (other, category) counts. plan 0.4.
-// `out` receives that plan as (side total, category count): the goal view moves exactly those balls.
-function tasksCheapest(cat, cmp, thresh, isLeft, out) {
-	const nAll = simDist.total;
-	const nCat = tasksCatTotal(cat);
-	const sn = isLeft ? simDist.left : simDist.right;
-	const sc = tasksCatSide(cat, isLeft);
-	const u = sn - sc;
-	let best = -1;
-	let bestClose = 0;
-	let bestSide = 0;
-	let bestMatch = 0;
-	for (let s = 1; s <= nAll; s++) {
-		const mHi = nCat < s ? nCat : s;
-		const mMin = nCat - (nAll - s);
-		const lo = mMin > 0 ? mMin : 0;
-		// the threshold is one linear inequality in m, so the satisfying m form one run
-		const cut = cmp === 0 ? Math.floor(thresh * s / 100) + 1 : Math.floor((thresh * s - 1) / 100);
-		const mFrom = cmp === 0 ? cut : lo;
-		const mTo = cmp === 0 ? mHi : cut;
-		const from = mFrom > lo ? mFrom : lo;
-		const to = mTo < mHi ? mTo : mHi;
-		if (from > to) continue;
-		// |m - sc| + |(s - m) - u| is convex and flat between m = sc and m = s - u, so the allowed
-		// m nearest that stretch is its cheaper end clamped into the run
-		const flat = sc < s - u ? sc : s - u;
-		const at = flat < from ? from : (flat > to ? to : flat);
-		const c = Math.abs(at - sc) + Math.abs(s - at - u);
-		// equal cost picks the split nearest the current chamber size, so a goal is not drawn as an
-		// almost empty chamber when staying put costs the same as emptying it
-		const close = Math.abs(s - sn);
-		// first hit wins too: a reachable zero costs nothing better, and dropping it would let a
-		// satisfied objective read as unreachable to every caller of the cost
-		if (best >= 0 && (c > best || (c === best && close >= bestClose))) continue;
-		best = c;
-		bestClose = close;
-		bestSide = s;
-		bestMatch = at;
-	}
-	if (out && best >= 0) {
-		out.side = bestSide;
-		out.match = bestMatch;
-	}
-	return best;
-}
-
-function tasksCostMax() {
-	const c = (simDist.total * TASK_COST_FRAC) | 0;
-	return c < TASK_COST_CAP ? c : TASK_COST_CAP;
-}
-
-function tasksBand(cost) {
-	if (cost < 0) return -1;
-	for (let i = 0; i < TASK_LABEL_COST.length; i++) {
-		if (cost <= TASK_LABEL_COST[i]) return i;
-	}
-	return TASK_LABEL_COST.length;
-}
-
-// a task cheaper than the floor is decided by one or two balls, which random drift flips on its own
-function tasksInBand(cost) {
-	return cost >= TASK_COST_MIN && cost <= tasksCostMax();
-}
-
-function tasksDifficulty(cost) {
-	const band = tasksBand(cost);
-	return band < 0 ? 'impossible' : TASK_LABEL_NAME[band];
-}
 
 function tasksShuffle() {
 	for (let i = tasksCandN - 1; i > 0; i--) {
@@ -213,19 +158,22 @@ function tasksShuffle() {
 	}
 }
 
+// the candidate index layout: mode, side, measure, threshold, comparator, category
 function tasksDecode(idx, out) {
-	const nCat = 2 + PALETTE.length;
+	const nCat = tasksCatCount();
 	const nThresh = TASK_THRESH.length;
 	let v = idx;
 	out.mode = v % 2;
+	v = (v / 2) | 0;
+	out.side = v % 2;
+	v = (v / 2) | 0;
+	out.measure = v % 2;
 	v = (v / 2) | 0;
 	out.thresh = TASK_THRESH[v % nThresh];
 	v = (v / nThresh) | 0;
 	out.cmp = v % 2;
 	v = (v / 2) | 0;
 	out.cat = v % nCat;
-	v = (v / nCat) | 0;
-	out.side = v % 2;
 }
 
 function tasksFillView(id) {
@@ -237,17 +185,29 @@ function tasksFillView(id) {
 	v.side = TASK_SIDE_NAME[tasksSide[id]];
 	v.category = tasksCatName(tasksCat[id]);
 	v.cmp = TASK_CMP_NAME[tasksCmp[id]];
+	v.measure = TASK_MEASURE_NAME[tasksMeasure[id]];
 	v.threshold = tasksThresh[id];
 	v.mode = TASK_MODE_NAME[tasksMode[id]];
 	v.match = tasksCatSide(tasksCat[id], isLeft);
 	v.sideTotal = isLeft ? simDist.left : simDist.right;
+	v.denom = tasksMeasure[id] ? tasksCatTotal(tasksCat[id]) : v.sideTotal;
 	v.holdSec = tasksHold[id];
 	v.holdNeed = TASK_HOLD_SEC;
-	v.satisfied = tasksMeets(v.match, v.sideTotal, tasksCmp[id], v.threshold);
+	v.satisfied = tasksSatisfied(id);
 	v.cost = tasksCostAssigned[id];
+	v.demand = tasksDemandAssigned[id];
 	v.difficulty = v.waiting ? 'waiting' : tasksDifficulty(v.cost);
 	v.need = tasksNeed(v);
 	v.progress = tasksProgress(id, v);
+}
+
+// The card and the score have to read the same split: a whole-canvas objective counts its threshold
+// against every ball of the category, and reading the chamber here instead left the card satisfied
+// while the score never moved.
+function tasksSatisfied(id) {
+	const isLeft = tasksSide[id] === 0;
+	const denom = tasksMeasure[id] ? tasksCatTotal(tasksCat[id]) : (isLeft ? simDist.left : simDist.right);
+	return tasksMeets(tasksCatSide(tasksCat[id], isLeft), denom, tasksCmp[id], tasksThresh[id]);
 }
 
 // A hold objective's bar counts the hold itself once the split is met; otherwise the bar counts how
@@ -259,7 +219,7 @@ function tasksProgress(id, v) {
 	// the view is painted between fixed steps, so the snapshot can be new while the cached walk is
 	// not: recompute against this snapshot instead of a revision the next view may not have seen
 	tasksRemaining[id] = tasksCostAssigned[id] < 1 ? 0
-		: tasksCost(tasksCat[id], tasksCmp[id], tasksThresh[id], tasksSide[id] === 0);
+		: tasksCost(tasksCat[id], tasksCmp[id], tasksThresh[id], tasksSide[id] === 0, tasksMeasure[id]);
 	const left = tasksRemaining[id];
 	if (left < 0) return 0;
 	const start = tasksCostAssigned[id];
@@ -277,15 +237,22 @@ function tasksGenerate(id) {
 	for (let i = 0; i < tasksCandN; i++) {
 		tasksDecode(tasksOrder[i], tasksDecoded);
 		const d = tasksDecoded;
-		const cost = tasksCost(d.cat, d.cmp, d.thresh, d.side === 0);
+		const cost = tasksCost(d.cat, d.cmp, d.thresh, d.side === 0, d.measure);
+		const demand = cost < 1 ? cost : tasksDemand(d.cat, d.cmp, d.thresh, d.side === 0, d.measure);
+		const band = tasksInBand(cost, demand, d.measure, d.mode) ? tasksBand(cost) : -1;
 		tasksCostScratch[i] = cost;
-		if (!tasksInBand(cost)) continue;
-		tasksLabelCounts[tasksBand(cost)]++;
+		tasksDemandScratch[i] = demand;
+		tasksBandScratch[i] = band;
+		tasksCmpScratch[i] = d.cmp;
+		tasksMeasureScratch[i] = d.measure;
+		if (band < 0) continue;
+		tasksLabelCounts[band]++;
 	}
 	const pick = tasksPickCandidate();
 	if (pick < 0) {
 		tasksWait[id] = 1;
 		tasksCostAssigned[id] = 0;
+		tasksDemandAssigned[id] = 0;
 		tasksWaitRev[id] = simDist.rev;
 		tasksHold[id] = 0;
 		tasksHoldSteps[id] = 0;
@@ -300,9 +267,11 @@ function tasksGenerate(id) {
 	tasksSide[id] = d.side;
 	tasksCat[id] = d.cat;
 	tasksCmp[id] = d.cmp;
+	tasksMeasure[id] = d.measure;
 	tasksThresh[id] = d.thresh;
 	tasksMode[id] = d.mode;
 	tasksCostAssigned[id] = tasksCostScratch[pick];
+	tasksDemandAssigned[id] = tasksDemandScratch[pick];
 	tasksFillView(id);
 	return true;
 }
@@ -318,39 +287,39 @@ function tasksPickCandidate() {
 		if ((tasksRand() * k | 0) === 0) label = i;
 	}
 	if (label < 0) return -1;
-	// the two comparators are separate grammars and one of them is usually the rarer playable one, so
-	// they are drawn by equal chance and only then narrowed: a flat draw over candidates would make
-	// "less than" an accident of the field instead of half the quest list
+	// The comparator and the denominator are separate grammars and one side of each is usually the
+	// rarer playable one, so both are drawn by equal chance and only then narrowed: a flat draw over
+	// candidates would make "less than" and the whole-canvas measure accidents of the field instead
+	// of halves of the quest list
 	let cmp = (tasksRand() * 2) | 0;
-	if (!tasksLabelHas(label, cmp)) cmp = 1 - cmp;
-	if (!tasksLabelHas(label, cmp)) return -1;
+	if (!tasksLabelHas(label, cmp, -1)) cmp = 1 - cmp;
+	let measure = (tasksRand() * 2) | 0;
+	if (!tasksLabelHas(label, cmp, measure)) measure = 1 - measure;
+	if (!tasksLabelHas(label, cmp, measure)) return -1;
 	let pick = -1;
 	let j = 0;
 	for (let i = 0; i < tasksCandN; i++) {
-		if (!tasksInBand(tasksCostScratch[i]) || tasksBand(tasksCostScratch[i]) !== label) continue;
-		if (tasksDecodedCmp(i) !== cmp) continue;
+		if (tasksBandScratch[i] !== label) continue;
+		if (tasksCmpScratch[i] !== cmp || tasksMeasureScratch[i] !== measure) continue;
 		j++;
 		if ((tasksRand() * j | 0) === 0) pick = i;
 	}
 	return pick;
 }
 
-function tasksLabelHas(label, cmp) {
+// cmp or measure of -1 means "any", so the first pass tests a label without narrowing it
+function tasksLabelHas(label, cmp, measure) {
 	for (let i = 0; i < tasksCandN; i++) {
-		if (!tasksInBand(tasksCostScratch[i]) || tasksBand(tasksCostScratch[i]) !== label) continue;
-		if (tasksDecodedCmp(i) === cmp) return true;
+		if (tasksBandScratch[i] !== label) continue;
+		if (cmp >= 0 && tasksCmpScratch[i] !== cmp) continue;
+		if (measure >= 0 && tasksMeasureScratch[i] !== measure) continue;
+		return true;
 	}
 	return false;
 }
 
-// the candidate index layout: 2 modes, a threshold, a comparator, a category, a side (tasksDecode)
-function tasksDecodedCmp(idx) {
-	return ((idx / (2 * TASK_THRESH.length)) | 0) % 2;
-}
-
 function tasksInit() {
-	const nCat = 2 + PALETTE.length;
-	tasksCandN = 2 * nCat * 2 * TASK_THRESH.length * 2;
+	tasksCandN = 2 * 2 * 2 * TASK_THRESH.length * 2 * tasksCatCount();
 	for (let i = 0; i < tasksCandN; i++) tasksOrder[i] = i;
 	for (let id = 0; id < TASK_SLOTS; id++) {
 		tasksOn[id] = 0;
@@ -389,7 +358,7 @@ function tasksRegenerate() {
 	for (let id = 0; id < players.count; id++) tasksAttach(id);
 }
 
-function tasksAssign(id, sideName, catName, cmpStr, threshold, modeName) {
+function tasksAssign(id, sideName, catName, cmpStr, threshold, modeName, measureName) {
 	tasksOn[id] = 1;
 	tasksWait[id] = 0;
 	tasksHold[id] = 0;
@@ -397,9 +366,11 @@ function tasksAssign(id, sideName, catName, cmpStr, threshold, modeName) {
 	tasksSide[id] = sideName === 'right' ? 1 : 0;
 	tasksCat[id] = tasksCatFromName(catName);
 	tasksCmp[id] = cmpStr === '<' ? 1 : 0;
+	tasksMeasure[id] = measureName === 'total' ? 1 : 0;
 	tasksThresh[id] = threshold;
 	tasksMode[id] = modeName === 'hold' ? 1 : 0;
-	tasksCostAssigned[id] = tasksCost(tasksCat[id], tasksCmp[id], tasksThresh[id], tasksSide[id] === 0);
+	tasksCostAssigned[id] = tasksCost(tasksCat[id], tasksCmp[id], tasksThresh[id], tasksSide[id] === 0, tasksMeasure[id]);
+	tasksDemandAssigned[id] = tasksDemand(tasksCat[id], tasksCmp[id], tasksThresh[id], tasksSide[id] === 0, tasksMeasure[id]);
 	tasksFillView(id);
 }
 
@@ -427,11 +398,7 @@ function tasksStepOne(id, dt) {
 		tasksGenerate(id);
 		return;
 	}
-	const isLeft = tasksSide[id] === 0;
-	const total = isLeft ? simDist.left : simDist.right;
-	const match = tasksCatSide(tasksCat[id], isLeft);
-	const sat = tasksMeets(match, total, tasksCmp[id], tasksThresh[id]);
-	if (!sat) {
+	if (!tasksSatisfied(id)) {
 		tasksHold[id] = 0;
 		tasksHoldSteps[id] = 0;
 		tasksFillView(id);
@@ -461,14 +428,10 @@ if (typeof module !== 'undefined') module.exports = {
 	tasksSetRand,
 	tasksCatHues,
 	tasksCatHas,
+	tasksCatCount,
+	tasksCatName,
 	tasksNeed,
 	tasksMeets,
-	tasksFeasible,
-	tasksCost,
-	tasksCheapest,
-	tasksBand,
-	tasksInBand,
-	tasksDifficulty,
 	tasksCatFromName,
 	tasksSideArrow,
 	tasksCatTotal,
@@ -483,12 +446,10 @@ if (typeof module !== 'undefined') module.exports = {
 	TASK_HOLD_SEC,
 	TASK_THRESH,
 	TASK_SLOTS,
-	TASK_COST_MIN,
-	TASK_COST_FRAC,
-	TASK_COST_CAP,
 	TASK_LABEL_NAME,
-	TASK_LABEL_COST,
 	tasksHueView,
-	tasksCostMax,
-	tasksCostAssigned
+	tasksCostAssigned,
+	tasksDemandAssigned,
+	tasksMeasure,
+	TASK_MEASURE_NAME
 };

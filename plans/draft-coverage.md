@@ -39,8 +39,10 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | draft asks for | status | where |
 | --- | --- | --- |
 | quest generator over side, comparator, category, threshold | shipped | `tasks.js`, plan 0.4; thresholds 10–90 and both comparators drawn by equal chance in plan 2.4 |
-| "similar to random color" as a category | **open** | `colorHueNear` exists; only the preview draws a hue range, the generator's categories are hot, cold and six named hues |
-| difficulty metric, label at generation, no free or impossible tasks | shipped | `tasks.js`, plan 0.4 |
+| share of the named side ("60% of the left is red") | shipped | `tasks.js`, plan 2.5; the chamber is the denominator |
+| share of every such ball on the canvas (">90% of all red balls must be on the left") | shipped | `tasks.js` + `taskcost.js`, plan 2.5; the category total is the denominator |
+| "similar to random color" as a category | shipped | plan 2.5; six palette ranges (`red/orange` … `violet/red`) are the hue windows six palette hues can produce, and the preview draws the range |
+| difficulty metric, label at generation, no free or impossible tasks | shipped | `taskcost.js`, plans 0.4 and 2.5; label from crossings, demand ceiling for scarce categories, two floors |
 | hold quests and immediate quests | shipped | `tasks.js`, plan 0.2 |
 | task list kept full, a player signs to a task | **partial** | `plan1.0.md`. Both live slots already hold one objective each, so the list is never empty while a slot is playing. The queue, the `open/claimed/complete` states, exclusive claiming and abandon are not built: generation is per slot, not per queue |
 | hold a list item to preview a winning field | shipped | `goalview.js`, `preview.js`, plan 1.1 |
@@ -70,7 +72,7 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 
 ## What is open, and is it planned?
 
-Three different things are missing, and they are not the same kind of missing:
+Two different things are missing, and they are not the same kind of missing:
 
 - **Planned, with a plan file.** The task queue, task claiming and the open/claimed/complete states
   (`plan1.0.md`), and the single status strip (`plangui.1.md`, the last unbuilt slice of that plan).
@@ -79,12 +81,12 @@ Three different things are missing, and they are not the same kind of missing:
   to four working controls on purpose; each of these four needs a simulation or styling change before
   a control can exist, so a plan file would be a one-line table entry plus that change. "A player
   signs to a task" is part of 1.0 and is not needed while every live slot already owns one objective.
-- **Open, with no plan at all.** A near-target quest category — a hue plus a tolerance instead of a
-  named palette colour. `colorHueNear` already answers the question; nothing generates such a task,
-  and no plan file mentions it.
+
+There is no draft feature left without a plan file: the near-target quest category shipped in 2.5 as
+palette ranges, and the two denominators the quest list asks for both generate and complete.
 
 Everything else in `draft.txt` ships. Nothing in the draft is blocked by an architectural gap: each
-open item is a table row, a control or a predicate.
+open item is a table row or a control.
 
 ## Why the gaps are gaps
 
@@ -97,10 +99,14 @@ open item is a table row, a control or a predicate.
   queue is only needed if a player must choose among several open tasks.
 - `status.js` is the only planned file that has never been written. Its content exists, scattered
   across the three panels; the plan asked for one strip so a narrow screen keeps one source of truth.
+- The quest grammar was complete in 2.4 except for one dimension the draft names explicitly: which
+  total the percentage is read against. 2.5 added it rather than leaving it as an accident of the
+  predicate, because the same threshold is a different objective under each reading.
 
 ## Next step
 
-Plan 2.4 closed the two quest gaps that mattered for play: "less than" objectives are generated and
-solvable, and the bot reads the direction the card states. Ball size, the collision checkbox and the
-light theme are the three controls left in the settings table; a near-target quest category is the
-one draft feature with no plan at all.
+Plan 2.5 closed the two denominator gaps: a threshold can now be read against the named chamber or
+against every ball of the category, and the six palette ranges cover the draft's "similar to a random
+color" target. Ball size, the collision checkbox and the light theme are the three controls left in
+the settings table; the bot's next measurable gain is pricing ball-to-ball collisions in its lane
+score, because a 2.5 s forecast is still optimistic in a colliding field.

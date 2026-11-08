@@ -7,6 +7,7 @@ const { loadGame } = require('./vmload');
 const { apis, stubs } = loadGame(path.join(__dirname, '..'));
 const sim = apis['simulation.js'];
 const tasks = apis['tasks.js'];
+const tcost = apis['taskcost.js'];
 const quest = apis['quest.js'];
 const players = apis['players.js'];
 
@@ -111,29 +112,29 @@ place(0, LEFT, 4);
 place(1, LEFT, 4);
 place(2, LEFT, 4);
 sim.simFillDist();
-check('absent: >50% red is infeasible', !tasks.tasksFeasible(CAT_RED, CMP_GT, 50));
-check('absent: <50% red is feasible', tasks.tasksFeasible(CAT_RED, CMP_LT, 50));
-check('absent: >50% hot is infeasible', !tasks.tasksFeasible(CAT_HOT, CMP_GT, 50));
-check('absent: <50% hot is feasible', tasks.tasksFeasible(CAT_HOT, CMP_LT, 50));
+check('absent: >50% red is infeasible', !tcost.tasksFeasible(CAT_RED, CMP_GT, 50));
+check('absent: <50% red is feasible', tcost.tasksFeasible(CAT_RED, CMP_LT, 50));
+check('absent: >50% hot is infeasible', !tcost.tasksFeasible(CAT_HOT, CMP_GT, 50));
+check('absent: <50% hot is feasible', tcost.tasksFeasible(CAT_HOT, CMP_LT, 50));
 
 reset();
 place(0, LEFT, 0);
 place(1, LEFT, 1);
 place(2, LEFT, 2);
 sim.simFillDist();
-check('all-hot: <50% hot is infeasible', !tasks.tasksFeasible(CAT_HOT, CMP_LT, 50));
-check('all-hot: >50% hot is feasible', tasks.tasksFeasible(CAT_HOT, CMP_GT, 50));
-check('all-hot: >50% cold is infeasible', !tasks.tasksFeasible(CAT_COLD, CMP_GT, 50));
+check('all-hot: <50% hot is infeasible', !tcost.tasksFeasible(CAT_HOT, CMP_LT, 50));
+check('all-hot: >50% hot is feasible', tcost.tasksFeasible(CAT_HOT, CMP_GT, 50));
+check('all-hot: >50% cold is infeasible', !tcost.tasksFeasible(CAT_COLD, CMP_GT, 50));
 
 reset();
 place(0, LEFT, 0);
 place(1, LEFT, 5);
 sim.simFillDist();
-check('discrete: 1 red of 2 can still exceed 50 by isolating it', tasks.tasksFeasible(CAT_RED, CMP_GT, 50));
+check('discrete: 1 red of 2 can still exceed 50 by isolating it', tcost.tasksFeasible(CAT_RED, CMP_GT, 50));
 check('discrete: 1/2 does not already meet >50', !tasks.tasksMeets(1, 2, CMP_GT, 50));
 
 reset();
-check('wait: empty population has no candidate', !tasks.tasksFeasible(CAT_HOT, CMP_GT, 50));
+check('wait: empty population has no candidate', !tcost.tasksFeasible(CAT_HOT, CMP_GT, 50));
 tasks.tasksAttach(0);
 check('wait: attach on empty enters waiting', tasks.tasksView[0].waiting === true);
 const genWait = tasks.tasksGenCount();
@@ -177,6 +178,33 @@ for (let k = 0; k < holdSteps - 1; k++) tasks.tasksStep(DT);
 check('hold: still active just under two seconds', tasks.tasksGenCount() === holdGen && tasks.tasksHold[0] < tasks.TASK_HOLD_SEC);
 tasks.tasksStep(DT);
 check('hold: completes at two seconds', tasks.tasksGenCount() === holdGen + 1);
+
+// a whole-canvas objective is read against every ball of the category, not the chamber: three of
+// four violet on the left is 75% of them all but only 21% of that chamber's fourteen balls
+function violetField() {
+	reset();
+	place(0, LEFT, 5);
+	place(1, LEFT, 5);
+	place(2, LEFT, 5);
+	place(3, RIGHT, 5);
+	for (let i = 4; i < 14; i++) place(i, LEFT, 0);
+	sim.simFillDist();
+}
+violetField();
+tasks.tasksAssign(0, 'left', 'violet', '>', 70, 'immediate', 'total');
+const genTotal = tasks.tasksGenCount();
+check('measure total: the category is the denominator', tasks.tasksView[0].denom === 4 && tasks.tasksView[0].satisfied);
+tasks.tasksStep(DT);
+check('measure total: a met whole-canvas split scores', tasks.tasksGenCount() === genTotal + 1);
+violetField();
+tasks.tasksAssign(0, 'left', 'violet', '>', 70, 'immediate', 'side');
+check('measure total: the same split read against the chamber is not met', !tasks.tasksView[0].satisfied);
+const genSide = tasks.tasksGenCount();
+tasks.tasksStep(DT);
+check('measure total: and a chamber reading does not score', tasks.tasksGenCount() === genSide);
+tasks.tasksAssign(0, 'left', 'violet', '>', 70, 'hold', 'total');
+for (let k = 0; k < 60; k++) tasks.tasksStep(DT);
+check('measure total: the hold accumulates on the category share', tasks.tasksHold[0] > 0.4);
 
 reset();
 place(0, LEFT, 0);
@@ -236,20 +264,26 @@ place(0, LEFT, 0);
 place(1, LEFT, 0);
 place(2, LEFT, 0);
 sim.simFillDist();
-check('cost: a met objective costs nothing', tasks.tasksCost(CAT_RED, CMP_GT, 50, true) === 0);
-check('cost: red <50% of an all red left is unreachable', tasks.tasksCost(CAT_RED, CMP_LT, 50, true) === -1);
-check('cost: absent category with > is unreachable', tasks.tasksCost(CAT_BLUE, CMP_GT, 50, true) === -1);
-check('cost: absent category with < is already met', tasks.tasksCost(CAT_BLUE, CMP_LT, 50, true) === 0);
+check('cost: a met objective costs nothing', tcost.tasksCost(CAT_RED, CMP_GT, 50, true) === 0);
+check('cost: red <50% of an all red left is unreachable', tcost.tasksCost(CAT_RED, CMP_LT, 50, true) === -1);
+check('cost: absent category with > is unreachable', tcost.tasksCost(CAT_BLUE, CMP_GT, 50, true) === -1);
+check('cost: absent category with < is already met', tcost.tasksCost(CAT_BLUE, CMP_LT, 50, true) === 0);
 
 reset();
 fillBalls(LEFT, 14);
 place(0, RIGHT, 0);
 place(1, RIGHT, 0);
 sim.simFillDist();
-check('band: floor rejects a one ball task', !tasks.tasksInBand(1) && !tasks.tasksInBand(2));
-check('band: cheapest playable label is easy', tasks.tasksInBand(tasks.TASK_COST_MIN) && tasks.tasksBand(tasks.TASK_COST_MIN) === 0);
-check('band: cap follows the live population', tasks.tasksCostMax() === Math.min(27, (sim.simDist.total * 0.75) | 0));
-check('band: above the cap is rejected', !tasks.tasksInBand(tasks.tasksCostMax() + 1));
+check('band: floor rejects a one ball task', !tcost.tasksInBand(1, 1, 0, 0) && !tcost.tasksInBand(2, 2, 0, 0));
+check('band: cheapest playable label is easy', tcost.tasksInBand(tcost.TASK_COST_MIN, tcost.TASK_COST_MIN, 0, 0)
+	&& tcost.tasksBand(tcost.TASK_COST_MIN) === 0);
+check('band: the whole-canvas immediate form needs one more crossing',
+	!tcost.tasksInBand(tcost.TASK_COST_MIN, tcost.TASK_COST_MIN, 1, 0)
+	&& tcost.tasksInBand(tcost.TASK_COST_MIN + 1, tcost.TASK_COST_MIN + 1, 1, 0));
+check('band: cap follows the live population', tcost.tasksCostMax() === Math.min(27, (sim.simDist.total * 0.75) | 0));
+check('band: above the cap is rejected', !tcost.tasksInBand(tcost.tasksCostMax() + 1, 0, 0, 0));
+check('band: a scarce job is rejected even inside the crossing cap',
+	!tcost.tasksInBand(tcost.TASK_COST_MIN, tcost.tasksDemandMax() + 1, 0, 0));
 
 reset();
 // the prompt case: 2 violet of 14 whole canvas, left holds 1 of them beside 11 reds, so 60% of
@@ -258,11 +292,15 @@ place(0, LEFT, 5);
 place(1, RIGHT, 5);
 for (let i = 2; i < 14; i++) place(i, LEFT, 0);
 sim.simFillDist();
-const rareCost = tasks.tasksCost(tasks.tasksCatFromName('violet'), CMP_GT, 60, true);
-const commonCost = tasks.tasksCost(tasks.tasksCatFromName('red'), CMP_GT, 60, false);
+const rareCost = tcost.tasksCost(tasks.tasksCatFromName('violet'), CMP_GT, 60, true);
+const commonCost = tcost.tasksCost(tasks.tasksCatFromName('red'), CMP_GT, 60, false);
 check('rare category: 60% violet costs every other ball', rareCost >= 11);
 check('rare category: the common category that is already ahead is cheaper', commonCost < rareCost);
-check('rare category: the expensive target still gets a label', tasks.tasksBand(rareCost) >= 0);
+check('rare category: the expensive target still gets a label', tcost.tasksBand(rareCost) >= 0);
+// the draft case: a share of a chamber that only two balls can ever fill is a long job, and the
+// crossing count alone would not say so
+const scarceDemand = tcost.tasksDemand(tasks.tasksCatFromName('violet'), CMP_GT, 60, true, 0);
+check('rare category: the demand prices the scarcity the crossings miss', scarceDemand > 0);
 
 reset();
 fillBalls(LEFT, 14);
@@ -274,7 +312,9 @@ for (let k = 0; k < 40; k++) {
 	const v = tasks.tasksView[0];
 	if (v.waiting) continue;
 	seen[v.difficulty] = 1;
-	if (!tasks.tasksInBand(v.cost)) check('assign: every generated task is in band', false);
+	if (!tcost.tasksInBand(v.cost, v.demand, v.measure === 'total' ? 1 : 0, v.mode === 'hold' ? 1 : 0)) {
+		check('assign: every generated task is in band', false);
+	}
 	if (v.satisfied) check('assign: no generated task is already met', false);
 	if (!tasks.TASK_LABEL_NAME.includes(v.difficulty)) check('assign: difficulty is a known label', false);
 }

@@ -71,7 +71,8 @@ function goalBuild() {
 	if (v.sideTotal === 0) return goalSay('an empty side cannot meet an objective');
 	const cat = tasksCatFromName(v.category);
 	const isLeft = v.side === 'left';
-	if (tasksCheapest(cat, v.cmp === '>' ? 0 : 1, v.threshold, isLeft, goalPlan) < 0) {
+	const measure = v.measure === 'total' ? 1 : 0;
+	if (tasksCheapest(cat, v.cmp === '>' ? 0 : 1, v.threshold, isLeft, measure, goalPlan) < 0) {
 		return goalSay('this field cannot satisfy the objective');
 	}
 	goalPlace(cat, isLeft);
@@ -188,7 +189,7 @@ function goalClamp(i) {
 }
 
 function goalText(v) {
-	let text = tasksSideArrow(v.side) + ' ' + v.cmp + v.threshold + '% ' + v.category;
+	let text = questObjectiveText(v);
 	text += ' · goal ' + goalPlan.match + '/' + goalPlan.side;
 	text += goalField.moved
 		? ' · ' + goalField.moved + ' ball' + (goalField.moved === 1 ? '' : 's') + ' cross'

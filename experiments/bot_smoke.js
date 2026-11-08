@@ -128,7 +128,7 @@ check('aim: a ball already on the hole line costs nothing', force.forceState.hel
 	&& force.forceState.dir[1] !== -1);
 
 // the ball is on the right, heading right: it must bounce off the right wall before it can cross
-field(1000, 200, 280, 0, 'hot');
+field(1150, 200, 280, 0, 'hot');
 check('aim: a ball that bounces back in time is waited for', bot.botAim(1) === true
 	&& near(bot.botState.targetY[1], 200, 40));
 // a matching ball leaving the named chamber is the objective's loss, not its traffic
@@ -223,9 +223,10 @@ check('contest: opposing aims give the first turn to player 1', bot.botContest()
 bot.botStep(DT);
 check('contest: the yielding bot releases while the other drives', force.forceState.held[0] === 1
 	&& force.forceState.held[1] === 0);
-bot.botState.clock = bot.BOT_CONTEST_SEC;
+bot.botState.gain[0] = 1;
+bot.botState.gain[1] = bot.BOT_PREEMPT * 2;
 bot.botStep(DT);
-check('contest: the next turn belongs to player 2', force.forceState.held[0] === 0
+check('contest: a rival plan worth much more takes the turn', force.forceState.held[0] === 0
 	&& force.forceState.held[1] === 1);
 bot.botState.targetY[1] = 100;
 check('contest: aligned aims do not reserve a turn', bot.botContest() === -1);
@@ -241,9 +242,10 @@ bot.botPlanOpen(1);
 check('plan: a met quota leaves no matching ball to fill', bot.botPlan.needCat === 0);
 check('plan: the same crossing then counts against the objective', (() => {
 	const n = bot.botPredict(0, true);
-	return n === 1 && bot.botCrossUseful(0) === false;
+	return n === 1 && bot.botCrossValue(0) === -1;
 })());
-check('plan: a crossing that loses the quota raises no lane', bot.botAim(1) === false);
+check('plan: a crossing that loses the quota leads the hole off its lane', bot.botAim(1) === true
+	&& Math.abs(bot.botState.targetY[1] - 200) > sim.simAperture.size / 2);
 
 // the physics repeats: a ball crossing the divider keeps returning, so the prediction lists more
 // than one crossing inside a horizon long enough to hold them
@@ -281,7 +283,7 @@ check('plan: a matching ball leaving is the progress a less-than objective needs
 	const n = bot.botPredict(0, true);
 	for (let j = 0; j < n; j++) {
 		if (bot.botScratch.cat[j] !== 1 || bot.botScratch.dir[j] < 0) continue;
-		return bot.botCrossUseful(j) === true;
+		return bot.botCrossValue(j) === 1;
 	}
 	return false;
 })());
@@ -289,27 +291,33 @@ check('plan: a matching ball entering is the crossing a less-than objective lose
 	const n = bot.botPredict(0, true);
 	for (let j = 0; j < n; j++) {
 		if (bot.botScratch.cat[j] !== 1 || bot.botScratch.dir[j] > 0) continue;
-		return bot.botCrossUseful(j) === false;
+		return bot.botCrossValue(j) === -1;
 	}
 	return false;
 })());
 
 // a satisfied hold only has to survive, so a lane with no hostile crossing beats the one under the
-// ball that is about to end the hold
+// ball that is about to end the hold: left holds two warm and one cool, so a warm ball leaving or a
+// cool ball entering both drop the share under the threshold while a warm entry keeps it
 field(300, 400, 200, 0, 'hot');
-place(1, 900, 150, -200, 0, warmPalette());
-place(2, 200, 600, 0, 0, warmPalette());
+place(1, 200, 700, 0, 0, warmPalette());
+place(2, 250, 250, 0, 0, coolPalette());
+place(3, 900, 150, -200, 0, warmPalette());
+place(4, 900, 600, -200, 0, coolPalette());
 sim.simFillDist();
 tasks.tasksAssign(1, 'left', 'hot', '>', 50, 'hold');
-check('hold: a satisfied hold task is defended', tasks.tasksView[1].satisfied === true
-	&& bot.botPlanOpen(1) === true && bot.botPlan.defend === true);
+check('hold: a satisfied hold has nothing left to fill', tasks.tasksView[1].satisfied === true
+	&& bot.botPlanOpen(1) === true
+	&& bot.botPlan.valCatIn <= 0 && bot.botPlan.valCatOut <= 0
+	&& bot.botPlan.valOtherIn <= 0 && bot.botPlan.valOtherOut <= 0);
 check('hold: a harmful crossing raises no lane of its own', (() => {
 	const n = bot.botPredict(0, true);
-	for (let j = 0; j < n; j++) if (near(bot.botScratch.y[j], 400, 1)) return bot.botCrossHurts(j) === true;
+	for (let j = 0; j < n; j++) if (near(bot.botScratch.y[j], 400, 1)) return bot.botCrossValue(j) < 0;
 	return false;
 })());
-check('hold: the hole leaves the lane that would end the hold', bot.botAim(1) === true
-	&& near(bot.botState.targetY[1], 150, 5));
+check('hold: the hole leaves the lanes that would end the hold', bot.botAim(1) === true
+	&& Math.abs(bot.botState.targetY[1] - 400) > sim.simAperture.size / 2
+	&& Math.abs(bot.botState.targetY[1] - 600) > sim.simAperture.size / 2);
 
 // a bot that owns the hole keeps it while it drives, and only hands it over when it parks
 field(900, 200, -200, 0, 'hot');

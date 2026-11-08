@@ -118,8 +118,8 @@ function previewPaint() {
 	previewPanelDetail.textContent = v.waiting
 		? 'no feasible objective for this distribution yet'
 		: v.difficulty + ' · ' + PREVIEW_MODE_NAME[preview.modeIndex]
-			+ (goal ? ' · goal ' + goalSummary.match + '/' + goalSummary.side : ' · needs ' + need + ' of ' + v.sideTotal)
-			+ ' on the ' + tasksSideArrow(v.side) + ' side, now ' + v.match + (goal ? '/' + v.sideTotal : '');
+			+ (goal ? ' · goal ' + goalSummary.match + '/' + goalSummary.side : ' · needs ' + need + ' of ' + v.denom)
+			+ ' on the ' + tasksSideArrow(v.side) + ' side, now ' + v.match + (goal ? '/' + v.denom : '');
 	previewPaintDots(need, v.match);
 }
 

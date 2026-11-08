@@ -7,6 +7,7 @@ const { loadGame } = require('./vmload');
 const { apis, stubs, document } = loadGame(path.join(__dirname, '..'));
 const sim = apis['simulation.js'];
 const tasks = apis['tasks.js'];
+const tcost = apis['taskcost.js'];
 const quest = apis['quest.js'];
 const goal = apis['goalview.js'];
 const preview = apis['preview.js'];
@@ -183,15 +184,15 @@ fixture([[LEFT, 400, 0], [LEFT, 400, 0], [LEFT, 400, 0], [LEFT, 400, 0], [LEFT, 
 	[LEFT, 200, 5], [RIGHT, 400, 0], [RIGHT, 200, 5], [RIGHT, 200, 5], [RIGHT, 200, 5]]);
 tasks.tasksAssign(0, 'left', 'red', '>', 60, 'immediate');
 check('need: greater-than threshold rounds up', tasks.tasksNeed(tasks.tasksView[0]) === 4
-	&& tasks.tasksView[0].sideTotal === 6);
+	&& tasks.tasksView[0].denom === 6 && tasks.tasksView[0].measure === 'side');
 tasks.tasksAssign(0, 'left', 'red', '<', 60, 'immediate');
 check('need: less-than threshold rounds down', tasks.tasksNeed(tasks.tasksView[0]) === 3);
 tasks.tasksAssign(0, 'left', 'red', '>', 70, 'immediate');
 const needMid = tasks.tasksNeed(tasks.tasksView[0]);
 check('need: is the smallest count the predicate accepts', (() => {
 	const v = tasks.tasksView[0];
-	return tasks.tasksMeets(needMid, v.sideTotal, 0, v.threshold)
-		&& !tasks.tasksMeets(needMid - 1, v.sideTotal, 0, v.threshold);
+	return tasks.tasksMeets(needMid, v.denom, 0, v.threshold)
+		&& !tasks.tasksMeets(needMid - 1, v.denom, 0, v.threshold);
 })());
 
 quest.questPaint();
@@ -293,8 +294,8 @@ check('render: the live field draws no rings and no dimming', (() => {
 // the plan the view draws is the plan the difficulty prices
 check('goal: drawn crossings equal the difficulty cost', (() => {
 	const v = tasks.tasksView[0];
-	return goal.goalField.moved === tasks.tasksCost(tasks.tasksCatFromName(v.category),
-		v.cmp === '>' ? 0 : 1, v.threshold, v.side === 'left');
+	return goal.goalField.moved === tcost.tasksCost(tasks.tasksCatFromName(v.category),
+		v.cmp === '>' ? 0 : 1, v.threshold, v.side === 'left', v.measure === 'total' ? 1 : 0);
 })());
 
 // a goal that needs a very rare color on the named side still resolves, or says why it cannot

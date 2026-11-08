@@ -11,6 +11,7 @@ const players = apis['players.js'];
 const input = apis['input.js'];
 const force = apis['force.js'];
 const tasks = apis['tasks.js'];
+const tcost = apis['taskcost.js'];
 const bot = apis['bot.js'];
 const panels = apis['forcepanel.js'];
 const score = apis['scoreboard.js'];
@@ -195,7 +196,8 @@ stubs.els['settings-balls'].dispatch('input');
 check('balls slider: lowering the limit trims the live field and updates its output', sim.simBallConfig.count === 12
 	&& sim.simBalls.count === 12 && stubs.els['settings-balls-value'].textContent === '12');
 check('balls slider: a population change reprices active objectives without scoring', tasks.tasksScore[0] === 0
-	&& (tasks.tasksView[0].waiting || tasks.tasksInBand(tasks.tasksView[0].cost)));
+	&& (tasks.tasksView[0].waiting || tcost.tasksInBand(tasks.tasksView[0].cost, tasks.tasksView[0].demand,
+		tasks.tasksView[0].measure === 'total' ? 1 : 0, tasks.tasksView[0].mode === 'hold' ? 1 : 0)));
 stubs.els['settings-balls'].value = '18';
 stubs.els['settings-balls'].dispatch('input');
 check('balls slider: raising the limit does not reset the field', sim.simBalls.count === 12);

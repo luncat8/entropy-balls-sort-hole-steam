@@ -73,10 +73,10 @@ function questStateSig() {
 	for (let id = 0; id < TASK_SLOTS; id++) {
 		const v = tasksView[id];
 		const h = tasksHueView[id];
-		sig = (sig * 31 + tasksCat[id] + tasksSide[id] * 16 + tasksCmp[id] * 32) | 0;
+		sig = (sig * 31 + tasksCat[id] + tasksSide[id] * 16 + tasksCmp[id] * 32 + tasksMeasure[id] * 64) | 0;
 		sig = (sig * 31 + tasksThresh[id] + tasksMode[id] * 128 + h.count * 256) | 0;
 		sig = (sig * 31 + (tasksOn[id] ? 1 : 0) + (v.waiting ? 2 : 0) + (v.satisfied ? 4 : 0)) | 0;
-		sig = (sig * 31 + v.sideTotal * 2 + v.match * 128 + v.cost * 4096) | 0;
+		sig = (sig * 31 + v.denom * 2 + v.match * 128 + v.cost * 4096) | 0;
 		sig = (sig * 31 + ((v.holdSec * 10) | 0)) | 0;
 		sig = (sig * 31 + ((v.progress * 1000) | 0)) | 0;
 	}
@@ -86,7 +86,7 @@ function questStateSig() {
 // integer on purpose: a swatch string is only built when a category changes, never per frame
 function questSwatchSig() {
 	let sig = tasksAny() ? 1 : 0;
-	for (let id = 0; id < TASK_SLOTS; id++) sig = sig * 8 + tasksCat[id] + (tasksOn[id] ? 1 : 0);
+	for (let id = 0; id < TASK_SLOTS; id++) sig = sig * 32 + tasksCat[id] + (tasksOn[id] ? 1 : 0);
 	return sig;
 }
 
@@ -179,10 +179,14 @@ function questObjectiveText(v) {
 	return tasksSideArrow(v.side) + ' ' + questConditionText(v);
 }
 
+// the denominator is spoken by the condition: "40% hot" reads against the chamber the arrow names,
+// "90% of red" against every red ball on the canvas
 function questConditionText(v) {
 	if (v.waiting) return 'waiting for a feasible task';
-	let text = v.cmp + v.threshold + '% ' + v.category;
-	text += v.sideTotal === 0 ? ' · empty' : ' · ' + v.match + '/' + v.sideTotal;
+	let text = v.cmp + v.threshold + '%';
+	if (v.measure === 'total') text += ' of';
+	text += ' ' + v.category;
+	text += v.denom === 0 ? ' · empty' : ' · ' + v.match + '/' + v.denom;
 	return text;
 }
 
