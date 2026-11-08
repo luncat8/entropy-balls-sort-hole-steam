@@ -5,9 +5,12 @@ var TaskGen = {
 	queue: [],
 	queueSize: 4,
 	nextId: 1,
-	generate: function (prev) {
+	generate: function (prev, avoid) {
+		avoid = avoid || [];
 		let t;
+		let guard = 0;
 		do {
+			guard++;
 			const side = Math.random() < 0.5 ? 'left' : 'right';
 			const op = Math.random() < 0.5 ? '>' : '<';
 			const pct = 50 + Math.floor(Math.random() * 7) * 5;
@@ -16,22 +19,29 @@ var TaskGen = {
 			if (r < 0.4) category = 'cold';
 			else if (r < 0.8) category = 'hot';
 			else category = { color: Sim.COLORS[Math.floor(Math.random() * 6)] };
-			t = { id: this.nextId++, side: side, op: op, pct: pct, category: category, holdSeconds: 2, claimedBy: null };
-		} while (prev && this.same(t, prev));
+			const mode = Math.random() < 0.5 ? 'immediate' : 'hold';
+			t = { id: this.nextId++, side: side, op: op, pct: pct, category: category, mode: mode, holdSeconds: 2, claimedBy: null };
+		} while ((prev && this.same(t, prev)) || avoid.some(a => this.same(t, a)) || guard > 50);
 		return t;
 	},
 	same: function (a, b) {
 		const ca = typeof a.category === 'string' ? a.category : a.category.color;
 		const cb = typeof b.category === 'string' ? b.category : b.category.color;
-		return a.side === b.side && a.op === b.op && a.pct === b.pct && ca === cb;
+		return a.side === b.side && a.op === b.op && a.pct === b.pct && ca === cb && (a.mode || 'hold') === (b.mode || 'hold');
 	},
 	makeTask: function (prev) {
 		return this.generate(prev);
 	},
 	refillQueue: function () {
+		const avoid = [];
+		if (typeof Players !== 'undefined' && Players.list) {
+			for (let i = 0; i < Players.list.length; i++) if (Players.list[i].task) avoid.push(Players.list[i].task);
+		}
 		while (this.queue.length < this.queueSize) {
 			const prev = this.queue.length ? this.queue[this.queue.length - 1] : null;
-			this.queue.push(this.generate(prev));
+			const t = this.generate(prev, avoid);
+			this.queue.push(t);
+			avoid.push(t);
 		}
 	},
 	initQueue: function () {
@@ -72,8 +82,9 @@ var TaskGen = {
 		if (category === 'hot') return ball.colorIndex >= 3;
 		return ball.color === category.color;
 	},
-	updatePlayer: function (player, DT) {
-		if (!player.task) player.task = this.generate(null);
+	updatePlayer: function (player, DT, avoid) {
+		avoid = avoid || [];
+		if (!player.task) player.task = this.generate(null, avoid);
 		if (!player.holdTime) player.holdTime = 0;
 		let onSide = 0;
 		let inCat = 0;
@@ -89,15 +100,23 @@ var TaskGen = {
 		const fraction = onSide > 0 ? inCat / onSide : 0;
 		let met = player.task.op === '>' ? fraction > player.task.pct / 100 : fraction < player.task.pct / 100;
 		if (onSide === 0) met = false;
-		if (met) player.holdTime += DT; else player.holdTime = 0;
-		if (player.holdTime >= player.task.holdSeconds) {
-			player.solvedCount++;
-			if (player.task && player.task.claimedBy !== null && player.task.claimedBy !== undefined) {
-				// remove claimed task from any queue (already removed) 
+		if (met) {
+			if ((player.task.mode || 'hold') === 'immediate') {
+				player.solvedCount++;
+				player.task = this.generate(player.task, avoid);
+				player.holdTime = 0;
+				this.refillQueue();
+			} else {
+				player.holdTime += DT;
+				if (player.holdTime >= player.task.holdSeconds) {
+					player.solvedCount++;
+					player.task = this.generate(player.task, avoid);
+					player.holdTime = 0;
+					this.refillQueue();
+				}
 			}
-			player.task = this.generate(player.task);
+		} else {
 			player.holdTime = 0;
-			this.refillQueue();
 		}
 	}
 };

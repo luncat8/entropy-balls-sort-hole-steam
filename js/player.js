@@ -19,8 +19,8 @@ var Players = {
 	},
 	botStep: function (p) {
 		const desiredY = (p.task && p.task.side === 'left') ? Sim.H * 0.35 : Sim.H * 0.65;
-		p.force = clamp((desiredY - Sim.hole.y) * 2, -this.FMAX, this.FMAX);
-		p.active = p.energy > 0.1 * p.energyMax;
+		p.force = clamp((desiredY - Sim.hole.y) * 3, -this.FMAX, this.FMAX);
+		p.active = p.energy > 0.05 * p.energyMax;
 	},
 	update: function (DT) {
 		for (let i = 0; i < this.list.length; i++) {
@@ -70,7 +70,9 @@ var Players = {
 		}
 		// tasks
 		for (let i = 0; i < this.list.length; i++) {
-			TaskGen.updatePlayer(this.list[i], DT);
+			const avoid = [];
+			for (let j = 0; j < this.list.length; j++) if (j !== i && this.list[j].task) avoid.push(this.list[j].task);
+			TaskGen.updatePlayer(this.list[i], DT, avoid);
 		}
 	}
 };

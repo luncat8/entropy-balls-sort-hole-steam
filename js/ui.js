@@ -1,14 +1,14 @@
 // owns: settings, status bar, help text, settings panel
 // edit for: controls, url persistence, help messages
 var Settings = {
-	holeSize: 48,
+	holeSize: 32,
 	holeMaxSpeed: 300,
 	holeMoveEnergyCost: 1,
 	ballSize: 8,
 	ballSpeed: 160,
 	ballSizeRandom: false,
 	ballCollisions: false,
-	ballCount: 60,
+	ballCount: 20,
 	generation: 0,
 	storage: 100,
 	force0: 0,
@@ -176,9 +176,11 @@ var UI = {
 		}
 		const holdText = document.getElementById('hold-text');
 		if (holdText) {
-			const h0 = p0.task ? (p0.holdTime / p0.task.holdSeconds) : 0;
-			const h1 = p1.task ? (p1.holdTime / p1.task.holdSeconds) : 0;
-			const hs = 'hold P0:' + Math.round(h0 * 100) + '% P1:' + Math.round(h1 * 100) + '%';
+			let h0 = 0, h1 = 0;
+			if (p0.task && (p0.task.mode || 'hold') !== 'immediate') h0 = p0.holdTime / p0.task.holdSeconds;
+			if (p1.task && (p1.task.mode || 'hold') !== 'immediate') h1 = p1.holdTime / p1.task.holdSeconds;
+			const hs = 'P0:' + ((p0.task && p0.task.mode === 'immediate') ? 'imm' : Math.round(h0 * 100) + '%') +
+				' P1:' + ((p1.task && p1.task.mode === 'immediate') ? 'imm' : Math.round(h1 * 100) + '%');
 			if (holdText.textContent !== hs) holdText.textContent = hs;
 		}
 		const solved = document.getElementById('solved-text');
@@ -198,7 +200,7 @@ var UI = {
 		let help = '';
 		if (UI.panelOpen) help = 'Settings are saved in the URL.';
 		else if (p0.energy <= 0 || p1.energy <= 0) help = 'Energy empty — wait to recharge.';
-		else if (p0.task) help = 'Keep ' + p0.task.side + ' ' + p0.task.op + p0.task.pct + '% ' + ((typeof p0.task.category === 'string') ? p0.task.category : p0.task.category.color) + ' balls.';
+		else if (p0.task) help = 'Keep ' + p0.task.side + ' ' + p0.task.op + p0.task.pct + '% ' + ((typeof p0.task.category === 'string') ? p0.task.category : p0.task.category.color) + ' balls (' + (p0.task.mode || 'hold') + ').';
 		else if (Settings.bot0 || Settings.bot1) help = 'Hold mouse/touch to push or pull the hole.';
 		else help = 'Drag the hole to let balls pass.';
 		const tips = ['Settings are saved in the URL.', 'Keep the target side above the threshold.'];
@@ -213,7 +215,8 @@ var UI = {
 function taskTextForm(t) {
 	if (!t) return '';
 	const cat = (typeof t.category === 'string') ? t.category : t.category.color;
-	return t.side + ' hold ' + t.op + t.pct + '% ' + cat + ' balls';
+	const mode = (t.mode === 'immediate') ? 'immediate' : 'hold 2s';
+	return t.side + ' ' + t.op + t.pct + '% ' + cat + ' (' + mode + ')';
 }
 
 function clampSetting() {

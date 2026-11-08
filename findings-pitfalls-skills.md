@@ -1,2 +1,3 @@
 - UI init order: loadFromURL before buildPanel so sliders reflect URL values.
 - stub querySelectorAll returns [] so panel buttons only testable in real browser.
+- Task mode: immediate solves on first satisfying step; avoid evaluating replacement same step by returning after solve.
