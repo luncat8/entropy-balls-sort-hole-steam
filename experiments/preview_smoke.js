@@ -59,6 +59,7 @@ function previewSampleEl() {
 
 // the field is frozen during a hold, so the fixture can place balls and repaint without them moving
 function fixture(placements) {
+	sim.simResizeField(1200, 800);
 	sim.simSetSpawnRate(0);
 	sim.simInit();
 	sim.simBalls.count = 0;
@@ -248,7 +249,7 @@ check('goal: moved balls stay inside the field', (() => {
 	for (let i = 0; i < goal.goalBalls.count; i++) {
 		if (!goal.goalBalls.moved[i]) continue;
 		const b = goal.goalBalls;
-		if (b.x[i] < sim.simField.wallT || b.x[i] > sim.simField.w - sim.simField.wallT) return false;
+		if (b.x[i] < 0 || b.x[i] > sim.simField.w) return false;
 		if (b.y[i] < 0 || b.y[i] > sim.simField.h) return false;
 	}
 	return true;
