@@ -7,6 +7,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #12151b; }
 .game-status p { margin: 0; }
 .game-status-controls { display: grid; gap: 7px; margin-top: 8px; }
 .game-status strong { color: #edf0f6; }
+/* the field is the screen: no frame, no gutter, and the divider is the only drawn boundary */
 canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .draw-options {
 	position: fixed;
