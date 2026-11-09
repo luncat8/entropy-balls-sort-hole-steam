@@ -17,6 +17,8 @@ const bot = apis['bot.js'];
 const main = apis['main.js'];
 const DT = sim.FIXED_DT;
 const CAP = force.FORCE_CAPACITY;
+// characters are drawn once per bot role; the seed keeps the tuned baseline the policy checks expect
+bot.botSetRand(() => 0);
 
 let pass = 0;
 let fail = 0;
@@ -249,10 +251,10 @@ check('contest: aims the opening can span are joined into one lane', (() => {
 // ball can only leave it, which is the crossing the objective loses
 field(300, 200, 200, 0, 'hot');
 sim.simAperture.y = 200;
-bot.botPlanOpen(1);
+bot.botPlanOpen(1, bot.botPlan);
 check('plan: a met quota leaves no matching ball to fill', bot.botPlan.needCat === 0);
 check('plan: the same crossing then counts against the objective', (() => {
-	const n = bot.botPredict(0, true);
+	const n = bot.botPredict();
 	return n === 1 && bot.botCrossValue(0) === -1;
 })());
 check('plan: a crossing that loses the quota leads the hole off its lane', bot.botAim(1) === true
@@ -263,7 +265,7 @@ check('plan: a crossing that loses the quota leads the hole off its lane', bot.b
 field(900, 200, -200, 0, 'hot');
 const longCross = 20;
 bot.botSetTuning({ horizon: longCross });
-const passes = bot.botPredict(0, true);
+const passes = bot.botPredict();
 bot.botSetTuning({ horizon: bot.BOT_AIM_HORIZON });
 check('predict: a ball repeats its crossing inside a long horizon', passes > 1
 	&& bot.botScratch.dir[0] === -1 && bot.botScratch.t[1] > bot.botScratch.t[0]);
@@ -275,7 +277,7 @@ check('predict: a crossing flips the chamber it comes back from', (() => {
 // the lane is where the ball will be, not where it is: a diagonal ball crosses later and higher
 field(900, 200, -200, 200, 'hot');
 check('predict: the lane is the crossing height at the crossing time', (() => {
-	const n = bot.botPredict(0, true);
+	const n = bot.botPredict();
 	return n === 1 && near(bot.botScratch.t[0], 1.5, 0.01) && near(bot.botScratch.y[0], 500, 1);
 })());
 
@@ -287,11 +289,11 @@ place(3, 1000, 600, 0, 0, coolPalette());
 place(4, 1000, 700, 0, 0, coolPalette());
 sim.simFillDist();
 tasks.tasksAssign(1, 'left', 'hot', '<', 40, 'immediate');
-bot.botPlanOpen(1);
+bot.botPlanOpen(1, bot.botPlan);
 check('plan: a less-than objective leaves a negative quota', bot.botPlan.cmp === 1
 	&& bot.botPlan.needCat < 0);
 check('plan: a matching ball leaving is the progress a less-than objective needs', (() => {
-	const n = bot.botPredict(0, true);
+	const n = bot.botPredict();
 	for (let j = 0; j < n; j++) {
 		if (bot.botScratch.cat[j] !== 1 || bot.botScratch.dir[j] < 0) continue;
 		return bot.botCrossValue(j) === 1;
@@ -299,7 +301,7 @@ check('plan: a matching ball leaving is the progress a less-than objective needs
 	return false;
 })());
 check('plan: a matching ball entering is the crossing a less-than objective loses', (() => {
-	const n = bot.botPredict(0, true);
+	const n = bot.botPredict();
 	for (let j = 0; j < n; j++) {
 		if (bot.botScratch.cat[j] !== 1 || bot.botScratch.dir[j] > 0) continue;
 		return bot.botCrossValue(j) === -1;
@@ -318,11 +320,11 @@ place(4, 900, 600, -200, 0, coolPalette());
 sim.simFillDist();
 tasks.tasksAssign(1, 'left', 'hot', '>', 50, 'hold');
 check('hold: a satisfied hold has nothing left to fill', tasks.tasksView[1].satisfied === true
-	&& bot.botPlanOpen(1) === true
+	&& bot.botPlanOpen(1, bot.botPlan) === true
 	&& bot.botPlan.valCatIn <= 0 && bot.botPlan.valCatOut <= 0
 	&& bot.botPlan.valOtherIn <= 0 && bot.botPlan.valOtherOut <= 0);
 check('hold: a harmful crossing raises no lane of its own', (() => {
-	const n = bot.botPredict(0, true);
+	const n = bot.botPredict();
 	for (let j = 0; j < n; j++) if (near(bot.botScratch.y[j], 400, 1)) return bot.botCrossValue(j) < 0;
 	return false;
 })());
@@ -393,18 +395,91 @@ bot.botState.gain[1] = 1;
 check('contest: useful traffic can outbid a defensive owner', bot.botContest() === 1);
 
 field(900, 12, -200, 0, 'hot');
-const cornerCount = bot.botPredict(0, true);
+const cornerCount = bot.botPredict();
 check('predict: corner crossing keeps its true height for lane fit', cornerCount === 1
 	&& near(bot.botScratch.y[0], 12) && !bot.botLaneHits(0, 100, 0)
 	&& bot.botLaneHits(0, sim.simAperture.size / 2, 0));
 
 field(900, 200, -200, 0, 'hot');
 for (let i = 1; i < sim.BALL_CAP; i++) place(i, 900, 200, -200, 0, warmPalette());
-const fullPasses = bot.botPredict(0, true, 20);
+const fullPasses = bot.botPredict(20);
 check('predict: repeated crossings fit the full field buffer', fullPasses === sim.BALL_CAP * 3
 	&& Number.isFinite(bot.botScratch.t[fullPasses - 1])
 	&& Number.isFinite(bot.botScratch.y[fullPasses - 1])
 	&& bot.botScratch.dir[fullPasses - 1] === -1);
+
+// ---- characters
+
+// a slot draws once per bot role: a round restart keeps it, a human slot never has one
+players.playersInit(1);
+players.playersAdd(players.PLAYER_BOT);
+input.inputRebind();
+bot.botSetRand(() => 0.5);
+bot.botCharSet(1, -1);
+bot.botInit();
+check('character: a bot slot draws a character when it takes the role', bot.botChar[1] === bot.BOT_CHAR_DENIER
+	&& bot.botCharOf(1).id === 'denier' && bot.botChar[0] === -1 && bot.botCharOf(0) === null);
+bot.botSetRand(() => 0);
+bot.botInit();
+check('character: the same bot keeps its character across a restart', bot.botChar[1] === bot.BOT_CHAR_DENIER);
+bot.botCharSet(1, -1);
+bot.botInit();
+check('character: a fresh role draws the other character too', bot.botChar[1] === bot.BOT_CHAR_PROFIT
+	&& bot.BOT_CHARS.length === 2);
+
+// A warm ball leaving the left chamber loses the bot's "left hot" quota and fills the opponent's
+// "right hot" one: the lane that serves it is a cost only a character that reads the opponent sees.
+field(300, 200, 200, 0, 'hot');
+tasks.tasksAssign(0, 'right', 'hot', '>', 30, 'immediate');
+tasks.tasksAssign(1, 'left', 'hot', '>', 30, 'immediate');
+bot.botCharSet(1, bot.BOT_CHAR_PROFIT);
+bot.botWeightSet(1);
+bot.botRivalPlan.active = false;
+bot.botPlanOpen(1, bot.botPlan);
+const ownCross = bot.botPredict();
+const ownLane = bot.botLaneScore(ownCross, 200);
+check('character: a profit bot reads its own crossings and nothing else', bot.botRivalOpen(1) === false
+	&& bot.botRivalPlan.active === false && bot.botWeight.rival === 0
+	&& ownCross === 1 && bot.botCrossValue(0) === -1);
+bot.botCharSet(1, bot.BOT_CHAR_DENIER);
+bot.botWeightSet(1);
+check('character: a denier prices the opponent plan at the same crossing', bot.botRivalOpen(1) === true
+	&& bot.botRivalPlan.active === true && bot.botWeight.rival < 0);
+const rivalCross = bot.botPredict();
+const deniedLane = bot.botLaneScore(rivalCross, 200);
+check('character: the crossing is a gain for the opponent and a loss for the bot', rivalCross === 1
+	&& bot.botCrossValue(0) === -1 && bot.botCrossValueRival(0) === 1);
+check('character: the lane that hands the opponent a crossing is worth less to the denier', deniedLane < ownLane);
+check('character: the denier leaves that lane alone', bot.botAim(1) === false
+	|| Math.abs(bot.botState.targetY[1] - 200) > sim.simAperture.size / 2);
+
+// denial is refusal, not spite: only a crossing the opponent gains from is charged to the lane
+bot.botCharSet(1, bot.BOT_CHAR_PROFIT);
+bot.botWeightSet(1);
+check('character: a profit bot charges nothing to the opponent', bot.botWeight.rival === 0
+	&& bot.botRivalScore(1) === 0 && bot.botRivalScore(-1) === 0);
+bot.botCharSet(1, bot.BOT_CHAR_DENIER);
+bot.botWeightSet(1);
+check('character: the denier charges the opponent gains and not its losses',
+	bot.botRivalScore(1) < 0 && bot.botRivalScore(-1) === 0);
+bot.botCharSet(1, bot.BOT_CHAR_PROFIT);
+bot.botWeightSet(1);
+bot.botRivalPlan.active = false;
+
+// the force column names the character beside the player, and a human slot carries none
+players.playersInit(1);
+players.playersAdd(players.PLAYER_BOT);
+input.inputRebind();
+force.forceInit();
+bot.botInit();
+panels.forcePanelPaint();
+const botChar = bot.botCharOf(1);
+check('character: the bot column shows the character next to the player name', botChar !== null
+	&& panels.forcePanels.rows[1].char === botChar && panels.forcePanels.rows[1].badge.hidden === false
+	&& panels.forcePanels.rows[1].badge.textContent === botChar.icon + ' ' + botChar.name
+	&& panels.forcePanels.rows[1].badge.getAttribute('data-char') === botChar.id);
+check('character: a human column shows no character', panels.forcePanels.rows[0].char === null
+	&& panels.forcePanels.rows[0].badge.hidden === true);
 
 check('wiring: the fixed-step hook runs both control channels', typeof main.mainControlStep === 'function');
 
