@@ -43,6 +43,8 @@ function mainRestartRound() {
 function mainBoot() {
 	simInit();
 	playersInit(1);
+	// characters before the panels: each bot column shows the one its slot drew
+	botInit();
 	tasksInit();
 	for (let i = 0; i < players.count; i++) tasksAttach(i);
 	canvasInit();
@@ -53,7 +55,6 @@ function mainBoot() {
 	settingsInit();
 	drawerInit();
 	forcePanelInit();
-	botInit();
 	scoreboardInit(mainRestartRound);
 	statusInit();
 	statusPaint(goalHolding(), inputChannel(0), inputChannel(1), players.count);
