@@ -12,7 +12,7 @@ const GOAL_RING = 'rgba(237, 240, 246, 0.9)';
 const GOAL_RING_W = 2;
 const GOAL_DIM_ALPHA = 0.35;
 
-const canvasView = { scale: 1, offX: 0, offY: 0, w: 0, h: 0 };
+const canvasView = { dpr: 1, w: 0, h: 0 };
 const canvasDrawOptions = { predictedPosition: true, trajectoryLines: true, slowFadeHitSpot: false };
 
 const impactMarks = {
@@ -70,24 +70,27 @@ function canvasSlowFadeHitSpotChanged() {
 	if (!canvasDrawOptions.slowFadeHitSpot) impactMarks.age.fill(IMPACT_TTL + 1);
 }
 
+// The backing store scales with the device pixel ratio, the world does not: the field is the CSS
+// area of the canvas, so a world unit is a CSS pixel and pointer positions need no conversion.
 function canvasResize() {
 	const dpr = window.devicePixelRatio || 1;
-	const w = Math.round(cvEl.clientWidth * dpr);
-	const h = Math.round(cvEl.clientHeight * dpr);
-	if (w === canvasView.w && h === canvasView.h) return;
-	cvEl.width = w;
-	cvEl.height = h;
-	canvasView.w = w;
-	canvasView.h = h;
-	canvasView.scale = Math.min(w / simField.w, h / simField.h);
-	canvasView.offX = (w - simField.w * canvasView.scale) / 2;
-	canvasView.offY = (h - simField.h * canvasView.scale) / 2;
+	const cw = Math.round(cvEl.clientWidth);
+	const ch = Math.round(cvEl.clientHeight);
+	const w = Math.round(cw * dpr) || 1;
+	const h = Math.round(ch * dpr) || 1;
+	if (w !== canvasView.w || h !== canvasView.h) {
+		cvEl.width = w;
+		cvEl.height = h;
+		canvasView.w = w;
+		canvasView.h = h;
+		canvasView.dpr = dpr;
+	}
+	simResizeField(cw, ch);
 }
 
-// Pointer coordinates use CSS pixels, whereas the canvas transform uses backing-store pixels.
 function canvasFieldY(clientY) {
 	const rect = cvEl.getBoundingClientRect();
-	return ((clientY - rect.top) * cvEl.height / rect.height - canvasView.offY) / canvasView.scale;
+	return (clientY - rect.top) * simField.h / cvEl.clientHeight;
 }
 
 // the goal layer is optional: no hook or a null result means the live field is what gets drawn
@@ -119,18 +122,13 @@ function canvasDraw(dtSec) {
 	ctx.globalAlpha = 1;
 	ctx.fillStyle = STYLE_BG;
 	ctx.fillRect(0, 0, canvasView.w, canvasView.h);
-	ctx.setTransform(canvasView.scale, 0, 0, canvasView.scale, canvasView.offX, canvasView.offY);
+	// the screen edge is the field boundary: balls reflect off it, so nothing is drawn there
+	ctx.setTransform(canvasView.dpr, 0, 0, canvasView.dpr, 0, 0);
 	const f = simField;
 	const half = simAperture.size / 2;
-	const apTop = simAperture.y - half;
-	const apBot = simAperture.y + half;
 	ctx.fillStyle = STYLE_WALL;
-	ctx.fillRect(0, 0, f.w, f.wallT);
-	ctx.fillRect(0, f.h - f.wallT, f.w, f.wallT);
-	ctx.fillRect(0, 0, f.wallT, f.h);
-	ctx.fillRect(f.w - f.wallT, 0, f.wallT, f.h);
-	ctx.fillRect(f.wallX - f.wallT / 2, 0, f.wallT, apTop);
-	ctx.fillRect(f.wallX - f.wallT / 2, apBot, f.wallT, f.h - apBot);
+	ctx.fillRect(f.wallX - f.wallT / 2, 0, f.wallT, simAperture.y - half);
+	ctx.fillRect(f.wallX - f.wallT / 2, simAperture.y + half, f.wallT, f.h - simAperture.y - half);
 	// impact and forecast cues describe live motion; a goal layer is a still frame, so they would lie
 	const goal = goalBallsHook ? goalBallsHook() : null;
 	if (!goal && canvasDrawOptions.slowFadeHitSpot) {
