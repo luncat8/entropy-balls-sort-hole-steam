@@ -97,8 +97,11 @@ function botStep(dt) {
 	}
 }
 
+// One step of the drive the bot actually applies. A tighter zone can never be satisfied: the
+// aperture overshoots its target by up to a whole step and reverses, so the hole buzzes instead of
+// parking (measured 3793 velocity reversals per minute at the half-step zone).
 function botDeadZone() {
-	return simAperture.speed * FIXED_DT / 2 + 0.01;
+	return simAperture.speed * botTune.mag * FIXED_DT + 0.01;
 }
 
 function botWantsHole(id) {
@@ -108,48 +111,96 @@ function botWantsHole(id) {
 	return delta < 0 ? -1 : 1;
 }
 
-// the first bot that wants a move, and the first bot that wants the opposite one
-function botOpposed(first) {
-	const direction = botWantsHole(first);
-	if (!direction) return -1;
-	for (let id = 0; id < players.count; id++) {
-		if (id !== first && botWantsHole(id) === -direction) return id;
-	}
-	return -1;
+// an aim is a lane whether or not the hole is still driving to it: arriving must not end a turn
+function botHoldsLane(id) {
+	return players.type[id] === PLAYER_BOT && botState.aimed[id] === 1 && botState.rest[id] === 0;
 }
 
-// Only an actual opposition yields: aligned requests still combine, and a resting or parked bot
-// reserves no turn. Two opposite aims cancel through forceDrive while both stores pay, so one bot
-// drives at a time, and the turn goes to the plan with more crossings to gain — a bot that is only
-// dodging traffic yields to one that can fill a quota. A turn lasts until the owner parks or the cap
-// expires: flipping on every think drags the hole back and forth and neither plan ever finishes.
+// Two aims conflict when the opening cannot serve both at once: a gap the aperture can span is one
+// lane, so only a wider gap needs a turn. Comparing targets rather than "does the hole still want to
+// move" keeps the answer stable when the hole arrives — the old test read arrival as the end of the
+// conflict and handed the hole back every step (measured 1993 turn ends and 3793 aperture reversals
+// a minute).
+function botContested() {
+	if (players.count < 2) return false;
+	if (!botHoldsLane(0) || !botHoldsLane(1)) return false;
+	return botLanesApart() > simAperture.size - 2 * BALL_R_MAX;
+}
+
+// Two aims that oppose each other cancel through forceDrive while both stores pay, so only one bot
+// drives at a time. The turn goes to the plan with more crossings to gain and the owner keeps it
+// until it has no lane left or a rival is worth BOT_PREEMPT times more.
+//
+// The turn must not be read off "does the owner still want to move": an arrival drops that to zero,
+// the turn ended the same frame and the rival drove the hole straight back, so the two traded it
+// every step (measured 1993 turn ends and 3793 aperture reversals a minute). A parked aim is still a
+// lane, and the owner keeps it — a parked plan's gain is small, so a rival with real traffic outbids
+// it within one think.
 function botContest() {
-	let first = -1;
-	for (let id = 0; id < players.count && first < 0; id++) {
-		if (botWantsHole(id)) first = id;
-	}
-	if (first < 0) return botRelease();
-	if (botOpposed(first) < 0) return botRelease();
+	botJoinLanes();
 	const owner = botState.owner;
-	if (owner >= 0 && botState.aimed[owner] && !botOutbid(owner)) return owner;
-	let best = -1;
-	let bestGain = 0;
-	for (let id = 0; id < players.count; id++) {
-		if (!botWantsHole(id) || id === owner) continue;
-		if (best < 0 || botState.gain[id] > bestGain) {
-			best = id;
-			bestGain = botState.gain[id];
-		}
-	}
+	if (owner >= 0 && botHoldsLane(owner) && !botOutbid(owner)) return owner;
+	if (!botContested()) return botRelease();
+	const best = botBestWant(owner >= 0 && botHoldsLane(owner) ? owner : -1);
+	if (best < 0) return botRelease();
 	botState.owner = best;
 	return best;
 }
 
-// a rival whose plan is worth much more can take the hole early, so a dodge never holds it hostage
+// An opening tall enough for both balls serves both aims at one position, so two lanes that fit
+// inside it are one lane: the hole parks between them and neither plan loses. Half of all contested
+// time was two targets a single aperture position already covered, which the turn had no answer for.
+// Joining here rather than in the aim keeps it one rule per step: the aim is a per-bot think, and two
+// thinks that each make a reasonable choice still produce one lane between them.
+function botJoinLanes() {
+	if (players.count < 2) return;
+	if (!botHoldsLane(0) || !botHoldsLane(1)) return;
+	const gap = botLanesApart();
+	if (gap > simAperture.size - 2 * BALL_R_MAX) return;
+	const a = botLaneOf(0);
+	const b = botLaneOf(1);
+	if (a === 0 || b === 0) return;
+	const mid = botClampLane((a + b) / 2);
+	botState.targetY[0] = mid;
+	botState.targetY[1] = mid;
+}
+
+// The lanes that actually need serving: a bot already on its lane is served by where the hole is,
+// while a bot still driving needs its target. Reading targets alone made a parked owner and its
+// rival look joined whenever the owner had arrived, and a rival could never take a parked lane.
+function botLanesApart() {
+	const a = botLaneOf(0);
+	const b = botLaneOf(1);
+	if (a === b) return 0;
+	if (a === 0 || b === 0) return botState.targetY[0] === botState.targetY[1] ? 0 : 1e9;
+	return Math.abs(a - b);
+}
+
+function botLaneOf(id) {
+	if (!botHoldsLane(id)) return 0;
+	return botWantsHole(id) ? botState.targetY[id] : simAperture.y;
+}
+
+// the moving bot with the most to gain; the sitting owner is not a candidate
+function botBestWant(skip) {
+	let best = -1;
+	let bestGain = 0;
+	for (let id = 0; id < players.count; id++) {
+		if (id === skip || !botWantsHole(id)) continue;
+		if (best >= 0 && botState.gain[id] <= bestGain) continue;
+		best = id;
+		bestGain = botState.gain[id];
+	}
+	return best;
+}
+
+// A rival whose plan is worth much more can take the hole early, so a dodge never holds it hostage.
+// Any live lane can outbid, parked or moving: reading only "wants to move" let a parked owner keep a
+// lane worth almost nothing against a rival with traffic, because arriving drops both to zero.
 function botOutbid(owner) {
 	if (owner < 0) return false;
 	for (let id = 0; id < players.count; id++) {
-		if (id === owner || !botWantsHole(id)) continue;
+		if (id === owner || !botHoldsLane(id)) continue;
 		if (botState.gain[id] > botState.gain[owner] * BOT_PREEMPT + 1e-6) return true;
 	}
 	return false;
@@ -371,7 +422,11 @@ function botAim(id) {
 			}
 		}
 	}
-	if (best <= 0 && botPlan.needCat > 0) {
+	// A scarce category has its next useful crossing past the horizon in both directions: a ">"
+	// objective waits for a matching ball to enter, and a "<" one waits for one to leave, which is
+	// the same wait mirrored. The guard read only a positive need, so a less-than objective whose
+	// only progress is a matching ball leaving stood idle whenever nothing scored inside the horizon.
+	if (best <= 0 && botPlan.needCat !== 0) {
 		const waitY = botWaitLane(botPredict(botPlan.cat, botPlan.isLeft, BOT_WAIT_SEC));
 		if (waitY >= 0) {
 			botState.targetY[id] = waitY;

@@ -83,6 +83,7 @@ function match(seed, seconds, opts) {
 		live[id] = { key, at: stepNow, measure: v.measure, mode: v.mode, cost: v.cost };
 	}
 	let stepNow = 0;
+	let tracked = sim.simBalls.count;
 	for (let id = 0; id < roster.players.count; id++) note(id, tasks.tasksView[id]);
 	for (let i = 0; i < sim.simBalls.count; i++) side[i] = sim.simBalls.x[i] < sim.simField.wallX ? 1 : 0;
 	for (let i = 0; i < steps; i++) {
@@ -118,6 +119,13 @@ function match(seed, seconds, opts) {
 		if (roster.players.count === 2 && force.forceState.dir[0] * force.forceState.dir[1] < 0) opposite++;
 		for (let b = 0; b < sim.simBalls.count; b++) {
 			const nowLeft = sim.simBalls.x[b] < sim.simField.wallX ? 1 : 0;
+			// a ball that spawns into a chamber did not cross the divider: the ledger read every
+			// arrival as traffic and charged the bot for help or harm it never caused
+			if (b >= tracked) {
+				side[b] = nowLeft;
+				if (b === tracked) tracked++;
+				continue;
+			}
 			if (nowLeft === side[b]) continue;
 			crossings++;
 			for (let id = 0; id < roster.players.count; id++) {

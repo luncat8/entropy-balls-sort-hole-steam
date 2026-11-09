@@ -228,11 +228,21 @@ bot.botState.gain[1] = bot.BOT_PREEMPT * 2;
 bot.botStep(DT);
 check('contest: a rival plan worth much more takes the turn', force.forceState.held[0] === 0
 	&& force.forceState.held[1] === 1);
-bot.botState.targetY[1] = 100;
-check('contest: aligned aims do not reserve a turn', bot.botContest() === -1);
-bot.botState.rest[0] = 1;
+bot.botState.targetY[0] = 100;
 bot.botState.targetY[1] = 700;
-check('contest: a resting bot does not block the other', bot.botContest() === -1);
+bot.botState.rest[0] = 1;
+check('contest: a resting owner forfeits the turn to the other bot', bot.botContest() === 1);
+// two lanes the opening can span are one lane: the hole sits between them and neither bot is parked
+bot.botState.rest[0] = 0;
+bot.botState.rest[1] = 0;
+bot.botState.owner = -1;
+bot.botState.targetY[0] = 390;
+bot.botState.targetY[1] = 410;
+check('contest: aims the opening can span are joined into one lane', (() => {
+	const r = bot.botContest();
+	return r === -1 && bot.botState.targetY[0] === bot.botState.targetY[1]
+		&& Math.abs(bot.botState.targetY[0] - 400) < 1;
+})());
 
 // the plan reads a split, not a direction: with the named chamber already all matching, a matching
 // ball can only leave it, which is the crossing the objective loses
@@ -330,11 +340,20 @@ bot.botState.targetY[1] = 700;
 bot.botState.aimed.fill(1);
 sim.simAperture.y = 400;
 check('contest: one bot owns the hole', bot.botContest() === 0);
-// The owner arrives: a parked bot wants nothing, so the opposition ends and the hole is released
-// rather than held against a bot that has nowhere to go
+// The owner arrives and keeps the turn: an aim that is parked is still a lane to defend, so the
+// rival is not handed the hole the owner just reached (1925 releases a minute before this rule)
 sim.simAperture.y = 120;
-check('contest: an owner that arrived releases the hole', bot.botContest() === -1);
-check('contest: the released hole leaves no owner', bot.botState.owner === -1);
+bot.botState.gain[0] = 1;
+bot.botState.gain[1] = 0.5;
+check('contest: an owner that arrived still keeps the hole', bot.botContest() === 0);
+check('contest: the kept hole keeps its owner', bot.botState.owner === 0);
+// a parked owner's gain is small, so a rival with real traffic outbids it in one think
+bot.botState.gain[1] = bot.BOT_PREEMPT * 2;
+check('contest: a rival with more to gain takes a parked lane',
+	bot.botContest() === 1 && bot.botState.owner === 1);
+// a rival that stops aiming leaves no opposition, so the turn goes
+bot.botState.aimed[1] = 0;
+check('contest: a rival that gave up lets the turn go', bot.botContest() === -1);
 
 check('wiring: the fixed-step hook runs both control channels', typeof main.mainControlStep === 'function');
 
