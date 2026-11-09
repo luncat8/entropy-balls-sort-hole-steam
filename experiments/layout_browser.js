@@ -35,9 +35,16 @@ async function run() {
 						centre: left.right < innerWidth / 2 - 12 && right.left > innerWidth / 2 + 12,
 						edges: left.left >= 0 && right.right <= innerWidth && innerWidth - right.right <= 12,
 						score: score.bottom < right.top,
-						fit: canvasView.offX >= 0 && canvasView.offY >= 0
-							&& canvasView.offX + canvasView.scale * simField.w <= canvas.width + 0.01
-							&& canvasView.offY + canvasView.scale * simField.h <= canvas.height + 0.01,
+						field: simField.w === Math.round(canvas.width) && simField.h === Math.round(canvas.height)
+							&& simField.wallX === simField.w / 2,
+						inside: (() => {
+							for (let i = 0; i < simBalls.count; i++) {
+								const r = simBalls.r[i];
+								if (simBalls.x[i] < r - 0.5 || simBalls.x[i] > simField.w - r + 0.5) return false;
+								if (simBalls.y[i] < r - 0.5 || simBalls.y[i] > simField.h - r + 0.5) return false;
+							}
+							return true;
+						})(),
 						status: !!document.querySelector('#settings-panel .game-status'),
 						overflow: document.documentElement.scrollWidth <= innerWidth
 					};
@@ -47,15 +54,18 @@ async function run() {
 			const scores = await page.evaluate(() => Array.from(tasksScore));
 			if (wide) await page.locator('#drawer-toggle').click();
 			await page.locator('#drawer-toggle').click();
-			assert.equal(await page.locator('#drawer-backdrop').isVisible(), !wide);
+			// the panel's toggle event, which shows the backdrop, flushes as a task after the click
+			await page.waitForFunction((open) => document.getElementById('drawer-backdrop').hidden === open, wide);
+			assert.equal(await page.locator('#drawer-backdrop').isVisible(), !wide, `${width}x${height} backdrop`);
 			await page.keyboard.press('Escape');
 			assert.deepEqual(await page.evaluate(() => Array.from(tasksScore)), scores);
-			assert.equal(await page.locator('#settings-panel').evaluate(el => el.open), false);
-			assert.equal(await page.locator('#drawer-toggle').evaluate(el => el === document.activeElement), true);
+			assert.equal(await page.locator('#settings-panel').evaluate(el => el.open), false, `${width}x${height} escape closes`);
+			assert.equal(await page.locator('#drawer-toggle').evaluate(el => el === document.activeElement), true, `${width}x${height} focus restored`);
 			await page.reload();
 			assert.equal(await page.locator('#settings-panel').evaluate(el => el.open), false);
 			await page.locator('#drawer-toggle').click();
-			await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+			// the preference is written by the panel's toggle event, which flushes after the rAF pair
+			await page.waitForFunction(key => localStorage.getItem(key) === '1', wide ? 'entropy-drawer-wide' : 'entropy-drawer-compact');
 			await page.reload();
 			assert.equal(await page.locator('#settings-panel').evaluate(el => el.open), true);
 			if (!wide) {
