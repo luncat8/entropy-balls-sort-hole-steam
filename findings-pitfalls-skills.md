@@ -95,3 +95,24 @@ comparators are not symmetric in a random field: `<70%` is already true 81% of t
 
 ## a satisfied hold has nothing to maximise (2026-11-08)
 a `hold` objective that is already met leaves both quotas at zero, so every crossing is worth `-1` and every lane scores below zero — `botAim` returns false and the bot stops defending exactly when the two-second hold starts. a hold needs its own lane rule: count only the crossings that would end the hold (`>` loses when the named chamber's share drops) and treat the lane the hole already holds as the zero baseline, so a safer lane must beat the drive.
+
+## a full-screen field is rebuilt, not letterboxed (2026-11-09)
+fitting a fixed-aspect world into a viewport leaves unused screen area on every aspect ratio, and at
+the short-landscape end that area was where the aperture track lived. making the world size equal the
+canvas' CSS size (`simResizeField`) removes the transform entirely: a world unit is a CSS pixel, the
+divider is `w / 2` by construction, and the device-pixel ratio stays the only drawing concern. rescale
+existing balls with the field instead of re-spawning them, and clamp each against the new walls — a
+shrinking radius near an edge is the one case that needs the bounce. fixture code must set the field
+size before `simInit`, because the aperture centre is derived from the current height.
+
+## a fake canvas is not resized by a "viewport" edit (2026-11-09)
+`stubs.els.canv.clientWidth/Height` persist between sections of one smoke file. once the field takes
+its size from the canvas, a fixture that assumes the default 1200x800 can silently build balls for a
+smaller field left behind by an earlier resize. set both properties in the fixture's reset.
+
+## `<details>` toggle work is queued, so the next statement may read stale state (2026-11-09)
+after `locator.click()` on a summary, the `toggle` event (which shows the backdrop and writes the
+localStorage preference) flushes as a task afterwards. a browser harness that immediately reads
+`backdrop.hidden` or reloads the page sees the pre-toggle state — this failed at 1024x768 and 390x844
+on a clean tree. wait for the effect (`page.waitForFunction` on the DOM or the stored key) instead of
+expecting the click to have completed it.
