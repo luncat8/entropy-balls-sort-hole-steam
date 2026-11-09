@@ -57,18 +57,19 @@ getObj().data().action()
 	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
 	canvas.js — owns canvas sizing (device-pixel backing store), drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	force.js — owns per-participant hole requests, energy stores, funding, the combined drive and the store readout. edit for energy rates, funding rules, readout.
-	bot.js — owns bot policy: the value of each kind of crossing, predicted crossings (every repeat, at the height and time it happens), lane aim with an arrival gate and a baseline defence, energy rests and one-owner turns when bots contest the hole. edit for heuristics, aim horizon, rest thresholds, scoring weights, contest turns. it reads tasks.js's view and taskcost.js's values and writes only through force.js; never reads input.
+	bot.js — owns bot policy: each bot's character (profit or denier) and the draw that assigns it, the value of each kind of crossing for the bot and for its opponent, predicted crossings (every repeat, at the height and time it happens), lane aim with an arrival gate and a baseline defence, energy rests and one-owner turns when bots contest the hole. edit for heuristics, characters and their weights, aim horizon, rest thresholds, scoring weights, contest turns. it reads tasks.js's view and taskcost.js's values and writes only through force.js; never reads input.
+	forcepanel.js — owns per-participant force panels and energy/usage presentation, including the character a bot slot drew. edit for panel layout, accessible readouts, bot request display and character badge.
 	input.js — owns both human control channels: the pointer/wheel channel (player 1) and the keys channel (player 2 with two humans), their selections and holds. edit for bindings, strengths, hold gestures, channel assignment.
 	players.js — owns participant identity, type and lifecycle. edit for the roster, controller mask, adding bots.
 	tasks.js — owns objective rules, the category grammar (hot, cold, palette colours, palette ranges), generation, completion scores, per-participant lifecycle and the task view model (side, measure, counts, need, progress). edit for predicates, candidates, threshold table, hold duration, scores, progress measure.
 	taskcost.js — owns the priced walk from the live distribution to a satisfying split, the per-crossing value, the scarcity demand and the difficulty bands, floors and ceilings. edit for cost/demand arithmetic, band edges, floors, crossing values.
-	scoreboard.js — owns the player table, per-slot bot checkboxes, mode readout and restart control. edit for score columns, controller controls, table copy.
+	scoreboard.js — owns the player table, per-slot bot checkboxes, the character badge beside each name, mode readout and restart control. edit for score columns, controller controls, character badge, table copy.
 	preview.js — owns quest target appearance modes, their shapes and samples, the hold preview panel and its mode radios. edit for appearance modes, target shapes, panel copy.
 	goalview.js — owns the held-quest goal view: which balls cross, goal layout, goal label. edit for goal layout, crossing rules, goal copy.
 	settings.js — owns the settings table, defaults, URL persistence, their percentage readouts and controls. edit for settings keys, URL keys, ball count/speed and friction controls.
 	status.js — owns live/preview status and per-slot contextual control help. edit for status copy and controller guidance.
 	drawer.js — owns responsive settings disclosure, dismissal and per-layout localStorage preferences. edit for drawer behavior.
-	game.css — owns game/HUD presentation. edit for full-screen field, edge player columns, score and drawer styles.
+	game.css — owns game/HUD presentation. edit for full-screen field, edge player columns, score, character badge and drawer styles.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -141,6 +142,7 @@ an objective reads its threshold against one of two totals: the named chamber's 
 the difficulty label bands crossings; a scarcity demand rejects "only two green balls exist" jobs, and the whole-canvas immediate form is floored one crossing higher because its crossings arrive twice as fast.
 plans/draft-coverage.md is the answer to "is this in the plan or still missing" — update it when a draft feature ships.
 gui.2/gui.3: the canvas is the field — world units are CSS pixels, balls reflect off the screen edge, nothing is drawn around it, and the divider is always at half the width. A resize rescales balls and aperture instead of letterboxing. Player 1 is anchored left, Player 2 right, score top-right. Settings/help overlay compact screens and default to a left drawer on wide screens; drawer.js stores separate wide/compact visibility preferences. status.js lives inside the drawer, not a footer. Numeric task/energy readouts stay in their feature panels.
+plan 2.6 gives every bot a character, drawn once per bot role: profit plays for its own completions, denier charges the lane for the crossings the opponent would gain from (refusal, never spite). the lane score is still one rule with a second term, the turn is still allocated by `botState.gain`, and the score row and the bot's force column both show the character's icon and tint.
 gui.4: no size or speed is a pixel count. The field scale is sqrt(w * h) and every length or speed is a share of a thousandth of it (`simPx`, `SIM_SHARE`), so ball density and pace hold at any window size and a resize rescales radii and velocities with the scale. Settings store shares and read `%`/`%/s`; `simBallConfig`, `simBallRadius` and `simAperture` hold the derived pixels — write the share, never the pixel number.
 
 ## housekeeping
