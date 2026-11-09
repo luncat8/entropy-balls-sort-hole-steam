@@ -10,6 +10,7 @@ const cv = apis['canvas.js'];
 const col = apis['color.js'];
 const ctx2d = stubs.ctx2d;
 const DT = sim.FIXED_DT;
+const BALL_SIZE_SMALL = 10;
 
 let pass = 0;
 let fail = 0;
@@ -23,6 +24,7 @@ function check(name, ok) {
 }
 
 function freshWorld() {
+	sim.simResizeField(1200, 800);
 	sim.simInit();
 	sim.simBalls.count = 0;
 	sim.simAperture.y = 100;
@@ -148,6 +150,11 @@ check('impact: face, diameter, approach side, and ball color',
 ctx2d.calls.length = 0;
 cv.canvasDraw(0);
 check('impact: patch spans wall thickness by ball diameter', hasRectCall(596, 386, 8, 28));
+check('field: the screen edge is the boundary, no border is drawn',
+	!hasRectCall(0, 0, sim.simField.w, sim.simField.wallT)
+	&& !hasRectCall(0, 0, sim.simField.wallT, sim.simField.h)
+	&& !hasRectCall(0, sim.simField.h - sim.simField.wallT, sim.simField.w, sim.simField.wallT)
+	&& !hasRectCall(sim.simField.w - sim.simField.wallT, 0, sim.simField.wallT, sim.simField.h));
 let lastBallFill = null;
 for (const call of ctx2d.calls) if (call.method === 'fill') lastBallFill = call;
 check('draw layers: balls remain opaque after forecast and impact cues', lastBallFill && lastBallFill.globalAlpha === 1);
@@ -226,16 +233,20 @@ check('collisions off: balls pass through',
 
 freshWorld();
 place(0, 800, 400, 300, 120, 14, 0xabcdef);
-sim.simStep(1 / 120);
-const snap = [sim.simBalls.x[0], sim.simBalls.y[0], sim.simBalls.vx[0], sim.simBalls.vy[0]];
-const scale0 = cv.canvasView.scale;
+place(1, 200, 200, -300, -120, 14, 0xabcdef);
+place(2, 1, 120, -260, -90, 14, 0xabcdef);
 stubs.els.canv.clientWidth = 500;
 stubs.els.canv.clientHeight = 300;
 for (const fn of stubs.listeners.resize || []) fn();
-check('resize: view transform changes, world state does not',
-	cv.canvasView.scale !== scale0
-	&& sim.simBalls.x[0] === snap[0] && sim.simBalls.y[0] === snap[1]
-	&& sim.simBalls.vx[0] === snap[2] && sim.simBalls.vy[0] === snap[3]);
+check('resize: the canvas is the field and the divider stays central',
+	cv.canvasView.w === 500 && cv.canvasView.h === 300
+	&& sim.simField.w === 500 && sim.simField.h === 300 && sim.simField.wallX === 250);
+check('resize: balls rescale with the field and keep their side',
+	near(sim.simBalls.x[0], 800 * 500 / 1200, 1e-3) && near(sim.simBalls.y[0], 400 * 300 / 800, 1e-3)
+	&& sim.simBalls.x[0] > sim.simField.wallX && sim.simBalls.x[1] < sim.simField.wallX
+	&& near(sim.simBalls.r[0], 14 * 0.375, 1e-3) && near(sim.simBalls.y[1], 200 * 0.375, 1e-3));
+check('resize: a ball shrunk below its old spot stays inside the screen', sim.simBalls.vx[2] > 0
+	&& inBounds(2) && sim.simBalls.x[2] === sim.simBalls.r[2]);
 
 freshWorld();
 place(0, 300, 400, 0, 0, 14, 0xff0000);
@@ -274,6 +285,46 @@ for (let i = 0; i < sim.simBalls.count; i++) {
 }
 check('generation: speeds bounded and balls in field after 60s', speedOk && boundsOk);
 
+
+// ball size is one mean radius plus a variety switch; both reach the live field
+freshWorld();
+place(0, 300, 200, 100, 0, 14, 0x112233);
+place(1, 300, 400, 100, 0, 14, 0x112233);
+sim.simSetBallSize(21, true);
+check('ball size: the mean radius scales every live ball', near(sim.simBalls.r[0], 21)
+	&& near(sim.simBalls.r[1], 21) && sim.simBallConfig.varied === true);
+check('ball size: the setting clamps to its range', sim.simSetBallSize(90, true)
+	&& sim.simBallConfig.size === sim.BALL_SIZE_MAX);
+sim.simSetBallSize(8, false);
+check('ball size: random sizes off gives every ball the same radius', sim.simBalls.r[0] === 8
+	&& sim.simBalls.r[1] === 8 && sim.simBallRadius.max === 8);
+sim.simSetBallSize(BALL_SIZE_SMALL, true);
+let spreadOk = true;
+for (let k = 0; k < 40; k++) {
+	sim.simBalls.count = 0;
+	sim.simSpawn();
+	const r = sim.simBalls.r[0];
+	if (r < BALL_SIZE_SMALL * (1 - sim.BALL_SIZE_VARIETY) - 1e-3
+		|| r > BALL_SIZE_SMALL * (1 + sim.BALL_SIZE_VARIETY) + 1e-3) spreadOk = false;
+}
+check('ball size: random sizes stay inside the variety band around the mean', spreadOk
+	&& near(sim.simBallRadius.max, BALL_SIZE_SMALL * (1 + sim.BALL_SIZE_VARIETY), 1e-3));
+sim.simSetBallSize(sim.BALL_SIZE_DEFAULT, true);
+
+freshWorld();
+place(0, 700, 400, 0, 0, 14, 0x112233);
+sim.simSetBallSize(sim.BALL_SIZE_MAX, true);
+check('ball size: a bigger ball is pushed back inside the screen', inBounds(0));
+sim.simSetBallSize(sim.BALL_SIZE_DEFAULT, true);
+
+freshWorld();
+sim.simSetBallCollisions(false);
+place(0, 500, 400, 200, 0, 10, 1);
+place(1, 560, 400, -200, 0, 10, 2);
+for (let k = 0; k < 30; k++) sim.simStep(1 / 120);
+check('collisions: the setting reaches the step, and switching it back collides',
+	sim.simBalls.x[0] > sim.simBalls.x[1] && (sim.simSetBallCollisions(true), sim.simStep(1 / 120), true));
+sim.simSetBallCollisions(true);
 
 sim.simSetBallCount(sim.BALL_COUNT_DEFAULT);
 sim.simSetBallSpeed(sim.BALL_SPEED_DEFAULT);
