@@ -124,7 +124,7 @@ function botHoldsLane(id) {
 function botContested() {
 	if (players.count < 2) return false;
 	if (!botHoldsLane(0) || !botHoldsLane(1)) return false;
-	return botLanesApart() > simAperture.size - 2 * BALL_R_MAX;
+	return botLanesApart() > simAperture.size - 2 * simBallRadius.max;
 }
 
 // Two aims that oppose each other cancel through forceDrive while both stores pay, so only one bot
@@ -156,7 +156,7 @@ function botJoinLanes() {
 	if (players.count < 2) return;
 	if (!botHoldsLane(0) || !botHoldsLane(1)) return;
 	const gap = botLanesApart();
-	if (gap > simAperture.size - 2 * BALL_R_MAX) return;
+	if (gap > simAperture.size - 2 * simBallRadius.max) return;
 	const a = botLaneOf(0);
 	const b = botLaneOf(1);
 	if (a === 0 || b === 0) return;
