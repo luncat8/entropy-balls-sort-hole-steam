@@ -15,9 +15,9 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | slider energy consumption to move the hole | shipped | `energyCost`, plan 0.5 |
 | slider energy storage | shipped | `energyStore`, plan 0.5 |
 | slider ball generation | open | spawn rate is a constant; the count limit is a different knob |
-| slider ball size, same or random size | open | sizes are a random range, not a setting |
+| slider ball size, same or random size | shipped | `ballSize` 6–26 px mean radius with a random-sizes switch, gui.3 |
 | average ball speed | shipped | `ballSpeed`, 50–350 px/s |
-| checkbox ball collisions | open | `simSetBallCollisions` exists, no control |
+| checkbox ball collisions | shipped | `collisions` setting driving `simSetBallCollisions`, gui.3 |
 | white/dark theme, hole as background color | open | one dark theme is hard-coded in the canvas and CSS |
 
 ## Force and hole control
@@ -56,7 +56,7 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 
 | draft asks for | status | where |
 | --- | --- | --- |
-| field split by a movable-wall hole, balls reflect off walls | shipped | `simulation.js`, plan 0.1 |
+| field split by a movable-wall hole, balls reflect off walls | shipped | `simulation.js`, plan 0.1; the field is the whole screen and the screen edge is the wall, gui.3 |
 | balls fly without friction | shipped | `simulation.js` |
 | random ball colors with good saturation and light | shipped | `color.js`; six palette hues with random S/L, not a full wheel |
 | warm/cold/near-target color tests | shipped | `color.js` |
@@ -76,14 +76,13 @@ Two different things are missing, and they are not the same kind of missing:
 
 - **Planned, with a plan file.** The task queue, task claiming and the open/claimed/complete states
   (`plan1.0.md`).
-- **Deferred by a recorded decision, with no plan file.** Ball size and same/random size, the ball
-  collision checkbox, the white/dark theme and the spawn-rate slider. gui.1 trimmed the settings list
-  to four working controls on purpose; each of these four needs a simulation or styling change before
-  a control can exist, so a plan file would be a one-line table entry plus that change. "A player
-  signs to a task" is part of 1.0 and is not needed while every live slot already owns one objective.
+- **Deferred by a recorded decision, with no plan file.** The white/dark theme and the spawn-rate
+  slider. Each needs a styling or simulation change before a control can exist, so a plan file would be
+  a one-line table entry plus that change. "A player signs to a task" is part of 1.0 and is not needed
+  while every live slot already owns one objective.
 
-The remaining unplanned draft features are the simulation and styling controls listed above. The
-near-target quest category and both percentage denominators ship in 2.5.
+The remaining unplanned draft features are the theme and the generation slider. The near-target quest
+category and both percentage denominators ship in 2.5; ball size and collisions ship in gui.3.
 
 Everything else in `draft.txt` ships. Nothing in the draft is blocked by an architectural gap: each
 open item is a table row or a control.
@@ -91,9 +90,9 @@ open item is a table row or a control.
 ## Why the gaps are gaps
 
 - The settings list was trimmed on purpose in gui.1: aperture size/speed, energy rates, ball size,
-  collision reflections and theme were deferred so the settings table could ship with four working
-  controls and a tested URL format. Adding a key is one table entry (`SETTINGS_KEYS`) plus one
-  normalize/encode branch, so the deferred sliders are cheap follow-ups, not a redesign.
+  collision reflections and theme were deferred so the settings table could ship with a proven URL
+  format. Adding a key is one table entry (`SETTINGS_KEYS`) plus one normalize/encode branch; gui.3 and
+  0.5 filled in four of them that way.
 - The task queue (1.0) was deferred behind the two-slot objective model. 2.0–2.2 gave each slot its
   own objective, which is a stronger version of "one task per player" for the two-player game; the
   queue is only needed if a player must choose among several open tasks.
@@ -105,8 +104,8 @@ open item is a table row or a control.
 
 ## Next step
 
-Plan 2.5 closed the two denominator gaps: a threshold can now be read against the named chamber or
-against every ball of the category, and the six palette ranges cover the draft's "similar to a random
-color" target. Ball size, the collision checkbox and the light theme are the three controls left in
-the settings table; the bot's next measurable gain is pricing ball-to-ball collisions in its lane
-score, because a 2.5 s forecast is still optimistic in a colliding field.
+gui.3 closed the ball-size, random-size and collision gaps. Plan 2.5 closed the two denominator gaps: a
+threshold can now be read against the named chamber or against every ball of the category, and the six
+palette ranges cover the draft's "similar to a random color" target. The light theme and the
+ball-generation slider are the settings left; the bot's next measurable gain is pricing ball-to-ball
+collisions in its lane score, because a 2.5 s forecast is still optimistic in a colliding field.

@@ -23,6 +23,9 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 14. ~~0.5 — Aperture and energy settings~~ — done: [plan](plan0.5.md). Hole size/speed and energy cost/storage controls with URL persistence.
 15. [draft coverage](draft-coverage.md): what `draft.txt` asks for, what ships, what is still open.
 16. ~~gui.2 — Full-screen field and edge HUD~~ — done: [plan](plangui.2.md), [worklog](../archive/gui.2-worklog.md). Responsive settings drawer, saved disclosure preferences and left/right player columns.
+17. ~~gui.3 — The screen is the field; ball size and collisions~~ — done: [plan](plangui.3.md),
+    [worklog](../archive/gui.3-worklog.md). Borderless screen-sized field with a central divider, ball
+    size/variety and the collision switch as settings.
 
 ## Shared product decisions
 
@@ -36,7 +39,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 
 ## Manual completion checklist
 
-- At narrow and wide viewport sizes, both chambers and the central passage remain visible and usable.
+- At narrow and wide viewport sizes, the divider stays central and the whole screen is playable field.
 - Balls remain inside the field, pass only through the opening, and do not acquire drift from drag.
 - The task's displayed category, side, comparator, threshold and denominator agree with the measured ball distribution, and its difficulty label is shown.
 - Holding a quest item draws the goal on the canvas and opens its panel; the field stops while held and resumes on release, pointer cancellation, or focus loss.
@@ -47,4 +50,4 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 - Mouse and touch controls both activate and release cleanly; status/help does not cover the field or primary controls.
 - Bot and human controls can be distinguished and each participant uses their own energy budget.
 - The score table counts completed quests, both bot checkboxes work independently, and New round resets play without changing settings.
-- Ball count and average speed sliders update the live field and restore from a copied URL.
+- Ball count, average speed, ball size, random sizes and ball collisions update the live field and restore from a copied URL.
