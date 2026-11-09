@@ -264,7 +264,7 @@ function botPlanOpen(id) {
 function botCrossTime(i) {
 	const vx = simBalls.vx[i];
 	const speed = Math.abs(vx);
-	if (speed < 1) return -1;
+	if (speed < simPx(1)) return -1;
 	const d = simField.wallX - simBalls.x[i];
 	if (vx < 0 ? d < 0 : d > 0) return Math.abs(d) / speed;
 	const wall = vx < 0 ? simBalls.r[i] : simField.w - simBalls.r[i];
@@ -409,7 +409,7 @@ function botAim(id) {
 	// with nothing to drive for, only a lane that sheds traffic is worth the energy: the candidate
 	// lanes are beside each predicted crossing, out of that ball's reach
 	if (best <= 0) {
-		const gap = simAperture.size / 2 + 2;
+		const gap = simAperture.size / 2 + simPx(2);
 		for (let k = 0; k < n; k++) {
 			const off = gap + botScratch.r[k];
 			for (let side = -1; side <= 1; side += 2) {
