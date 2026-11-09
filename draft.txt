@@ -28,6 +28,8 @@ force use energy. energy has storage and small constant source.
 
 settings: 2 players on same device: one mouse second - arrows up down to move force slider and right arrow to apply force
 
+improve bots: add 2 characters: one prefer maximize his profit, another prefer minimize opponent profit. randomly choose any combination of these characters in bot. show them as ico or color near player (bot) name
+
 
 ## force move GUI
 
@@ -103,6 +105,7 @@ quest list target color drawn options radio buttons (with preview of what option
 [] as colored ball of average target color
 [] as few balls with color range
 [x] rectangle with smooth palette of possible range
+
 
 
 
