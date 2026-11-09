@@ -90,6 +90,13 @@ quest.questPaint();
 check('checkbox: checking an open slot joins a bot', players.players.count === 2
 	&& players.players.type[1] === players.PLAYER_BOT && settings.settingsState.bots === 2
 	&& row(1).el.getAttribute('data-active') === 'true');
+check('character: the bot row names the character next to the player', (() => {
+	const char = bot.botCharOf(1);
+	return char !== null && row(1).badge.hidden === false && row(1).badge.textContent === char.icon
+		&& row(1).badge.title === char.name + ' · ' + char.hint
+		&& row(1).badge.getAttribute('data-char') === char.id;
+})());
+check('character: the human row keeps an empty badge', row(0).badge.hidden === true);
 // the objective sits in the same column as the control that serves it: card, then panel, per player
 check('layout: each player column is an objective above that player\'s force panel', (() => {
 	const root = stubs.els['force-panels'];
@@ -116,6 +123,13 @@ check('checkbox: both players can be bots', settings.settingsState.bots === 3
 	&& modeText() === 'Bot match · spectating');
 check('bot match: both force panels are read-only', row(0).checkbox.checked && row(1).checkbox.checked
 	&& panels.forcePanels.rows[0].slider.disabled && panels.forcePanels.rows[1].slider.disabled);
+check('character: both bot rows show their own character', (() => {
+	for (let id = 0; id < 2; id++) {
+		const char = bot.botCharOf(id);
+		if (!char || row(id).badge.hidden || row(id).badge.getAttribute('data-char') !== char.id) return false;
+	}
+	return true;
+})());
 const ignoredPointer = stubs.els.canv.dispatch('pointerdown', { pointerId: 1, button: 0, clientY: 100 });
 for (const fn of stubs.listeners.keydown || []) fn({ code: 'Space', target: { tagName: 'DIV' }, preventDefault() {} });
 check('bot match: pointer and keyboard cannot claim a slot', !ignoredPointer.defaultPrevented
