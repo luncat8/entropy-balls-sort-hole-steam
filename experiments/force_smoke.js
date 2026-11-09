@@ -78,6 +78,7 @@ function reset(participants = 1) {
 	stubs.els.canv.clientWidth = 1200;
 	stubs.els.canv.clientHeight = 800;
 	canvas.canvasResize();
+	sim.simFillDist();
 	panels.forcePanelPaint();
 }
 
@@ -185,19 +186,21 @@ row().slider.dispatch('pointerup', { pointerId: 3 });
 reset();
 stubs.win.devicePixelRatio = 2;
 field.clientWidth = 1000;
-field.clientHeight = 1000;
+field.clientHeight = 700;
 canvas.canvasResize();
-check('field: CSS pixels map through fitted field and device pixel ratio', near(canvas.canvasFieldY(500), 400)
-	&& near(canvas.canvasFieldY(350), 220));
-field.dispatch('pointerdown', { pointerId: 1, clientY: 350 });
-check('field: transformed pointer position chooses the correct direction', force.forceState.dir[0] === -1);
+check('field: pointer CSS pixels are field pixels at any device pixel ratio',
+	canvas.canvasView.dpr === 2 && near(canvas.canvasFieldY(350), 350)
+	&& near(canvas.canvasFieldY(0), 0) && near(canvas.canvasFieldY(700), sim.simField.h));
+field.dispatch('pointerdown', { pointerId: 1, clientY: 100 });
+check('field: pointer position chooses the correct direction', sim.simAperture.y === 350
+	&& force.forceState.dir[0] === -1);
 field.dispatch('pointerup', { pointerId: 1 });
 field.clientWidth = 844;
 field.clientHeight = 390;
 canvas.canvasResize();
-check('field: short landscape keeps both vertical boundaries visible', canvas.canvasView.offY >= 0
-	&& canvas.canvasView.offY + sim.simField.h * canvas.canvasView.scale <= field.height + 0.01
-	&& near(canvas.canvasFieldY(0), 0) && near(canvas.canvasFieldY(390), sim.simField.h));
+check('field: a short landscape screen is the whole field, so the track stays on screen',
+	sim.simField.w === 844 && sim.simField.h === 390 && sim.simField.wallX === 422
+	&& near(canvas.canvasFieldY(390), 390));
 
 reset();
 const wheelUp = field.dispatch('wheel', { deltaY: -100 });
@@ -488,6 +491,32 @@ settings.settingsSetEnergyStore(settings.settingsDefaults.energyStore, false);
 sim.simSetApertureSize(sim.APERTURE_SIZE);
 sim.simSetApertureSpeed(sim.APERTURE_SPEED);
 force.forceSetCost(force.FORCE_COST);
+
+// ball size and collisions share the settings path of every other key
+check('settings: ball size clamps, round-trips and omits its default',
+	settings.settingsFromSearch('?size=26').ballSize === 26
+	&& settings.settingsFromSearch('?size=99').ballSize === 26
+	&& settings.settingsFromSearch('?size=1').ballSize === 6
+	&& settings.settingsEncode('ballSize', 14) === undefined
+	&& settings.settingsEncode('ballSize', 20) === '20');
+check('settings: the variety and collision switches default on and only store their off state',
+	settings.settingsFromSearch('').ballVaried && settings.settingsFromSearch('').collisions
+	&& !settings.settingsFromSearch('?ballVaried=0').ballVaried
+	&& !settings.settingsFromSearch('?collisions=0').collisions
+	&& settings.settingsEncode('collisions', true) === undefined
+	&& settings.settingsEncode('collisions', false) === '0'
+	&& settings.settingsEncode('ballVaried', false) === '0');
+settings.settingsSetBallSize(20, false);
+sim.simBalls.count = 0;
+sim.simSpawn();
+check('settings: ball size reaches the spawn radius', sim.simBalls.r[0] >= 20 * (1 - sim.BALL_SIZE_VARIETY) - 1e-3);
+stubs.els['settings-ball-varied'].checked = false;
+stubs.els['settings-ball-varied'].dispatch('change');
+check('settings: the random-size switch reaches the simulation', sim.simBallConfig.varied === false);
+stubs.els['settings-collisions'].checked = false;
+stubs.els['settings-collisions'].dispatch('change');
+check('settings: the collision switch reaches the simulation', settings.settingsState.collisions === false);
+settings.settingsApply({ ...settings.settingsDefaults }, false);
 
 console.log('pass=' + pass + ' fail=' + fail);
 process.exitCode = fail ? 1 : 0;
