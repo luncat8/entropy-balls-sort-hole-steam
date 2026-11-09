@@ -10,6 +10,7 @@ const cv = apis['canvas.js'];
 const col = apis['color.js'];
 const ctx2d = stubs.ctx2d;
 const DT = sim.FIXED_DT;
+// sizes and speeds are shares of the field scale: a thousandth of sqrt(w * h)
 const BALL_SIZE_SMALL = 10;
 
 let pass = 0;
@@ -61,8 +62,9 @@ function inBounds(i) {
 
 function hasRectCall(x, y, w, h) {
 	for (const call of ctx2d.calls) {
-		if (call.method === 'fillRect' && call.args[0] === x && call.args[1] === y
-			&& call.args[2] === w && call.args[3] === h) return true;
+		if (call.method !== 'fillRect') continue;
+		if (near(call.args[0], x, 1e-3) && near(call.args[1], y, 1e-3)
+			&& near(call.args[2], w, 1e-3) && near(call.args[3], h, 1e-3)) return true;
 	}
 	return false;
 }
@@ -142,14 +144,15 @@ check('divider reflection: flips at the face', flipped && Math.abs(hitX - (sim.s
 check('divider reflection: ball returns left', sim.simBalls.x[0] < sim.simField.wallX - 14);
 const slot = w0 % cv.IMPACT_CAP;
 check('impact: face, diameter, approach side, and ball color',
-	cv.impactMarks.x[slot] === sim.simField.wallX - sim.simField.wallT / 2
+	near(cv.impactMarks.x[slot], sim.simField.wallX - sim.simField.wallT / 2, 1e-3)
 	&& cv.impactMarks.y[slot] === 400
-	&& cv.impactMarks.radius[slot] === 14
+	&& near(cv.impactMarks.radius[slot], 14, 1e-6)
 	&& cv.impactMarks.side[slot] === -1
 	&& cv.impactMarks.rgb[slot] === rgb);
 ctx2d.calls.length = 0;
 cv.canvasDraw(0);
-check('impact: patch spans wall thickness by ball diameter', hasRectCall(596, 386, 8, 28));
+check('impact: patch spans wall thickness by ball diameter',
+	hasRectCall(sim.simField.wallX - sim.simField.wallT / 2, 386, sim.simField.wallT, 28));
 check('field: the screen edge is the boundary, no border is drawn',
 	!hasRectCall(0, 0, sim.simField.w, sim.simField.wallT)
 	&& !hasRectCall(0, 0, sim.simField.wallT, sim.simField.h)
@@ -170,14 +173,15 @@ cv.canvasDrawOptions.predictedPosition = true;
 cv.canvasDrawOptions.trajectoryLines = false;
 ctx2d.calls.length = 0;
 cv.canvasDraw(0);
-check('forecast option: predicted position draws diameter-sized wall patch', hasRectCall(596, 386, 8, 28));
+check('forecast option: predicted position draws diameter-sized wall patch',
+	hasRectCall(sim.simField.wallX - sim.simField.wallT / 2, 386, sim.simField.wallT, 28));
 check('forecast option: position can show without trajectory lines', countCalls('stroke') === 0);
 cv.canvasDrawOptions.predictedPosition = false;
 cv.canvasDrawOptions.trajectoryLines = true;
 ctx2d.calls.length = 0;
 cv.canvasDraw(0);
 check('forecast option: trajectory line can show without position mark',
-	!hasRectCall(596, 386, 8, 28) && countCalls('stroke') === 1);
+	!hasRectCall(sim.simField.wallX - sim.simField.wallT / 2, 386, sim.simField.wallT, 28) && countCalls('stroke') === 1);
 
 freshWorld();
 sim.simAperture.y = 400;
@@ -185,7 +189,8 @@ place(0, 300, 480, 200, 0, 14, 0xabcdef);
 cv.canvasDrawOptions.trajectoryLines = false;
 ctx2d.calls.length = 0;
 cv.canvasDraw(0);
-check('forecast patch: clips to solid wall beside aperture', hasRectCall(596, 466, 8, 28));
+check('forecast patch: clips to solid wall beside aperture',
+	hasRectCall(sim.simField.wallX - sim.simField.wallT / 2, 466, sim.simField.wallT, 28));
 
 freshWorld();
 sim.simAperture.y = 400;
@@ -235,6 +240,7 @@ freshWorld();
 place(0, 800, 400, 300, 120, 14, 0xabcdef);
 place(1, 200, 200, -300, -120, 14, 0xabcdef);
 place(2, 1, 120, -260, -90, 14, 0xabcdef);
+const grow = Math.sqrt(500 * 300) / Math.sqrt(1200 * 800);
 stubs.els.canv.clientWidth = 500;
 stubs.els.canv.clientHeight = 300;
 for (const fn of stubs.listeners.resize || []) fn();
@@ -244,9 +250,28 @@ check('resize: the canvas is the field and the divider stays central',
 check('resize: balls rescale with the field and keep their side',
 	near(sim.simBalls.x[0], 800 * 500 / 1200, 1e-3) && near(sim.simBalls.y[0], 400 * 300 / 800, 1e-3)
 	&& sim.simBalls.x[0] > sim.simField.wallX && sim.simBalls.x[1] < sim.simField.wallX
-	&& near(sim.simBalls.r[0], 14 * 0.375, 1e-3) && near(sim.simBalls.y[1], 200 * 0.375, 1e-3));
+	&& near(sim.simBalls.r[0], 14 * grow, 1e-3) && near(sim.simBalls.y[1], 200 * 300 / 800, 1e-3));
+check('resize: radii and velocities follow the field scale, so size and pace hold',
+	near(Math.hypot(sim.simBalls.vx[0], sim.simBalls.vy[0]), Math.hypot(300, 120) * grow, 1e-3)
+	&& near(sim.simBalls.r[0] / sim.simField.scale, 14 / Math.sqrt(1200 * 800), 1e-9)
+	&& near(sim.simField.wallT, sim.simPx(sim.WALL_SHARE), 1e-9));
 check('resize: a ball shrunk below its old spot stays inside the screen', sim.simBalls.vx[2] > 0
 	&& inBounds(2) && sim.simBalls.x[2] === sim.simBalls.r[2]);
+
+freshWorld();
+sim.simSetBallSize(21, true);
+sim.simSetBallSpeed(300);
+sim.simSpawn();
+const ballShare = sim.simBalls.r[0] / sim.simField.scale;
+const paceShare = Math.hypot(sim.simBalls.vx[0], sim.simBalls.vy[0]) / sim.simField.scale;
+sim.simResizeField(390, 844);
+check('resize: a phone-sized field keeps the ball share and the pace, not the pixel values',
+	near(sim.simBalls.r[0] / sim.simField.scale, ballShare, 1e-6)
+	&& near(Math.hypot(sim.simBalls.vx[0], sim.simBalls.vy[0]) / sim.simField.scale, paceShare, 1e-6)
+	&& near(sim.simBallConfig.radius, 21 * Math.sqrt(390 * 844) / 1000, 1e-9)
+	&& near(sim.simAperture.size, sim.simPx(sim.APERTURE_SIZE), 1e-9));
+sim.simSetBallSize(sim.BALL_SIZE_DEFAULT, true);
+sim.simSetBallSpeed(sim.BALL_SPEED_DEFAULT);
 
 freshWorld();
 place(0, 300, 400, 0, 0, 14, 0xff0000);
@@ -279,7 +304,7 @@ for (let s = 0; s < 240; s++) sim.simAdvance(0.25);
 check('generation: count capped at the configured limit', sim.simBalls.count === sim.simBallConfig.count);
 let speedOk = true, boundsOk = true;
 for (let i = 0; i < sim.simBalls.count; i++) {
-	const speedMax = sim.BALL_V_MAX * sim.simBallConfig.speed / ((sim.BALL_V_MIN + sim.BALL_V_MAX) / 2);
+	const speedMax = sim.simPx(sim.BALL_V_MAX * sim.simBallConfig.speedShare) / ((sim.BALL_V_MIN + sim.BALL_V_MAX) / 2);
 	if (Math.hypot(sim.simBalls.vx[i], sim.simBalls.vy[i]) > speedMax + 0.01) speedOk = false;
 	if (!inBounds(i)) boundsOk = false;
 }
@@ -288,27 +313,27 @@ check('generation: speeds bounded and balls in field after 60s', speedOk && boun
 
 // ball size is one mean radius plus a variety switch; both reach the live field
 freshWorld();
-place(0, 300, 200, 100, 0, 14, 0x112233);
-place(1, 300, 400, 100, 0, 14, 0x112233);
+place(0, 300, 200, 100, 0, sim.simPx(sim.BALL_SIZE_DEFAULT), 0x112233);
+place(1, 300, 400, 100, 0, sim.simPx(sim.BALL_SIZE_DEFAULT), 0x112233);
 sim.simSetBallSize(21, true);
-check('ball size: the mean radius scales every live ball', near(sim.simBalls.r[0], 21)
-	&& near(sim.simBalls.r[1], 21) && sim.simBallConfig.varied === true);
+check('ball size: the share sets the mean radius of every live ball', near(sim.simBalls.r[0], sim.simPx(21), 1e-4)
+	&& near(sim.simBalls.r[1], sim.simPx(21), 1e-4) && sim.simBallConfig.varied === true);
 check('ball size: the setting clamps to its range', sim.simSetBallSize(90, true)
-	&& sim.simBallConfig.size === sim.BALL_SIZE_MAX);
+	&& sim.simBallConfig.sizeShare === sim.BALL_SIZE_MAX);
 sim.simSetBallSize(8, false);
-check('ball size: random sizes off gives every ball the same radius', sim.simBalls.r[0] === 8
-	&& sim.simBalls.r[1] === 8 && sim.simBallRadius.max === 8);
+check('ball size: random sizes off gives every ball the same radius', near(sim.simBalls.r[0], sim.simPx(8), 1e-3)
+	&& near(sim.simBalls.r[1], sim.simPx(8), 1e-3) && near(sim.simBallRadius.max, sim.simPx(8), 1e-9));
 sim.simSetBallSize(BALL_SIZE_SMALL, true);
 let spreadOk = true;
 for (let k = 0; k < 40; k++) {
 	sim.simBalls.count = 0;
 	sim.simSpawn();
 	const r = sim.simBalls.r[0];
-	if (r < BALL_SIZE_SMALL * (1 - sim.BALL_SIZE_VARIETY) - 1e-3
-		|| r > BALL_SIZE_SMALL * (1 + sim.BALL_SIZE_VARIETY) + 1e-3) spreadOk = false;
+	if (r < sim.simPx(BALL_SIZE_SMALL) * (1 - sim.BALL_SIZE_VARIETY) - 1e-3
+		|| r > sim.simPx(BALL_SIZE_SMALL) * (1 + sim.BALL_SIZE_VARIETY) + 1e-3) spreadOk = false;
 }
 check('ball size: random sizes stay inside the variety band around the mean', spreadOk
-	&& near(sim.simBallRadius.max, BALL_SIZE_SMALL * (1 + sim.BALL_SIZE_VARIETY), 1e-3));
+	&& near(sim.simBallRadius.max, sim.simPx(BALL_SIZE_SMALL) * (1 + sim.BALL_SIZE_VARIETY), 1e-3));
 sim.simSetBallSize(sim.BALL_SIZE_DEFAULT, true);
 
 freshWorld();
@@ -330,12 +355,13 @@ sim.simSetBallCount(sim.BALL_COUNT_DEFAULT);
 sim.simSetBallSpeed(sim.BALL_SPEED_DEFAULT);
 sim.simSetSpawnRate(0);
 sim.simInit();
-check('ball defaults: limit 24, average speed 175, initial population 9',
-	sim.simBallConfig.count === 24 && sim.simBallConfig.speed === 175 && sim.simBalls.count === 9);
+check('ball defaults: limit 24, average speed 18 %, initial population 9',
+	sim.simBallConfig.count === 24 && sim.simBallConfig.speedShare === 180
+	&& near(sim.simBallConfig.speed, sim.simPx(180), 1e-9) && sim.simBalls.count === 9);
 let speedSum = 0;
 let speedSamples = 0;
 let spawnBounds = true;
-const speedScale = sim.BALL_SPEED_DEFAULT / ((sim.BALL_V_MIN + sim.BALL_V_MAX) / 2);
+const speedScale = sim.simPx(sim.BALL_SPEED_DEFAULT) / ((sim.BALL_V_MIN + sim.BALL_V_MAX) / 2);
 for (let run = 0; run < 200; run++) {
 	sim.simInit();
 	for (let i = 0; i < sim.simBalls.count; i++) {
@@ -345,7 +371,8 @@ for (let run = 0; run < 200; run++) {
 		if (speed < sim.BALL_V_MIN * speedScale - 0.01 || speed > sim.BALL_V_MAX * speedScale + 0.01) spawnBounds = false;
 	}
 }
-check('ball speed: spawned distribution is centered on the setting', spawnBounds && Math.abs(speedSum / speedSamples - 175) < 5);
+check('ball speed: spawned distribution is centered on the setting',
+	spawnBounds && Math.abs(speedSum / speedSamples - sim.simPx(sim.BALL_SPEED_DEFAULT)) < 5);
 
 freshWorld();
 for (let i = 0; i < 24; i++) sim.simSpawn();
@@ -360,12 +387,15 @@ check('ball count: generation stops at the raised limit', sim.simBalls.count ===
 sim.simSetSpawnRate(0);
 place(0, 300, 400, 300, 400, 14, 0);
 place(1, 900, 400, 0, -100, 14, 0);
-sim.simSetBallSpeed(350);
-check('ball speed: existing velocities scale without turning', near(sim.simBalls.vx[0], 600, 0.01)
-	&& near(sim.simBalls.vy[0], 800, 0.01) && sim.simBalls.vx[1] === 0 && near(sim.simBalls.vy[1], -200, 0.01));
-sim.simSetBallSpeed(50);
-check('ball speed: a second change scales from the current setting', near(sim.simBalls.vx[0], 600 / 7, 0.01)
-	&& near(sim.simBalls.vy[1], -200 / 7, 0.01));
+const fast = sim.BALL_SPEED_MAX / sim.BALL_SPEED_DEFAULT;
+sim.simSetBallSpeed(sim.BALL_SPEED_MAX);
+check('ball speed: existing velocities scale without turning', near(sim.simBalls.vx[0], 300 * fast, 0.01)
+	&& near(sim.simBalls.vy[0], 400 * fast, 0.01) && sim.simBalls.vx[1] === 0
+	&& near(sim.simBalls.vy[1], -100 * fast, 0.01));
+sim.simSetBallSpeed(sim.BALL_SPEED_MIN);
+const slow = sim.BALL_SPEED_MIN / sim.BALL_SPEED_MAX;
+check('ball speed: a second change scales from the current setting', near(sim.simBalls.vx[0], 300 * fast * slow, 0.01)
+	&& near(sim.simBalls.vy[1], -100 * fast * slow, 0.01));
 
 console.log('pass=' + pass + ' fail=' + fail);
 process.exitCode = fail ? 1 : 0;
