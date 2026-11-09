@@ -2,19 +2,22 @@
 // edit for: settings keys, URL keys, settings bindings
 
 // Every key is one table entry, so one path reads, encodes and clamps all of them.
-const SETTINGS_KEYS = ['friction', 'humans', 'bots', 'balls', 'ballSpeed', 'holeSize', 'holeSpeed', 'energyCost', 'energyStore'];
+const SETTINGS_KEYS = ['friction', 'humans', 'bots', 'balls', 'ballSpeed', 'ballSize', 'ballVaried', 'collisions',
+	'holeSize', 'holeSpeed', 'energyCost', 'energyStore'];
 const settingsDefaults = {
-	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: 175,
+	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: 175, ballSize: BALL_SIZE_DEFAULT,
+	ballVaried: true, collisions: true,
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY
 };
 const settingsState = {
-	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: 175,
+	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: 175, ballSize: BALL_SIZE_DEFAULT,
+	ballVaried: true, collisions: true,
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY
 };
 const settingsUi = {
-	friction: null, humans: null, balls: null, ballSpeed: null,
+	friction: null, humans: null, balls: null, ballSpeed: null, ballSize: null, ballVaried: null, collisions: null,
 	holeSize: null, holeSpeed: null, energyCost: null, energyStore: null,
-	ballsValue: null, ballSpeedValue: null, holeSizeValue: null, holeSpeedValue: null,
+	ballsValue: null, ballSpeedValue: null, ballSizeValue: null, holeSizeValue: null, holeSpeedValue: null,
 	energyCostValue: null, energyStoreValue: null, urlWrap: null, url: null
 };
 
@@ -26,7 +29,9 @@ function settingsNumber(raw, min, max, step) {
 
 function settingsNormalize(key, raw) {
 	switch (key) {
-		case 'friction': return raw === true || raw === '1' || raw === 'true';
+		case 'friction':
+		case 'ballVaried':
+		case 'collisions': return raw === true || raw === '1' || raw === 'true';
 		case 'humans': return raw === 2 || raw === '2' || raw === 'two' ? 2 : 1;
 		case 'bots': {
 			const value = settingsNumber(raw, 0, (1 << PLAYER_CAP) - 1, 1);
@@ -39,6 +44,10 @@ function settingsNormalize(key, raw) {
 		case 'ballSpeed': {
 			const value = settingsNumber(raw, BALL_SPEED_MIN, BALL_SPEED_MAX, 5);
 			return value === undefined ? settingsDefaults.ballSpeed : value;
+		}
+		case 'ballSize': {
+			const value = settingsNumber(raw, BALL_SIZE_MIN, BALL_SIZE_MAX, 1);
+			return value === undefined ? settingsDefaults.ballSize : value;
 		}
 		case 'holeSize': {
 			const value = settingsNumber(raw, APERTURE_SIZE_MIN, APERTURE_SIZE_MAX, 1);
@@ -63,10 +72,13 @@ function settingsNormalize(key, raw) {
 function settingsEncode(key, value) {
 	switch (key) {
 		case 'friction': return value ? '1' : undefined;
+		case 'collisions': return value ? undefined : '0';
 		case 'humans': return value === 2 ? '2' : undefined;
 		case 'bots': return value ? String(value) : undefined;
 		case 'balls': return value === settingsDefaults.balls ? undefined : String(value);
 		case 'ballSpeed': return value === settingsDefaults.ballSpeed ? undefined : String(value);
+		case 'ballSize': return value === settingsDefaults.ballSize ? undefined : String(value);
+		case 'ballVaried': return value ? undefined : '0';
 		case 'holeSize': return value === settingsDefaults.holeSize ? undefined : String(value);
 		case 'holeSpeed': return value === settingsDefaults.holeSpeed ? undefined : String(value);
 		case 'energyCost': return value === settingsDefaults.energyCost ? undefined : String(value);
@@ -75,7 +87,10 @@ function settingsEncode(key, value) {
 	return undefined;
 }
 
-const SETTINGS_PARAM = { ballSpeed: 'speed', holeSize: 'hole', holeSpeed: 'holeSpeed', energyCost: 'cost', energyStore: 'store' };
+const SETTINGS_PARAM = {
+	ballSpeed: 'speed', ballSize: 'size', holeSize: 'hole', holeSpeed: 'holeSpeed',
+	energyCost: 'cost', energyStore: 'store'
+};
 
 function settingsParam(key) {
 	return SETTINGS_PARAM[key] || key;
@@ -98,8 +113,12 @@ function settingsInit() {
 	settingsUi.humans = $('settings-humans');
 	settingsUi.balls = $('settings-balls');
 	settingsUi.ballSpeed = $('settings-ball-speed');
+	settingsUi.ballSize = $('settings-ball-size');
+	settingsUi.ballVaried = $('settings-ball-varied');
+	settingsUi.collisions = $('settings-collisions');
 	settingsUi.ballsValue = $('settings-balls-value');
 	settingsUi.ballSpeedValue = $('settings-ball-speed-value');
+	settingsUi.ballSizeValue = $('settings-ball-size-value');
 	settingsUi.holeSize = $('settings-hole-size');
 	settingsUi.holeSpeed = $('settings-hole-speed');
 	settingsUi.energyCost = $('settings-energy-cost');
@@ -114,6 +133,9 @@ function settingsInit() {
 	settingsUi.humans.addEventListener('change', settingsHumansChanged);
 	settingsUi.balls.addEventListener('input', settingsBallsChanged);
 	settingsUi.ballSpeed.addEventListener('input', settingsBallSpeedChanged);
+	settingsUi.ballSize.addEventListener('input', settingsBallSizeChanged);
+	settingsUi.ballVaried.addEventListener('change', settingsBallVariedChanged);
+	settingsUi.collisions.addEventListener('change', settingsCollisionsChanged);
 	settingsUi.holeSize.addEventListener('input', settingsHoleSizeChanged);
 	settingsUi.holeSpeed.addEventListener('input', settingsHoleSpeedChanged);
 	settingsUi.energyCost.addEventListener('input', settingsEnergyCostChanged);
@@ -138,6 +160,18 @@ function settingsBallSpeedChanged() {
 	settingsSetBallSpeed(Number(settingsUi.ballSpeed.value), true);
 }
 
+function settingsBallSizeChanged() {
+	settingsSetBallSize(Number(settingsUi.ballSize.value), true);
+}
+
+function settingsBallVariedChanged() {
+	settingsSetBallVaried(settingsUi.ballVaried.checked, true);
+}
+
+function settingsCollisionsChanged() {
+	settingsSetCollisions(settingsUi.collisions.checked, true);
+}
+
 function settingsHoleSizeChanged() {
 	settingsSetHoleSize(Number(settingsUi.holeSize.value), true);
 }
@@ -159,8 +193,12 @@ function settingsSync() {
 	settingsUi.humans.checked = settingsState.humans === 2;
 	settingsUi.balls.value = String(settingsState.balls);
 	settingsUi.ballSpeed.value = String(settingsState.ballSpeed);
+	settingsUi.ballSize.value = String(settingsState.ballSize);
+	settingsUi.ballVaried.checked = settingsState.ballVaried;
+	settingsUi.collisions.checked = settingsState.collisions;
 	settingsUi.ballsValue.textContent = String(settingsState.balls);
 	settingsUi.ballSpeedValue.textContent = settingsState.ballSpeed + ' px/s';
+	settingsUi.ballSizeValue.textContent = settingsState.ballSize + ' px';
 	settingsUi.holeSize.value = String(settingsState.holeSize);
 	settingsUi.holeSpeed.value = String(settingsState.holeSpeed);
 	settingsUi.energyCost.value = String(settingsState.energyCost);
@@ -177,16 +215,22 @@ function settingsApply(values, updateUrl) {
 	const mask = bots & (humans === 2 ? 3 : 1);
 	const balls = settingsNormalize('balls', values.balls);
 	const speed = settingsNormalize('ballSpeed', values.ballSpeed);
+	const ballSize = settingsNormalize('ballSize', values.ballSize);
 	const holeSize = settingsNormalize('holeSize', values.holeSize);
 	const holeSpeed = settingsNormalize('holeSpeed', values.holeSpeed);
 	const energyCost = settingsNormalize('energyCost', values.energyCost);
 	const energyStore = settingsNormalize('energyStore', values.energyStore);
 	const rebuild = humans !== settingsState.humans || mask !== settingsState.bots;
 	settingsState.friction = !!values.friction;
+	settingsState.ballVaried = values.ballVaried === undefined
+		? settingsDefaults.ballVaried : settingsNormalize('ballVaried', values.ballVaried);
+	settingsState.collisions = values.collisions === undefined
+		? settingsDefaults.collisions : settingsNormalize('collisions', values.collisions);
 	settingsState.humans = humans;
 	settingsState.bots = mask;
 	settingsState.balls = balls;
 	settingsState.ballSpeed = speed;
+	settingsState.ballSize = ballSize;
 	settingsState.holeSize = holeSize;
 	settingsState.holeSpeed = holeSpeed;
 	settingsState.energyCost = energyCost;
@@ -194,6 +238,8 @@ function settingsApply(values, updateUrl) {
 	settingsSync();
 	simSetFriction(settingsState.friction);
 	simSetBallSpeed(settingsState.ballSpeed);
+	simSetBallSize(settingsState.ballSize, settingsState.ballVaried);
+	simSetBallCollisions(settingsState.collisions);
 	simSetApertureSize(settingsState.holeSize);
 	simSetApertureSpeed(settingsState.holeSpeed);
 	forceSetCost(settingsState.energyCost);
@@ -237,6 +283,18 @@ function settingsSetBallSpeed(ballSpeed, updateUrl) {
 	settingsApply({ ...settingsState, ballSpeed }, updateUrl);
 }
 
+function settingsSetBallSize(ballSize, updateUrl) {
+	settingsApply({ ...settingsState, ballSize }, updateUrl);
+}
+
+function settingsSetBallVaried(ballVaried, updateUrl) {
+	settingsApply({ ...settingsState, ballVaried }, updateUrl);
+}
+
+function settingsSetCollisions(collisions, updateUrl) {
+	settingsApply({ ...settingsState, collisions }, updateUrl);
+}
+
 function settingsSetHoleSize(holeSize, updateUrl) {
 	settingsApply({ ...settingsState, holeSize }, updateUrl);
 }
@@ -274,7 +332,8 @@ function settingsWriteUrl() {
 
 if (typeof module !== 'undefined') module.exports = {
 	settingsState, settingsInit, settingsApply, settingsSetFriction, settingsSetHumans, settingsSetBot,
-	settingsSetBalls, settingsSetBallSpeed, settingsSetHoleSize, settingsSetHoleSpeed,
+	settingsSetBalls, settingsSetBallSpeed, settingsSetBallSize, settingsSetBallVaried,
+	settingsSetCollisions, settingsSetHoleSize, settingsSetHoleSpeed,
 	settingsSetEnergyCost, settingsSetEnergyStore, settingsRebuild, settingsNormalize,
 	settingsEncode, settingsFromSearch, settingsWriteUrl, SETTINGS_KEYS, settingsDefaults
 };
