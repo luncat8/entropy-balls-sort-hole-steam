@@ -1,14 +1,20 @@
 // owns: field, balls, aperture, physics, ball color generation, distribution snapshot
 // edit for: constants, spawn, stepping, snapshot fields
 
+// The field is the canvas, so it is measured in CSS pixels and rebuilt on every resize; the divider
+// is always halfway across, and balls bounce off the screen edge instead of a drawn border.
 const simField = { w: 1200, h: 800, wallX: 600, wallT: 8 };
+const FIELD_MIN_W = 240;
+const FIELD_MIN_H = 240;
 
 const BALL_CAP = 36;
 const BALL_COUNT_MIN = 6;
 const BALL_COUNT_DEFAULT = 24;
 const BALL_START_COUNT = 9;
-const BALL_R_MIN = 10;
-const BALL_R_MAX = 18;
+const BALL_SIZE_MIN = 6;
+const BALL_SIZE_MAX = 26;
+const BALL_SIZE_DEFAULT = 14;
+const BALL_SIZE_VARIETY = 0.35;
 const BALL_V_MIN = 140;
 const BALL_V_MAX = 280;
 const BALL_SPEED_MIN = 50;
@@ -39,7 +45,9 @@ const simBalls = {
 };
 
 const simAperture = { y: 400, drive: 0, velocity: 0, friction: 0, size: APERTURE_SIZE, speed: APERTURE_SPEED };
-const simBallConfig = { count: BALL_COUNT_DEFAULT, speed: BALL_SPEED_DEFAULT };
+const simBallConfig = { count: BALL_COUNT_DEFAULT, speed: BALL_SPEED_DEFAULT, size: BALL_SIZE_DEFAULT, varied: true };
+// the widest radius the current size setting can produce, so the aperture rules need no ball scan
+const simBallRadius = { max: BALL_SIZE_DEFAULT * (1 + BALL_SIZE_VARIETY) };
 
 const DIST_PALETTE = 6;
 const simDist = {
@@ -81,9 +89,37 @@ function simSetApertureSize(size) {
 	const next = Math.max(APERTURE_SIZE_MIN, Math.min(APERTURE_SIZE_MAX, Math.round(size)));
 	if (next === simAperture.size) return false;
 	simAperture.size = next;
-	const half = next / 2;
+	simClampAperture();
+	return true;
+}
+
+function simClampAperture() {
+	const half = simAperture.size / 2;
 	if (simAperture.y < half) simAperture.y = half;
 	else if (simAperture.y > simField.h - half) simAperture.y = simField.h - half;
+}
+
+// The canvas is the field: its CSS size becomes the world size, and the divider sits at half of it.
+// Everything positioned in world units is rescaled with the field, so a resize never moves a ball
+// onto the other side of the divider or outside the screen.
+function simResizeField(width, height) {
+	const w = Math.max(FIELD_MIN_W, Math.round(width));
+	const h = Math.max(FIELD_MIN_H, Math.round(height));
+	if (w === simField.w && h === simField.h) return false;
+	const sx = w / simField.w;
+	const sy = h / simField.h;
+	simField.w = w;
+	simField.h = h;
+	simField.wallX = w / 2;
+	for (let i = 0; i < simBalls.count; i++) {
+		simBalls.x[i] *= sx;
+		simBalls.y[i] *= sy;
+		simBalls.r[i] *= Math.min(sx, sy);
+		simWallBounce(i);
+	}
+	simAperture.y *= sy;
+	simClampAperture();
+	simFillDist();
 	return true;
 }
 
@@ -113,6 +149,24 @@ function simSetBallCount(count) {
 	return true;
 }
 
+// The size setting is the mean radius; the variety setting spreads radii around it, or makes every
+// ball the same. Live radii follow immediately, and are kept inside the screen after the change.
+function simSetBallSize(size, varied) {
+	const next = Math.max(BALL_SIZE_MIN, Math.min(BALL_SIZE_MAX, Math.round(size)));
+	const spread = varied === undefined ? simBallConfig.varied : !!varied;
+	if (next === simBallConfig.size && spread === simBallConfig.varied) return false;
+	const scale = next / simBallConfig.size;
+	simBallConfig.size = next;
+	simBallConfig.varied = spread;
+	simBallRadius.max = spread ? next * (1 + BALL_SIZE_VARIETY) : next;
+	for (let i = 0; i < simBalls.count; i++) {
+		simBalls.r[i] *= scale;
+		if (!spread) simBalls.r[i] = next;
+		simWallBounce(i);
+	}
+	return true;
+}
+
 function simSetBallSpeed(speed) {
 	const next = Math.max(BALL_SPEED_MIN, Math.min(BALL_SPEED_MAX, speed));
 	if (next === simBallConfig.speed) return false;
@@ -135,10 +189,16 @@ function simSpawnOverlaps(x, y, r) {
 	return false;
 }
 
+function simSpawnRadius() {
+	const base = simBallConfig.size;
+	if (!simBallConfig.varied) return base;
+	return base * (1 - BALL_SIZE_VARIETY + Math.random() * 2 * BALL_SIZE_VARIETY);
+}
+
 function simSpawn() {
 	const i = simBalls.count;
 	if (i >= simBallConfig.count) return;
-	const r = BALL_R_MIN + Math.random() * (BALL_R_MAX - BALL_R_MIN);
+	const r = simSpawnRadius();
 	let x = 0, y = 0;
 	for (let attempt = 0; attempt < 8; attempt++) {
 		x = r + Math.random() * (simField.w - 2 * r);
@@ -355,7 +415,8 @@ function simAdvance(dtSec) {
 if (typeof module !== 'undefined') module.exports = {
 	simField, simBalls, simAperture, simDist, simBallConfig, simInit, simAdvance, simStep, simSpawn, simFillDist,
 	simSetBallCollisions, simSetSpawnRate, simSetBallCount, simSetBallSpeed, simSetFriction, simSetControlHook,
-	simSetApertureSize, simSetApertureSpeed,
+	simSetApertureSize, simSetApertureSpeed, simResizeField, simSetBallSize, simBallRadius,
+	FIELD_MIN_W, FIELD_MIN_H, BALL_SIZE_MIN, BALL_SIZE_MAX, BALL_SIZE_DEFAULT, BALL_SIZE_VARIETY,
 	BALL_CAP, BALL_COUNT_MIN, BALL_COUNT_DEFAULT, BALL_START_COUNT, BALL_V_MIN, BALL_V_MAX,
 	BALL_SPEED_MIN, BALL_SPEED_MAX, BALL_SPEED_DEFAULT, APERTURE_FRICTION, FIXED_DT,
 	APERTURE_SIZE, APERTURE_SIZE_MIN, APERTURE_SIZE_MAX, APERTURE_SPEED, APERTURE_SPEED_MIN, APERTURE_SPEED_MAX
