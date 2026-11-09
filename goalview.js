@@ -132,8 +132,8 @@ function goalWrite(isLeft) {
 // mirrored across the divider, so a paired crossing reads as two balls swapping places
 function goalMirror(i, isLeft) {
 	const r = simBalls.r[i];
-	const lo = isLeft ? simField.wallT + r : simField.wallX + simField.wallT / 2 + r;
-	const hi = isLeft ? simField.wallX - simField.wallT / 2 - r : simField.w - simField.wallT - r;
+	const lo = isLeft ? r : simField.wallX + simField.wallT / 2 + r;
+	const hi = isLeft ? simField.wallX - simField.wallT / 2 - r : simField.w - r;
 	const mirrored = simField.wallX * 2 - simBalls.x[i];
 	return mirrored < lo ? lo : (mirrored > hi ? hi : mirrored);
 }
@@ -169,17 +169,16 @@ function goalPush(i, j) {
 
 function goalClamp(i) {
 	const r = goalBalls.r[i];
-	const padX = simField.wallT + r;
 	const padY = r + 1;
 	const wallX = simField.wallX;
 	let x = goalBalls.x[i];
 	if (x < wallX) {
-		const lo = padX;
+		const lo = r;
 		const hi = wallX - simField.wallT / 2 - r;
 		x = x < lo ? lo : (x > hi ? hi : x);
 	} else {
 		const lo = wallX + simField.wallT / 2 + r;
-		const hi = simField.w - padX;
+		const hi = simField.w - r;
 		x = x < lo ? lo : (x > hi ? hi : x);
 	}
 	goalBalls.x[i] = x;
