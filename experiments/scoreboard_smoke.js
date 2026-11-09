@@ -35,7 +35,7 @@ function near(a, b, tol = 0.01) {
 
 function reset() {
 	input.inputRelease();
-	settings.settingsApply({ friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: 175 }, false);
+	settings.settingsApply(settings.settingsDefaults, false);
 	sim.simSetSpawnRate(0);
 	sim.simInit();
 	tasks.tasksInit();
@@ -208,9 +208,9 @@ const vx = sim.simBalls.vx[0];
 const vy = sim.simBalls.vy[0];
 stubs.els['settings-ball-speed'].value = '210';
 stubs.els['settings-ball-speed'].dispatch('input');
-check('speed slider: live velocities scale and the output follows', sim.simBallConfig.speed === 210
-	&& near(sim.simBalls.vx[0], vx * 210 / 175) && near(sim.simBalls.vy[0], vy * 210 / 175)
-	&& stubs.els['settings-ball-speed-value'].textContent === '210 px/s');
+check('speed slider: live velocities scale and the output follows', sim.simBallConfig.speedShare === 210
+	&& near(sim.simBalls.vx[0], vx * 210 / 180) && near(sim.simBalls.vy[0], vy * 210 / 180)
+	&& stubs.els['settings-ball-speed-value'].textContent === '21 %/s');
 const changedUrl = new URL(stubs.win.location.href);
 check('sliders: changes persist under stable URL keys', changedUrl.searchParams.get('balls') === '18'
 	&& changedUrl.searchParams.get('speed') === '210');
@@ -218,13 +218,13 @@ check('sliders: changes persist under stable URL keys', changedUrl.searchParams.
 check('normalization: ball controls clamp and reject invalid values', settings.settingsNormalize('balls', '1') === 6
 	&& settings.settingsNormalize('balls', '999') === 36 && settings.settingsNormalize('balls', 'bad') === 24
 	&& settings.settingsNormalize('ballSpeed', '1') === 50 && settings.settingsNormalize('ballSpeed', '999') === 350
-	&& settings.settingsNormalize('ballSpeed', '177') === 175 && settings.settingsNormalize('ballSpeed', '') === 175);
+	&& settings.settingsNormalize('ballSpeed', '177') === 175 && settings.settingsNormalize('ballSpeed', '') === 180);
 const parsed = settings.settingsFromSearch('?bots=3&balls=12&speed=210');
 settings.settingsApply(parsed, false);
 settings.settingsWriteUrl();
 const restoredUrl = new URL(stubs.win.location.href);
 check('URL: a copied bot match restores controllers and ball settings', players.players.count === 2
-	&& settings.settingsState.bots === 3 && sim.simBallConfig.count === 12 && sim.simBallConfig.speed === 210
+	&& settings.settingsState.bots === 3 && sim.simBallConfig.count === 12 && sim.simBallConfig.speedShare === 210
 	&& restoredUrl.searchParams.get('bots') === '3' && restoredUrl.searchParams.get('balls') === '12'
 	&& restoredUrl.searchParams.get('speed') === '210' && !restoredUrl.searchParams.has('humans'));
 settings.settingsApply(settings.settingsDefaults, false);
