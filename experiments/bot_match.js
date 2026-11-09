@@ -1,5 +1,5 @@
 // owns: seeded bot match measurement — completions, crossing ledger, contest and travel
-// edit for: seeds, match length, reported metrics
+// edit for: seeds, match length, characters, reported metrics
 
 const path = require('path');
 const { loadGame } = require('./vmload');
@@ -45,10 +45,13 @@ function match(seed, seconds, opts) {
 	roster.playersInit(n, (1 << n) - 1);
 	force.forceInit();
 	bot.botInit();
+	if (opts.chars) for (let id = 0; id < opts.chars.length; id++) bot.botCharSet(id, opts.chars[id]);
+	if (opts.charTune) for (let id = 0; id < opts.chars.length; id++) Object.assign(bot.BOT_CHARS[opts.chars[id]], opts.charTune);
 	if (opts.tuning) bot.botSetTuning(opts.tuning);
 	tasks.tasksInit();
-	// task generation draws from its own seed slot, so a match is only reproducible when it is set
+	// task generation and the character draw use the one seeded stream, so a match reproduces whole
 	tasks.tasksSetRand(ctx.Math.random);
+	bot.botSetRand(ctx.Math.random);
 	tasks.tasksAttach(0);
 	if ((opts.humans || 2) === 2) tasks.tasksAttach(1);
 	if (opts.parked) sim.simSetControlHook(null);
@@ -166,12 +169,14 @@ const SECONDS = Number(process.argv[3] || 90);
 const humans = Number(process.argv[4] || 1);
 const parked = process.argv.includes('parked');
 const tuning = process.env.BOT_TUNE ? JSON.parse(process.env.BOT_TUNE) : null;
+const chars = process.env.BOT_CHARS ? process.env.BOT_CHARS.split(',').map(Number) : null;
+const charTune = process.env.BOT_CHAR_TUNE ? JSON.parse(process.env.BOT_CHAR_TUNE) : null;
 const label = process.argv[5] || 'policy';
 const totals = { done0: 0, done1: 0, travelled: 0, opposite: 0, held: 0, waiting: 0, help: 0, harm: 0, crossings: 0, doneGt: 0, doneLt: 0, doneHold: 0, doneSide: 0, doneTotal: 0 };
 const labelsAll = {};
 let bad = 0;
 for (let seed = 1; seed <= SEEDS; seed++) {
-	const r = match(seed * 7919, SECONDS, { humans, parked, label, tuning });
+	const r = match(seed * 7919, SECONDS, { humans, parked, label, tuning, chars, charTune });
 	for (const entry of r.labels.split(',').filter(Boolean)) {
 		const [key, pair] = entry.split(':');
 		const [assignedN, secs] = pair.split('/');
@@ -190,7 +195,7 @@ for (let seed = 1; seed <= SEEDS; seed++) {
 		+ ' waiting_share=' + r.waiting.toFixed(3));
 }
 console.log('policy=' + label + ' runs=' + SEEDS + ' seconds=' + SECONDS + ' bots=' + (humans === 2 ? 2 : 1)
-	+ ' parked=' + parked
+	+ ' chars=' + (chars || 'draw') + ' parked=' + parked
 	+ ' completed_all=' + (totals.done0 + totals.done1)
 	+ ' completed_by_bot=' + totals.done0 + ',' + totals.done1
 	+ ' completed_per_min=' + ((totals.done0 + totals.done1) / (SEEDS * SECONDS / 60)).toFixed(2)
