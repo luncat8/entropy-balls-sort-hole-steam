@@ -3,14 +3,33 @@
 
 // The field is the canvas, so it is measured in CSS pixels and rebuilt on every resize; the divider
 // is always halfway across, and balls bounce off the screen edge instead of a drawn border.
-const simField = { w: 1200, h: 800, wallX: 600, wallT: 8 };
+// Nothing in it is a fixed pixel size: the field scale is the side of the square with the field's area
+// and every length and speed is a share of a thousandth of it, so one setting draws the same picture
+// and keeps the same pace on a phone and on a desktop.
+const SIM_SHARE = 1000;
+const WALL_SHARE = 8;
+const SPAWN_GAP_SHARE = 6;
+const FIELD_START_W = 1200;
+const FIELD_START_H = 800;
+const FIELD_START_SCALE = Math.sqrt(FIELD_START_W * FIELD_START_H);
 const FIELD_MIN_W = 240;
 const FIELD_MIN_H = 240;
+
+// the boot field before the first layout reports a size; a resize re-derives its pixel values
+const simField = {
+	w: FIELD_START_W,
+	h: FIELD_START_H,
+	wallX: FIELD_START_W / 2,
+	wallT: WALL_SHARE * FIELD_START_SCALE / SIM_SHARE,
+	scale: FIELD_START_SCALE
+};
 
 const BALL_CAP = 36;
 const BALL_COUNT_MIN = 6;
 const BALL_COUNT_DEFAULT = 24;
 const BALL_START_COUNT = 9;
+// sizes and speeds are shares of the field scale — the thousandth of sqrt(w * h) — and a speed is
+// the same share per second: ballSize 14 is a 1.4 % radius
 const BALL_SIZE_MIN = 6;
 const BALL_SIZE_MAX = 26;
 const BALL_SIZE_DEFAULT = 14;
@@ -19,12 +38,12 @@ const BALL_V_MIN = 140;
 const BALL_V_MAX = 280;
 const BALL_SPEED_MIN = 50;
 const BALL_SPEED_MAX = 350;
-const BALL_SPEED_DEFAULT = 175;
+const BALL_SPEED_DEFAULT = 180;
 const SPAWN_RATE = 5 / 3;
-const APERTURE_SIZE = 113;
+const APERTURE_SIZE = 115;
 const APERTURE_SIZE_MIN = 60;
 const APERTURE_SIZE_MAX = 240;
-const APERTURE_SPEED = 700;
+const APERTURE_SPEED = 710;
 const APERTURE_SPEED_MIN = 200;
 const APERTURE_SPEED_MAX = 1400;
 const APERTURE_FRICTION = 1;
@@ -44,10 +63,19 @@ const simBalls = {
 	css: new Array(BALL_CAP)
 };
 
-const simAperture = { y: 400, drive: 0, velocity: 0, friction: 0, size: APERTURE_SIZE, speed: APERTURE_SPEED };
-const simBallConfig = { count: BALL_COUNT_DEFAULT, speed: BALL_SPEED_DEFAULT, size: BALL_SIZE_DEFAULT, varied: true };
+const simAperture = {
+	y: 400, drive: 0, velocity: 0, friction: 0,
+	sizeShare: APERTURE_SIZE, speedShare: APERTURE_SPEED,
+	size: simPx(APERTURE_SIZE), speed: simPx(APERTURE_SPEED)
+};
+// shares are the settings; radius and speed are their live pixel conversion
+const simBallConfig = {
+	count: BALL_COUNT_DEFAULT, varied: true,
+	sizeShare: BALL_SIZE_DEFAULT, speedShare: BALL_SPEED_DEFAULT,
+	radius: simPx(BALL_SIZE_DEFAULT), speed: simPx(BALL_SPEED_DEFAULT)
+};
 // the widest radius the current size setting can produce, so the aperture rules need no ball scan
-const simBallRadius = { max: BALL_SIZE_DEFAULT * (1 + BALL_SIZE_VARIETY) };
+const simBallRadius = { max: simBallMaxRadius() };
 
 const DIST_PALETTE = 6;
 const simDist = {
@@ -74,6 +102,30 @@ let spawnRate = SPAWN_RATE;
 let spawnAcc = 0;
 let stepAcc = 0;
 
+function simPx(share) {
+	return share * simField.scale / SIM_SHARE;
+}
+
+function simShareClamp(value, min, max) {
+	return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function simBallMaxRadius() {
+	const radius = simBallConfig.radius;
+	return simBallConfig.varied ? radius * (1 + BALL_SIZE_VARIETY) : radius;
+}
+
+// one place derives every pixel value from its share, so a resize, a boot and a settings change cannot
+// disagree about how big the field's parts are
+function simApplyShares() {
+	simField.wallT = simPx(WALL_SHARE);
+	simBallConfig.radius = simPx(simBallConfig.sizeShare);
+	simBallConfig.speed = simPx(simBallConfig.speedShare);
+	simBallRadius.max = simBallMaxRadius();
+	simAperture.size = simPx(simAperture.sizeShare);
+	simAperture.speed = simPx(simAperture.speedShare);
+}
+
 function simSetFriction(on) {
 	simFrictionEnabled = !!on;
 	if (!simFrictionEnabled) simAperture.friction = 0;
@@ -86,9 +138,10 @@ function simSetControlHook(hook) {
 // the centre stays put and the hole is pushed back inside the walls, so a big aperture never
 // hangs past a corner
 function simSetApertureSize(size) {
-	const next = Math.max(APERTURE_SIZE_MIN, Math.min(APERTURE_SIZE_MAX, Math.round(size)));
-	if (next === simAperture.size) return false;
-	simAperture.size = next;
+	const next = simShareClamp(size, APERTURE_SIZE_MIN, APERTURE_SIZE_MAX);
+	if (next === simAperture.sizeShare) return false;
+	simAperture.sizeShare = next;
+	simAperture.size = simPx(next);
 	simClampAperture();
 	return true;
 }
@@ -99,22 +152,28 @@ function simClampAperture() {
 	else if (simAperture.y > simField.h - half) simAperture.y = simField.h - half;
 }
 
-// The canvas is the field: its CSS size becomes the world size, and the divider sits at half of it.
-// Everything positioned in world units is rescaled with the field, so a resize never moves a ball
-// onto the other side of the divider or outside the screen.
+// The canvas is the field: its CSS size becomes the world size, the divider sits at half of it and the
+// field scale follows its area. Positions rescale per axis, so a resize never moves a ball onto the
+// other side of the divider or off the screen; radii and velocities follow the scale, so a ball keeps
+// its share of the screen instead of its old pixel size and pace.
 function simResizeField(width, height) {
 	const w = Math.max(FIELD_MIN_W, Math.round(width));
 	const h = Math.max(FIELD_MIN_H, Math.round(height));
 	if (w === simField.w && h === simField.h) return false;
 	const sx = w / simField.w;
 	const sy = h / simField.h;
+	const grow = Math.sqrt(w * h) / simField.scale;
 	simField.w = w;
 	simField.h = h;
 	simField.wallX = w / 2;
+	simField.scale = Math.sqrt(w * h);
+	simApplyShares();
 	for (let i = 0; i < simBalls.count; i++) {
 		simBalls.x[i] *= sx;
 		simBalls.y[i] *= sy;
-		simBalls.r[i] *= Math.min(sx, sy);
+		simBalls.r[i] *= grow;
+		simBalls.vx[i] *= grow;
+		simBalls.vy[i] *= grow;
 		simWallBounce(i);
 	}
 	simAperture.y *= sy;
@@ -124,9 +183,10 @@ function simResizeField(width, height) {
 }
 
 function simSetApertureSpeed(speed) {
-	const next = Math.max(APERTURE_SPEED_MIN, Math.min(APERTURE_SPEED_MAX, speed));
-	if (next === simAperture.speed) return false;
-	simAperture.speed = next;
+	const next = simShareClamp(speed, APERTURE_SPEED_MIN, APERTURE_SPEED_MAX);
+	if (next === simAperture.speedShare) return false;
+	simAperture.speedShare = next;
+	simAperture.speed = simPx(next);
 	return true;
 }
 
@@ -152,30 +212,34 @@ function simSetBallCount(count) {
 // The size setting is the mean radius; the variety setting spreads radii around it, or makes every
 // ball the same. Live radii follow immediately, and are kept inside the screen after the change.
 function simSetBallSize(size, varied) {
-	const next = Math.max(BALL_SIZE_MIN, Math.min(BALL_SIZE_MAX, Math.round(size)));
+	const next = simShareClamp(size, BALL_SIZE_MIN, BALL_SIZE_MAX);
 	const spread = varied === undefined ? simBallConfig.varied : !!varied;
-	if (next === simBallConfig.size && spread === simBallConfig.varied) return false;
-	const scale = next / simBallConfig.size;
-	simBallConfig.size = next;
+	if (next === simBallConfig.sizeShare && spread === simBallConfig.varied) return false;
+	const radius = simPx(next);
+	const scale = radius / simBallConfig.radius;
+	simBallConfig.sizeShare = next;
 	simBallConfig.varied = spread;
-	simBallRadius.max = spread ? next * (1 + BALL_SIZE_VARIETY) : next;
+	simBallConfig.radius = radius;
+	simBallRadius.max = simBallMaxRadius();
 	for (let i = 0; i < simBalls.count; i++) {
 		simBalls.r[i] *= scale;
-		if (!spread) simBalls.r[i] = next;
+		if (!spread) simBalls.r[i] = radius;
 		simWallBounce(i);
 	}
 	return true;
 }
 
 function simSetBallSpeed(speed) {
-	const next = Math.max(BALL_SPEED_MIN, Math.min(BALL_SPEED_MAX, speed));
-	if (next === simBallConfig.speed) return false;
-	const scale = next / simBallConfig.speed;
+	const next = simShareClamp(speed, BALL_SPEED_MIN, BALL_SPEED_MAX);
+	if (next === simBallConfig.speedShare) return false;
+	const px = simPx(next);
+	const scale = px / simBallConfig.speed;
+	simBallConfig.speedShare = next;
+	simBallConfig.speed = px;
 	for (let i = 0; i < simBalls.count; i++) {
 		simBalls.vx[i] *= scale;
 		simBalls.vy[i] *= scale;
 	}
-	simBallConfig.speed = next;
 	return true;
 }
 
@@ -190,7 +254,7 @@ function simSpawnOverlaps(x, y, r) {
 }
 
 function simSpawnRadius() {
-	const base = simBallConfig.size;
+	const base = simBallConfig.radius;
 	if (!simBallConfig.varied) return base;
 	return base * (1 - BALL_SIZE_VARIETY + Math.random() * 2 * BALL_SIZE_VARIETY);
 }
@@ -199,14 +263,16 @@ function simSpawn() {
 	const i = simBalls.count;
 	if (i >= simBallConfig.count) return;
 	const r = simSpawnRadius();
+	const gap = r + simPx(SPAWN_GAP_SHARE);
 	let x = 0, y = 0;
 	for (let attempt = 0; attempt < 8; attempt++) {
 		x = r + Math.random() * (simField.w - 2 * r);
 		y = r + Math.random() * (simField.h - 2 * r);
-		if (Math.abs(x - simField.wallX) < r + 6) continue;
+		if (Math.abs(x - simField.wallX) < gap) continue;
 		if (!simSpawnOverlaps(x, y, r)) break;
 	}
-	if (Math.abs(x - simField.wallX) < r + 6) x = simField.wallX + (x < simField.wallX ? -(r + 6) : r + 6);
+	if (Math.abs(x - simField.wallX) < gap) x = simField.wallX + (x < simField.wallX ? -gap : gap);
+	// the spawn band is a ratio of the average speed, so the share it is written in cancels
 	const sp = (BALL_V_MIN + Math.random() * (BALL_V_MAX - BALL_V_MIN))
 		* simBallConfig.speed / ((BALL_V_MIN + BALL_V_MAX) / 2);
 	const ang = Math.random() * Math.PI * 2;
@@ -416,6 +482,7 @@ if (typeof module !== 'undefined') module.exports = {
 	simField, simBalls, simAperture, simDist, simBallConfig, simInit, simAdvance, simStep, simSpawn, simFillDist,
 	simSetBallCollisions, simSetSpawnRate, simSetBallCount, simSetBallSpeed, simSetFriction, simSetControlHook,
 	simSetApertureSize, simSetApertureSpeed, simResizeField, simSetBallSize, simBallRadius,
+	simPx, simApplyShares, SIM_SHARE, WALL_SHARE, SPAWN_GAP_SHARE,
 	FIELD_MIN_W, FIELD_MIN_H, BALL_SIZE_MIN, BALL_SIZE_MAX, BALL_SIZE_DEFAULT, BALL_SIZE_VARIETY,
 	BALL_CAP, BALL_COUNT_MIN, BALL_COUNT_DEFAULT, BALL_START_COUNT, BALL_V_MIN, BALL_V_MAX,
 	BALL_SPEED_MIN, BALL_SPEED_MAX, BALL_SPEED_DEFAULT, APERTURE_FRICTION, FIXED_DT,
