@@ -475,18 +475,21 @@ check('settings: hole size clamps, round-trips and omits its default',
 	settings.settingsFromSearch('?hole=240').holeSize === 240
 	&& settings.settingsFromSearch('?hole=900').holeSize === 240
 	&& settings.settingsFromSearch('?hole=1').holeSize === 60
-	&& settings.settingsEncode('holeSize', 113) === undefined
+	&& settings.settingsEncode('holeSize', 115) === undefined
 	&& settings.settingsEncode('holeSize', 180) === '180');
 check('settings: hole speed and energy keys round-trip',
 	settings.settingsFromSearch('?holeSpeed=900&cost=40&store=200')
-		.holeSpeed === 900 && settings.settingsEncode('holeSpeed', 700) === undefined);
+		.holeSpeed === 900 && settings.settingsEncode('holeSpeed', 710) === undefined);
 settings.settingsSetHoleSize(200, false);
 settings.settingsSetHoleSpeed(400, false);
 settings.settingsSetEnergyCost(40, false);
 settings.settingsSetEnergyStore(150, false);
 check('settings: aperture and energy settings reach their owners',
-	sim.simAperture.size === 200 && sim.simAperture.speed === 400
+	near(sim.simAperture.size, sim.simPx(200), 1e-9) && near(sim.simAperture.speed, sim.simPx(400), 1e-9)
 	&& force.forceView(0).capacity === 150);
+check('settings: the hole controls read back as shares of the field',
+	stubs.els['settings-hole-size-value'].textContent === '20 %'
+	&& stubs.els['settings-hole-speed-value'].textContent === '40 %/s');
 settings.settingsSetEnergyStore(settings.settingsDefaults.energyStore, false);
 sim.simSetApertureSize(sim.APERTURE_SIZE);
 sim.simSetApertureSpeed(sim.APERTURE_SPEED);
@@ -509,7 +512,9 @@ check('settings: the variety and collision switches default on and only store th
 settings.settingsSetBallSize(20, false);
 sim.simBalls.count = 0;
 sim.simSpawn();
-check('settings: ball size reaches the spawn radius', sim.simBalls.r[0] >= 20 * (1 - sim.BALL_SIZE_VARIETY) - 1e-3);
+check('settings: ball size reaches the spawn radius', sim.simBalls.r[0] >= sim.simPx(20) * (1 - sim.BALL_SIZE_VARIETY) - 1e-3);
+check('settings: ball size reads back as a share of the field',
+	stubs.els['settings-ball-size-value'].textContent === '2 %');
 stubs.els['settings-ball-varied'].checked = false;
 stubs.els['settings-ball-varied'].dispatch('change');
 check('settings: the random-size switch reaches the simulation', sim.simBallConfig.varied === false);
