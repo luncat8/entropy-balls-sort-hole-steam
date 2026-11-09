@@ -395,6 +395,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .force-cost { color: #f0a1a1; font-size: 12px; font-weight: 700; }
 .force-help { margin-top: 9px; padding-top: 7px; border-top: 1px solid #34404d; color: #93a3b7; font-size: 10px; line-height: 1.35; }
 .settings-note { margin: -1px 0 0 20px; color: #9ba6ba; font-size: 11px; }
+.settings-intro { margin: 0 0 8px; color: #9ba6ba; font-size: 11px; line-height: 1.35; }
 .settings-range-label { justify-content: space-between; gap: 10px; }
 .settings-range-label output { color: #a8d3ff; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .draw-options input[type="range"] { width: 100%; min-height: 20px; cursor: pointer; }
