@@ -16,15 +16,9 @@ const $ = id => document.getElementById(id);
 - allocate once at setup, mutate in place per frame.
 - these are not strict rules, use best.
 
-- comments say why and decisions only. what-code-does belongs in names.
+- comments say why and decisions only. what-code-does belongs in names. good: `// 2x step: halves samples, still >60fps (plan 0.3, log 11-02)`; not good: `// increment i`.
 - 0-2 comments per function is normal. 3+ usually means names or structure are wrong — rename or restructure, don't comment.
 - no banners, no commented-out code, no TODOs in code — that goes to plan or findings instead.
-
-good:
-	// 2x step: halves samples, still >60fps (plan 0.3, log 11-02)
-not good:
-	// increment i
-	// loop over items
 
 - no legacy support, no old versions, no outdated browsers, no leftovers and no over protecting from unreal edge cases. we need clean architecture.
 
@@ -59,7 +53,7 @@ getObj().data().action()
 
 - keep this map updated when ownership changes:
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
-	simulation.js — owns field size (the canvas in CSS pixels), balls, ball size/variety/collisions, aperture position/bounds, physics, ball color generation, distribution snapshot. edit for constants, spawn, resize, stepping, snapshot fields. the aperture's velocity is the drive force.js funds; simulation never reads a request.
+	simulation.js — owns field size (the canvas in CSS pixels), the field scale, every size and speed as a share of it, balls, ball size/variety/collisions, aperture position/bounds, physics, ball color generation, distribution snapshot. edit for constants, spawn, resize, stepping, snapshot fields. the aperture's velocity is the drive force.js funds; simulation never reads a request.
 	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
 	canvas.js — owns canvas sizing (device-pixel backing store), drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	force.js — owns per-participant hole requests, energy stores, funding, the combined drive and the store readout. edit for energy rates, funding rules, readout.
@@ -71,7 +65,7 @@ getObj().data().action()
 	scoreboard.js — owns the player table, per-slot bot checkboxes, mode readout and restart control. edit for score columns, controller controls, table copy.
 	preview.js — owns quest target appearance modes, their shapes and samples, the hold preview panel and its mode radios. edit for appearance modes, target shapes, panel copy.
 	goalview.js — owns the held-quest goal view: which balls cross, goal layout, goal label. edit for goal layout, crossing rules, goal copy.
-	settings.js — owns the settings table, defaults, URL persistence and controls. edit for settings keys, URL keys, ball count/speed and friction controls.
+	settings.js — owns the settings table, defaults, URL persistence, their percentage readouts and controls. edit for settings keys, URL keys, ball count/speed and friction controls.
 	status.js — owns live/preview status and per-slot contextual control help. edit for status copy and controller guidance.
 	drawer.js — owns responsive settings disclosure, dismissal and per-layout localStorage preferences. edit for drawer behavior.
 	game.css — owns game/HUD presentation. edit for full-screen field, edge player columns, score and drawer styles.
@@ -80,8 +74,7 @@ getObj().data().action()
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
 - refactor or dedup mixed into a move = defect. separate plan, record the idea as a finding.
 
-- findings-pitfalls-skills.md — notes and pitfalls for LLM agents. write here if found a good way to do something.
-- archive/ — implemented plans and their worklogs.
+- findings-pitfalls-skills.md — notes and pitfalls for LLM agents (write there when you find a good way); archive/ — implemented plans and their worklogs.
 
 ## plans
 
@@ -148,6 +141,7 @@ an objective reads its threshold against one of two totals: the named chamber's 
 the difficulty label bands crossings; a scarcity demand rejects "only two green balls exist" jobs, and the whole-canvas immediate form is floored one crossing higher because its crossings arrive twice as fast.
 plans/draft-coverage.md is the answer to "is this in the plan or still missing" — update it when a draft feature ships.
 gui.2/gui.3: the canvas is the field — world units are CSS pixels, balls reflect off the screen edge, nothing is drawn around it, and the divider is always at half the width. A resize rescales balls and aperture instead of letterboxing. Player 1 is anchored left, Player 2 right, score top-right. Settings/help overlay compact screens and default to a left drawer on wide screens; drawer.js stores separate wide/compact visibility preferences. status.js lives inside the drawer, not a footer. Numeric task/energy readouts stay in their feature panels.
+gui.4: no size or speed is a pixel count. The field scale is sqrt(w * h) and every length or speed is a share of a thousandth of it (`simPx`, `SIM_SHARE`), so ball density and pace hold at any window size and a resize rescales radii and velocities with the scale. Settings store shares and read `%`/`%/s`; `simBallConfig`, `simBallRadius` and `simAperture` hold the derived pixels — write the share, never the pixel number.
 
 ## housekeeping
 

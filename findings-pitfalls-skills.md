@@ -116,3 +116,26 @@ localStorage preference) flushes as a task afterwards. a browser harness that im
 `backdrop.hidden` or reloads the page sees the pre-toggle state — this failed at 1024x768 and 390x844
 on a clean tree. wait for the effect (`page.waitForFunction` on the DOM or the stored key) instead of
 expecting the click to have completed it.
+
+## a field that is the screen needs a share, not a pixel (2026-11-09)
+when the world size is the viewport, a fixed px size means a phone gets toy balls and a fast game: at
+boot the old code spawned 14 px balls in the default 1200x800 world and the first resize scaled radii
+by `min(sx, sy)` (4.2 px on 390x844) while velocities stayed at 175 px/s. the fix is one derived length:
+`scale = sqrt(w * h)`, with every size and speed stored as a share of a thousandth of it. sqrt keeps a
+ball's *area* a constant share of the field area, so density and pace hold on wide, tall and square
+screens alike — `min(w, h)` starves a short-wide window (1600x300 gave 5 px balls at 53 px/s). a resize
+must scale velocities with the scale as well; scaling radius only is what made small screens feel fast.
+fixtures and the bot need the same unit: any px tolerance in gameplay code (a "moving" threshold, a
+beside-the-lane offset) becomes `simPx(n)` or it silently changes meaning with the screen.
+
+## derived pixels break exact float assertions (2026-11-09)
+`impactMarks.x` is a `Float32Array` and the wall thickness is now `simPx(8)` = 7.838, not 8. checks
+that compared a mark or a fillRect argument with `===` against `wallX - wallT / 2` passed only because
+8 and 596 are exactly representable. compare drawn geometry with a tolerance (1e-3 is plenty) and
+derive the expected numbers from `simField`, not from the constants a test used to know.
+
+## a settings boot normalizes whatever the constants say (2026-11-09)
+to reproduce old pixel defaults in a measurement, editing `BALL_SIZE_DEFAULT` alone does nothing:
+`mainBoot` -> `settingsInit` -> `settingsApply` runs `settingsNormalize` with a step, so 13.717 became
+14 and 176.36 became 175. any A/B of a default value has to go through the same normalize/step path
+the setting exposes, or the run silently measures the old value.

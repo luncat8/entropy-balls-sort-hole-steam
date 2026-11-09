@@ -26,6 +26,9 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 17. ~~gui.3 — The screen is the field; ball size and collisions~~ — done: [plan](plangui.3.md),
     [worklog](../archive/gui.3-worklog.md). Borderless screen-sized field with a central divider, ball
     size/variety and the collision switch as settings.
+18. ~~gui.4 — A field-relative game~~ — done: [plan](plangui.4.md),
+    [worklog](../archive/gui.4-worklog.md). Every size and speed is a share of the field scale, so a
+    phone plays like a desktop.
 
 ## Shared product decisions
 

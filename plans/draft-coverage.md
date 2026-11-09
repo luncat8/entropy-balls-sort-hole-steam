@@ -10,13 +10,13 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | draft asks for | status | where |
 | --- | --- | --- |
 | settings save to the URL | shipped | `settings.js`, gui.1 |
-| slider hole size | shipped | `holeSize`, 60–240 px, plan 0.5 |
-| slider max hole speed | shipped | `holeSpeed`, 200–1400 px/s, plan 0.5 |
+| slider hole size | shipped | `holeSize`, 6–24 % of the field scale, plans 0.5 and gui.4 |
+| slider max hole speed | shipped | `holeSpeed`, 20–140 %/s, plans 0.5 and gui.4 |
 | slider energy consumption to move the hole | shipped | `energyCost`, plan 0.5 |
 | slider energy storage | shipped | `energyStore`, plan 0.5 |
 | slider ball generation | open | spawn rate is a constant; the count limit is a different knob |
-| slider ball size, same or random size | shipped | `ballSize` 6–26 px mean radius with a random-sizes switch, gui.3 |
-| average ball speed | shipped | `ballSpeed`, 50–350 px/s |
+| slider ball size, same or random size | shipped | `ballSize` 0.6–2.6 % mean radius with a random-sizes switch, gui.3; a share of the field since gui.4 |
+| average ball speed | shipped | `ballSpeed`, 5–35 %/s since gui.4 |
 | checkbox ball collisions | shipped | `collisions` setting driving `simSetBallCollisions`, gui.3 |
 | white/dark theme, hole as background color | open | one dark theme is hard-coded in the canvas and CSS |
 
