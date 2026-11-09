@@ -47,6 +47,7 @@
 		</section>
 		<fieldset>
 			<legend>Game settings</legend>
+			<p class="settings-intro">Sizes and speeds are shares of the field, so a small screen plays like a large one.</p>
 			<div class="draw-options-group">
 				<span class="draw-options-heading">Wall cues · before hit</span>
 				<label><input id="draw-predicted-position" type="checkbox" checked> Predicted position</label>
@@ -58,10 +59,10 @@
 			</div>
 			<div class="draw-options-group">
 				<span class="draw-options-heading">Hole</span>
-				<label class="settings-range-label" for="settings-hole-size"><span>Hole size</span><output id="settings-hole-size-value" for="settings-hole-size">113 px</output></label>
-				<input id="settings-hole-size" type="range" min="60" max="240" step="1" value="113">
-				<label class="settings-range-label" for="settings-hole-speed"><span>Max hole speed</span><output id="settings-hole-speed-value" for="settings-hole-speed">700 px/s</output></label>
-				<input id="settings-hole-speed" type="range" min="200" max="1400" step="10" value="700">
+				<label class="settings-range-label" for="settings-hole-size"><span>Hole size</span><output id="settings-hole-size-value" for="settings-hole-size">11.5 %</output></label>
+				<input id="settings-hole-size" type="range" min="60" max="240" step="1" value="115">
+				<label class="settings-range-label" for="settings-hole-speed"><span>Max hole speed</span><output id="settings-hole-speed-value" for="settings-hole-speed">71 %/s</output></label>
+				<input id="settings-hole-speed" type="range" min="200" max="1400" step="10" value="710">
 				<label><input id="settings-friction" type="checkbox"> Friction force</label>
 				<span class="settings-note">Faster movement meets more resistance.</span>
 			</div>
@@ -77,9 +78,9 @@
 				<span class="draw-options-heading">Balls</span>
 				<label class="settings-range-label" for="settings-balls"><span>Ball count limit</span><output id="settings-balls-value" for="settings-balls">24</output></label>
 				<input id="settings-balls" type="range" min="6" max="36" step="1" value="24">
-				<label class="settings-range-label" for="settings-ball-speed"><span>Average ball speed</span><output id="settings-ball-speed-value" for="settings-ball-speed">175 px/s</output></label>
-				<input id="settings-ball-speed" type="range" min="50" max="350" step="5" value="175">
-				<label class="settings-range-label" for="settings-ball-size"><span>Ball size</span><output id="settings-ball-size-value" for="settings-ball-size">14 px</output></label>
+				<label class="settings-range-label" for="settings-ball-speed"><span>Average ball speed</span><output id="settings-ball-speed-value" for="settings-ball-speed">18 %/s</output></label>
+				<input id="settings-ball-speed" type="range" min="50" max="350" step="5" value="180">
+				<label class="settings-range-label" for="settings-ball-size"><span>Ball size</span><output id="settings-ball-size-value" for="settings-ball-size">1.4 %</output></label>
 				<input id="settings-ball-size" type="range" min="6" max="26" step="1" value="14">
 				<label><input id="settings-ball-varied" type="checkbox" checked> Random sizes</label>
 				<label><input id="settings-collisions" type="checkbox" checked> Ball collisions</label>
