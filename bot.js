@@ -1,5 +1,5 @@
-// owns: the bots' plan, lane aim, energy rests and fair use of a contested hole
-// edit for: bot heuristics, aim horizon, rest thresholds, contest turns
+// owns: each bot's character, the bots' plan, lane aim, energy rests and fair use of a contested hole
+// edit for: characters and their weights, bot heuristics, aim horizon, rest thresholds, contest turns
 
 const BOT_THINK_SEC = 0.2;
 // A crossing further out than BOT_DECAY_SEC is worth less than one arriving now, so the hole opens
@@ -38,8 +38,29 @@ const botTune = {
 	mag: BOT_MAG,
 	think: BOT_THINK_SEC,
 	rest: BOT_REST_SHARE,
-	resume: BOT_RESUME_SHARE
+	resume: BOT_RESUME_SHARE,
+	// scale on the characters' denial weight: a measurement needs to sweep how much of its own
+	// progress a denier will trade for the opponent's, without editing the character table
+	rival: 1
 };
+
+// A lane is worth what its crossings do to a score, and the character decides whose score. A profit
+// bot plays only for its own completions, which is the tuned policy. A denier also charges the lane for
+// the crossings the opponent would gain from — `rival` is that cost — so it gives up a crossing of its
+// own to close one of theirs. Not spite: the crossings that cost the opponent are not sought, because
+// the lane that hurts the opponent's plan usually hurts the bot's own (measured, plan 2.6). A slot
+// draws its character when it becomes a bot and keeps it while it stays one.
+const BOT_CHARS = [
+	{ id: 'profit', name: 'Profit', icon: '💰', hint: 'Plays for its own completions', rival: 0 },
+	{ id: 'denier', name: 'Denier', icon: '🚫', hint: 'Closes the crossings the opponent needs', rival: -0.75 }
+];
+const BOT_CHAR_PROFIT = 0;
+const BOT_CHAR_DENIER = 1;
+// -1 is "not drawn yet": a slot that stops being a bot drops its character and draws a new one later
+const botChar = new Int8Array(PLAYER_CAP).fill(-1);
+const botWeight = { rival: 0 };
+
+let botRand = Math.random;
 
 const botState = {
 	think: new Float32Array(PLAYER_CAP),
@@ -55,7 +76,10 @@ const botScratch = {
 	t: new Float32Array(BALL_CAP * BOT_CROSS_PASSES),
 	y: new Float32Array(BALL_CAP * BOT_CROSS_PASSES),
 	r: new Float32Array(BALL_CAP * BOT_CROSS_PASSES),
+	// category membership of each crossing for the bot and, when it scores denial, for the opponent:
+	// the two plans read the same crossing list, only the category that counts differs
 	cat: new Uint8Array(BALL_CAP * BOT_CROSS_PASSES),
+	riv: new Uint8Array(BALL_CAP * BOT_CROSS_PASSES),
 	dir: new Int8Array(BALL_CAP * BOT_CROSS_PASSES),
 	n: 0
 };
@@ -65,11 +89,16 @@ const botPlanOut = { side: 0, match: 0 };
 // Their magnitudes are the crossings still to make, and their signs say which crossing makes one.
 // The four values are what one crossing of each kind does to the priced distance, read straight off
 // tasks.js: a lane is scored from them, so neither denominator needs its own rule in the policy.
-const botPlan = {
-	active: false, cmp: 0, measure: 0, cat: 0, isLeft: false,
-	needCat: 0, spareOther: 0, cost: 0,
-	valCatIn: 0, valCatOut: 0, valOtherIn: 0, valOtherOut: 0
-};
+// Two plans share the shape: the bot's own, and the opponent's when its character scores denial.
+function botPlanCreate() {
+	return {
+		active: false, cmp: 0, measure: 0, cat: 0, isLeft: false,
+		needCat: 0, spareOther: 0, cost: 0,
+		valCatIn: 0, valCatOut: 0, valOtherIn: 0, valOtherOut: 0
+	};
+}
+const botPlan = botPlanCreate();
+const botRivalPlan = botPlanCreate();
 
 function botInit() {
 	botState.think.fill(0);
@@ -78,6 +107,36 @@ function botInit() {
 	botState.targetY.fill(0);
 	botState.gain.fill(0);
 	botState.owner = -1;
+	botRivalPlan.active = false;
+	botRollChars();
+}
+
+// A slot draws its character once per bot role, so a settings change or a new round does not reshuffle
+// the match under the player while the same bot stays in the slot.
+function botRollChars() {
+	for (let id = 0; id < PLAYER_CAP; id++) {
+		if (players.type[id] !== PLAYER_BOT) botChar[id] = -1;
+		else if (botChar[id] < 0) botChar[id] = (botRand() * BOT_CHARS.length) | 0;
+	}
+}
+
+function botSetRand(fn) {
+	botRand = fn;
+}
+
+function botCharSet(id, char) {
+	if (id < 0 || id >= PLAYER_CAP) return;
+	botChar[id] = char >= 0 && char < BOT_CHARS.length ? char : -1;
+}
+
+function botCharOf(id) {
+	return id >= 0 && id < PLAYER_CAP ? BOT_CHARS[botChar[id]] || null : null;
+}
+
+// the lane score reads the denial weight through one scratch, set once per think
+function botWeightSet(id) {
+	const char = botCharOf(id) || BOT_CHARS[BOT_CHAR_PROFIT];
+	botWeight.rival = char.rival * botTune.rival;
 }
 
 function botSetTuning(values) {
@@ -225,35 +284,46 @@ function botThink(id, dt) {
 // The goal is a split, not a direction: matching balls already in the named chamber are the quota
 // that has to stay, every other ball leaving is one of them, and a matching ball leaving spends two
 // crossings. Reading only "does this ball want to be on that side" cannot tell those apart.
-function botPlanOpen(id) {
-	botPlan.active = false;
+function botPlanOpen(id, plan) {
+	plan.active = false;
 	if (!tasksOn[id]) return false;
 	const v = tasksView[id];
 	if (v.waiting) return false;
 	// a satisfied objective still has a plan: nothing is left to fill, so every crossing scores at or
 	// below zero and aiming becomes the defence — the split only has to survive the hold.
-	botPlan.cmp = v.cmp === '>' ? 0 : 1;
-	botPlan.measure = v.measure === 'total' ? 1 : 0;
-	botPlan.isLeft = v.side === 'left';
-	const isLeft = botPlan.isLeft;
+	plan.cmp = v.cmp === '>' ? 0 : 1;
+	plan.measure = v.measure === 'total' ? 1 : 0;
+	plan.isLeft = v.side === 'left';
+	const isLeft = plan.isLeft;
 	const cat = tasksCatFromName(v.category);
-	botPlan.cat = cat;
-	if (tasksCheapest(cat, botPlan.cmp, v.threshold, isLeft, botPlan.measure, botPlanOut) < 0) return false;
+	plan.cat = cat;
+	if (tasksCheapest(cat, plan.cmp, v.threshold, isLeft, plan.measure, botPlanOut) < 0) return false;
 	const namedMatch = isLeft ? simDist.leftPalette : simDist.rightPalette;
 	const named = isLeft ? simDist.left : simDist.right;
 	let catNow = 0;
 	for (let p = 0; p < namedMatch.length; p++) if (tasksCatHas(cat, p)) catNow += namedMatch[p];
 	// the quota the goal needs is stable while the objective stands, unlike the split the solver
 	// reties every think: matching balls still to enter, and spare others that may leave
-	botPlan.needCat = botPlanOut.match - catNow;
-	botPlan.spareOther = (named - catNow) - (botPlanOut.side - botPlanOut.match);
-	botPlan.cost = Math.abs(botPlan.needCat) + Math.abs(botPlan.spareOther);
-	botPlan.valCatIn = tasksCrossValue(cat, botPlan.cmp, v.threshold, isLeft, botPlan.measure, 1, 1);
-	botPlan.valCatOut = tasksCrossValue(cat, botPlan.cmp, v.threshold, isLeft, botPlan.measure, 1, 0);
-	botPlan.valOtherIn = tasksCrossValue(cat, botPlan.cmp, v.threshold, isLeft, botPlan.measure, 0, 1);
-	botPlan.valOtherOut = tasksCrossValue(cat, botPlan.cmp, v.threshold, isLeft, botPlan.measure, 0, 0);
-	botPlan.active = true;
+	plan.needCat = botPlanOut.match - catNow;
+	plan.spareOther = (named - catNow) - (botPlanOut.side - botPlanOut.match);
+	plan.cost = Math.abs(plan.needCat) + Math.abs(plan.spareOther);
+	plan.valCatIn = tasksCrossValue(cat, plan.cmp, v.threshold, isLeft, plan.measure, 1, 1);
+	plan.valCatOut = tasksCrossValue(cat, plan.cmp, v.threshold, isLeft, plan.measure, 1, 0);
+	plan.valOtherIn = tasksCrossValue(cat, plan.cmp, v.threshold, isLeft, plan.measure, 0, 1);
+	plan.valOtherOut = tasksCrossValue(cat, plan.cmp, v.threshold, isLeft, plan.measure, 0, 0);
+	plan.active = true;
 	return true;
+}
+
+// The opponent's plan at the same field, so a denier scores the crossings the hole would hand them.
+// Nothing to deny (a lone slot, a waiting objective, or a character that never looks at the rival)
+// leaves it inactive, and the lane score then reads the bot's own crossings alone.
+function botRivalOpen(id) {
+	botRivalPlan.active = false;
+	if (botWeight.rival === 0) return false;
+	const rivalId = 1 - id;
+	if (rivalId === id || rivalId >= players.count) return false;
+	return botPlanOpen(rivalId, botRivalPlan);
 }
 
 // ---- predicted crossings
@@ -287,7 +357,8 @@ function botFoldY(y, vy, t, r) {
 // with both chambers the same width the interval repeats, and the lane advances by vy times it.
 // This is the structure a hole can exploit: a lane that collects repeat crossings beats one that
 // waits for a single ball.
-function botPredict(cat, isLeft, span = botTune.horizon, passes = BOT_CROSS_PASSES) {
+function botPredict(span = botTune.horizon, passes = BOT_CROSS_PASSES) {
+	const rival = botRivalPlan.active;
 	let n = 0;
 	for (let i = 0; i < simBalls.count; i++) {
 		const t0 = botCrossTime(i);
@@ -296,7 +367,8 @@ function botPredict(cat, isLeft, span = botTune.horizon, passes = BOT_CROSS_PASS
 		const speed = Math.abs(simBalls.vx[i]);
 		const left = (simField.wallX - r) * 2 / speed;
 		const right = (simField.w - simField.wallX - r) * 2 / speed;
-		const cat0 = tasksCatHas(cat, simBalls.palette[i]) ? 1 : 0;
+		const cat0 = tasksCatHas(botPlan.cat, simBalls.palette[i]) ? 1 : 0;
+		const riv0 = rival && tasksCatHas(botRivalPlan.cat, simBalls.palette[i]) ? 1 : 0;
 		// the next crossing always goes to the opposite chamber — a ball moving away from the divider
 		// turns around first — so the side it is on sets the direction, not its velocity sign
 		let dir = simBalls.x[i] < simField.wallX ? 1 : -1;
@@ -308,6 +380,7 @@ function botPredict(cat, isLeft, span = botTune.horizon, passes = BOT_CROSS_PASS
 			botScratch.y[n] = y;
 			botScratch.r[n] = r;
 			botScratch.cat[n] = cat0;
+			botScratch.riv[n] = riv0;
 			botScratch.dir[n] = dir;
 			n++;
 			t += dir > 0 ? right : left;
@@ -315,7 +388,6 @@ function botPredict(cat, isLeft, span = botTune.horizon, passes = BOT_CROSS_PASS
 		}
 	}
 	botScratch.n = n;
-	botScratch.isLeft = isLeft === true;
 	return n;
 }
 
@@ -344,11 +416,23 @@ function botLaneScore(n, yc) {
 	for (let j = 0; j < n; j++) {
 		if (botScratch.t[j] > botTune.horizon || !botLaneHits(j, yc, travel)) continue;
 		const v = botCrossValue(j);
-		if (!v) continue;
+		const w = botRivalPlan.active ? botCrossValueRival(j) : 0;
+		if (!v && !w) continue;
 		const value = 1 / (1 + (botScratch.t[j] - travel) / botTune.decay);
-		net += v > 0 ? value : -value * botTune.harm;
+		net += value * (botCrossScore(v) + botRivalScore(w));
 	}
 	return net * botTune.cross - travel;
+}
+
+// A crossing that loses ground costs more than one that gains it: progress can be made again later,
+// while a lost crossing also burns the travel that was spent arriving.
+function botCrossScore(v) {
+	return v > 0 ? v : v * botTune.harm;
+}
+
+// The denier's half: only a crossing the opponent would gain from is charged to the lane.
+function botRivalScore(w) {
+	return w > 0 ? w * botWeight.rival : 0;
 }
 
 // A scarce category can have its next useful crossing beyond the scoring horizon: six violet balls
@@ -373,9 +457,17 @@ function botWaitLane(n) {
 // < 40%" is reached by hot leaving the left; the whole-canvas measure ignores the other balls, which
 // is why their crossings score zero instead of counting against the objective.
 function botCrossValue(j) {
-	const entering = (botScratch.dir[j] < 0) === botScratch.isLeft;
-	if (botScratch.cat[j]) return entering ? botPlan.valCatIn : botPlan.valCatOut;
-	return entering ? botPlan.valOtherIn : botPlan.valOtherOut;
+	return botCrossValueOf(botPlan, botScratch.cat[j] === 1, botScratch.dir[j]);
+}
+
+function botCrossValueRival(j) {
+	return botCrossValueOf(botRivalPlan, botScratch.riv[j] === 1, botScratch.dir[j]);
+}
+
+function botCrossValueOf(plan, isCat, dir) {
+	const entering = (dir < 0) === plan.isLeft;
+	if (isCat) return entering ? plan.valCatIn : plan.valCatOut;
+	return entering ? plan.valOtherIn : plan.valOtherOut;
 }
 
 // the aperture's centre cannot leave the field, so a lane outside that range is not a target
@@ -394,8 +486,12 @@ function botClampLane(y) {
 function botAim(id) {
 	const prevY = botState.aimed[id] ? botState.targetY[id] : -1;
 	botState.aimed[id] = 0;
-	if (!botPlanOpen(id)) return false;
-	const n = botPredict(botPlan.cat, botPlan.isLeft);
+	botState.gain[id] = 0;
+	botWeightSet(id);
+	botRivalPlan.active = false;
+	if (!botPlanOpen(id, botPlan)) return false;
+	botRivalOpen(id);
+	const n = botPredict();
 	const here = botClampLane(prevY >= 0 ? prevY : simAperture.y);
 	let best = n ? botLaneScore(n, here) + (prevY >= 0 ? botTune.switchLane : 0) : 0;
 	let bestY = here;
@@ -424,7 +520,7 @@ function botAim(id) {
 	// If no traffic is imminent, wait for any helpful first crossing, including non-category balls.
 	// Later passes assume earlier crossings happened, so they cannot justify an unattended wait.
 	if (best <= 0 && botPlan.cost > 0 && (n === 0 || botPlan.needCat !== 0)) {
-		const waitY = botWaitLane(botPredict(botPlan.cat, botPlan.isLeft, BOT_WAIT_SEC, 1));
+		const waitY = botWaitLane(botPredict(BOT_WAIT_SEC, 1));
 		if (waitY >= 0) {
 			botState.targetY[id] = waitY;
 			botState.gain[id] = 0;
@@ -466,8 +562,19 @@ function botAct(id, priority = -1) {
 if (typeof module !== 'undefined') module.exports = {
 	botState,
 	botPlan,
+	botRivalPlan,
 	botTune,
 	botScratch,
+	botChar,
+	botWeight,
+	BOT_CHARS,
+	BOT_CHAR_PROFIT,
+	BOT_CHAR_DENIER,
+	botCharOf,
+	botCharSet,
+	botRollChars,
+	botWeightSet,
+	botSetRand,
 	botInit,
 	botSetTuning,
 	botStep,
@@ -481,8 +588,12 @@ if (typeof module !== 'undefined') module.exports = {
 	botLaneHalf,
 	botPredict,
 	botPlanOpen,
+	botRivalOpen,
 	botCrossTime,
 	botCrossValue,
+	botCrossValueRival,
+	botCrossScore,
+	botRivalScore,
 	botWantsHole,
 	botFoldY,
 	BOT_PREEMPT,
