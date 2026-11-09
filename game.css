@@ -132,6 +132,26 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .score-bot { width: 16px; height: 16px; margin: 0; vertical-align: middle; accent-color: #83b8ff; cursor: pointer; }
 .score-value { color: #a8d3ff; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .score-mode { margin-top: 5px; color: #9ba6ba; font-size: 10px; }
+/* a bot's character sits beside the name in both places that name a player, so the icon and its tint
+   are the same badge in the score table and the force column */
+.char-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 0 6px;
+	border: 1px solid currentColor;
+	border-radius: 999px;
+	color: #9ba6ba;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1.6;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+.char-badge[hidden] { display: none; }
+.char-badge[data-char="profit"] { color: #f0c05a; }
+.char-badge[data-char="denier"] { color: #ef8074; }
+.score-row .char-badge { margin-left: 5px; padding: 0 4px; vertical-align: middle; }
 .quest-list {
 	margin: 8px 0 0;
 	padding: 0;
@@ -287,7 +307,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	background: rgba(20, 26, 35, 0.96);
 	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
-.force-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.force-panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.force-meta { display: inline-flex; align-items: center; gap: 6px; }
 .force-player { color: #eef3f8; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .force-player::before {
 	content: '';
@@ -425,6 +446,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	.force-selected { font-size: 9px; white-space: normal; }
 	.force-player { font-size: 10px; letter-spacing: 0; }
 	.force-kind { font-size: 9px; }
+	.char-badge { padding: 0 4px; font-size: 9px; }
 	.force-help { display: none; }
 	.quest { padding: 6px; }
 	.quest-text { white-space: normal; overflow-wrap: anywhere; }
