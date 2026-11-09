@@ -21,6 +21,7 @@ function forcePanelMatchesPlayers() {
 		const row = forcePanels.rows[id];
 		const controls = inputControls(id);
 		if (row.type !== players.type[id] || row.controlled !== controls) return false;
+		if (row.char !== botCharOf(id)) return false;
 		if (controls && row.channel !== inputChannel(id)) return false;
 	}
 	return true;
@@ -53,8 +54,11 @@ function forcePanelBuild(id) {
 	panel.setAttribute('aria-label', 'Player ' + (id + 1) + ' force');
 	const header = forcePanelElement('div', 'force-panel-header');
 	const player = forcePanelElement('span', 'force-player', 'Player ' + (id + 1));
+	const meta = forcePanelElement('span', 'force-meta');
 	const kind = forcePanelElement('span', 'force-kind');
-	header.append(player, kind);
+	const badge = forcePanelElement('span', 'char-badge');
+	meta.append(kind, badge);
+	header.append(player, meta);
 	const status = forcePanelElement('div', 'force-status', 'No force');
 
 	const body = forcePanelElement('div', 'force-panel-body');
@@ -107,6 +111,7 @@ function forcePanelBuild(id) {
 
 	const row = {
 		type, panel, slider, thumb, selected, status, meter, fill, usage, energyNumber, energyCapacity, cost,
+		badge, char: null,
 		controlled: false, channel: null, kind: '', value: null, shownEnergy: -1, shownCapacity: -1, shownShare: -1,
 		shownUsage: -1, shownCost: -1, shownStatus: ''
 	};
@@ -115,12 +120,24 @@ function forcePanelBuild(id) {
 	row.channel = inputChannel(id);
 	kind.textContent = forcePanelKind(row);
 	row.kind = kind.textContent;
+	forcePanelChar(row, id);
 	slider.disabled = !row.controlled;
 	panel.setAttribute('data-channel', row.channel || 'read');
 	panel.setAttribute('data-hint', forcePanelHint(row));
 	help.textContent = forcePanelHelp(row, bot);
 	forcePanelSetValue(id, row.controlled ? inputValue(id) : 0);
 	return panel;
+}
+
+// a bot column names the character its slot drew; a human slot carries no character at all
+function forcePanelChar(row, id) {
+	const char = botCharOf(id);
+	row.char = char;
+	row.badge.hidden = !char;
+	if (!char) return;
+	row.badge.textContent = char.icon + ' ' + char.name;
+	row.badge.setAttribute('data-char', char.id);
+	row.badge.title = char.hint;
 }
 
 // Two human panels must be told apart by their control, not by a shared "human" label.
