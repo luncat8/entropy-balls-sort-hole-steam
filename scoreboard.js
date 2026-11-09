@@ -31,7 +31,12 @@ function scoreboardBuildRow(id) {
 	row.className = 'score-row';
 	const name = document.createElement('th');
 	name.scope = 'row';
-	name.textContent = 'Player ' + (id + 1);
+	const label = document.createElement('span');
+	label.textContent = 'Player ' + (id + 1);
+	const badge = document.createElement('span');
+	badge.className = 'char-badge';
+	badge.hidden = true;
+	name.append(label, badge);
 	const botCell = document.createElement('td');
 	const checkbox = document.createElement('input');
 	checkbox.type = 'checkbox';
@@ -44,8 +49,20 @@ function scoreboardBuildRow(id) {
 	const score = document.createElement('span');
 	scoreCell.append(score);
 	row.append(name, botCell, scoreCell);
-	scoreboardUi.rows.push({ el: row, checkbox, score, active: null, bot: null, value: null });
+	scoreboardUi.rows.push({ el: row, checkbox, badge, score, active: null, bot: null, char: null, value: null });
 	return row;
+}
+
+// A bot's slot shows the character that bot drew, next to the name the player table already uses, so
+// two bots in one match read as two different plans rather than two identical ones. The table is the
+// narrower of the two places a player is named, so it carries the icon and its tint alone.
+function scoreboardChar(row, char) {
+	row.char = char;
+	row.badge.hidden = !char;
+	if (!char) return;
+	row.badge.textContent = char.icon;
+	row.badge.setAttribute('data-char', char.id);
+	row.badge.title = char.name + ' · ' + char.hint;
 }
 
 function scoreboardRestart() {
@@ -80,6 +97,8 @@ function scoreboardPaint() {
 			row.el.setAttribute('data-active', active ? 'true' : 'false');
 			row.el.setAttribute('data-controller', bot ? 'bot' : (active ? 'human' : 'open'));
 		}
+		const char = bot ? botCharOf(id) : null;
+		if (row.char !== char) scoreboardChar(row, char);
 		if (row.value === value) continue;
 		row.value = value;
 		row.score.textContent = active ? String(value) : '—';
