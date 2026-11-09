@@ -52,6 +52,14 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | either side, either comparator, hot/cold or a named color | shipped | `tasks.js`; `<` objectives are now generated at a playable rate (2.4) |
 | side readable at a glance on the card | shipped | `quest.js` `quest-arrow`, 24 px glyph, plan 2.4 |
 
+## Bots
+
+| draft asks for | status | where |
+| --- | --- | --- |
+| two bot characters: one plays for its own profit, one for the opponent's denial | shipped | `bot.js`, plan 2.6; one lane score, the denier charges the crossings the opponent would gain from |
+| a random character per bot, any combination | shipped | `bot.js` `botRollChars`: one uniform, independent draw per bot role |
+| show the character as an icon or colour near the player (bot) name | shipped | `scoreboard.js` icon pill, `forcepanel.js` icon and name, both tinted by `data-char` in `game.css` |
+
 ## Field and drawing
 
 | draft asks for | status | where |
