@@ -1,16 +1,17 @@
 // owns: setting defaults, URL persistence and the settings controls
 // edit for: settings keys, URL keys, settings bindings
 
-// Every key is one table entry, so one path reads, encodes and clamps all of them.
+// Every key is one table entry, so one path reads, encodes and clamps all of them. Sizes and speeds
+// are shares of the field scale in thousandths, so the screen size never changes what the settings mean.
 const SETTINGS_KEYS = ['friction', 'humans', 'bots', 'balls', 'ballSpeed', 'ballSize', 'ballVaried', 'collisions',
 	'holeSize', 'holeSpeed', 'energyCost', 'energyStore'];
 const settingsDefaults = {
-	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: 175, ballSize: BALL_SIZE_DEFAULT,
+	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT,
 	ballVaried: true, collisions: true,
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY
 };
 const settingsState = {
-	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: 175, ballSize: BALL_SIZE_DEFAULT,
+	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT,
 	ballVaried: true, collisions: true,
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY
 };
@@ -25,6 +26,12 @@ function settingsNumber(raw, min, max, step) {
 	const value = Number(raw);
 	if (raw === '' || !Number.isFinite(value)) return undefined;
 	return Math.max(min, Math.min(max, Math.round(value / step) * step));
+}
+
+// one decimal is the resolution a player can act on, and a whole share never prints a trailing zero
+function settingsPercent(share) {
+	const text = (share / 10).toFixed(1);
+	return text.endsWith('.0') ? text.slice(0, -2) : text;
 }
 
 function settingsNormalize(key, raw) {
@@ -197,14 +204,14 @@ function settingsSync() {
 	settingsUi.ballVaried.checked = settingsState.ballVaried;
 	settingsUi.collisions.checked = settingsState.collisions;
 	settingsUi.ballsValue.textContent = String(settingsState.balls);
-	settingsUi.ballSpeedValue.textContent = settingsState.ballSpeed + ' px/s';
-	settingsUi.ballSizeValue.textContent = settingsState.ballSize + ' px';
+	settingsUi.ballSpeedValue.textContent = settingsPercent(settingsState.ballSpeed) + ' %/s';
+	settingsUi.ballSizeValue.textContent = settingsPercent(settingsState.ballSize) + ' %';
 	settingsUi.holeSize.value = String(settingsState.holeSize);
 	settingsUi.holeSpeed.value = String(settingsState.holeSpeed);
 	settingsUi.energyCost.value = String(settingsState.energyCost);
 	settingsUi.energyStore.value = String(settingsState.energyStore);
-	settingsUi.holeSizeValue.textContent = settingsState.holeSize + ' px';
-	settingsUi.holeSpeedValue.textContent = settingsState.holeSpeed + ' px/s';
+	settingsUi.holeSizeValue.textContent = settingsPercent(settingsState.holeSize) + ' %';
+	settingsUi.holeSpeedValue.textContent = settingsPercent(settingsState.holeSpeed) + ' %/s';
 	settingsUi.energyCostValue.textContent = settingsState.energyCost + '/s';
 	settingsUi.energyStoreValue.textContent = String(settingsState.energyStore);
 }
