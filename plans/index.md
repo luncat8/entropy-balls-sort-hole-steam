@@ -29,6 +29,8 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 18. ~~gui.4 — A field-relative game~~ — done: [plan](plangui.4.md),
     [worklog](../archive/gui.4-worklog.md). Every size and speed is a share of the field scale, so a
     phone plays like a desktop.
+19. ~~2.6 — Bot characters~~ — done: [plan](plan2.6.md), [worklog](../archive/2.6-worklog.md).
+    A slot draws a profit bot or a denier, shown as an icon and tint next to the player's name.
 
 ## Shared product decisions
 
@@ -38,7 +40,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 - Progress is evaluated on fixed simulation steps. Each generated task requires either immediate satisfaction or a continuous two-second hold; a new task follows completion. An empty side never completes a task. Difficulty is banded on the fewest crossings the objective needs; a scarcity-scaled ceiling rejects objectives that only one or two balls can supply.
 - The control model is explicit signed push/pull along the aperture’s vertical track. Pointer hold/touch hold activates it; mouse wheel and a visible slider adjust force magnitude. This avoids relying on ambiguous pointer gestures.
 - Settings and live gameplay values have one owner each, and the browser URL is the shareable settings representation. The design remains local and file:// friendly, with classic script tags and no build or network dependency.
-- Single-player starts with one human. The player table exposes both slots; either can be a bot, and two bots can play while the user spectates. Each participant keeps its own task, input channel and energy store.
+- Single-player starts with one human. The player table exposes both slots; either can be a bot, and two bots can play while the user spectates. Each participant keeps its own task, input channel and energy store. A bot plays a character drawn when it takes its slot — profit (its own completions) or denier (the opponent's crossings are charged to the lane it chooses) — shown as an icon and tint beside the player's name.
 
 ## Manual completion checklist
 
