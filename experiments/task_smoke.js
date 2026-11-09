@@ -353,5 +353,74 @@ check('quest bar: a met objective fills the bar', tasks.tasksView[0].satisfied
 	&& questBar(0).style.width === '100%'
 	&& stubs.els['task-list'].children[0].getAttribute('data-done') === 'true');
 
+// Exercise the generator rather than just manual assignments for both grammars and comparators.
+reset();
+for (let i = 0; i < 24; i++) place(i, i % 4 < 2 ? LEFT : RIGHT, i % 6);
+sim.simFillDist();
+let seed = 12345;
+tasks.tasksSetRand(() => {
+	seed = (seed * 1664525 + 1013904223) >>> 0;
+	return seed / 4294967296;
+});
+const generated = { side: 0, total: 0, gt: 0, lt: 0, invalid: 0 };
+for (let i = 0; i < 100; i++) {
+	tasks.tasksAttach(0);
+	const v = tasks.tasksView[0];
+	if (v.waiting || v.satisfied || !tcost.tasksInBand(v.cost, v.demand,
+		v.measure === 'total' ? 1 : 0, v.mode === 'hold' ? 1 : 0)) generated.invalid++;
+	else {
+		generated[v.measure]++;
+		generated[v.cmp === '>' ? 'gt' : 'lt']++;
+	}
+}
+check('generation: both denominators and comparators are offered',
+	generated.side > 0 && generated.total > 0 && generated.gt > 0 && generated.lt > 0);
+check('generation: no already-satisfied, infeasible or out-of-band tasks', generated.invalid === 0);
+
+// Exhaust the small count space against the actual predicate, including empty chambers and categories.
+let costMismatch = 0;
+for (let n = 0; n <= 7; n++) {
+	for (let cat = 0; cat <= n; cat++) {
+		for (let side = 0; side <= n; side++) {
+			for (let match = Math.max(0, cat - (n - side)); match <= Math.min(cat, side); match++) {
+				for (let measure = 0; measure <= 1; measure++) {
+					for (let cmp = 0; cmp <= 1; cmp++) {
+						for (const threshold of [10, 50, 90]) {
+							let expected = -1;
+							for (let goalSide = 0; goalSide <= n; goalSide++) {
+								for (let goalMatch = Math.max(0, cat - (n - goalSide)); goalMatch <= Math.min(cat, goalSide); goalMatch++) {
+									if (!tasks.tasksMeets(goalMatch, measure ? cat : goalSide, cmp, threshold)) continue;
+									const cost = Math.abs(goalMatch - match) + Math.abs((goalSide - goalMatch) - (side - match));
+									if (expected < 0 || cost < expected) expected = cost;
+								}
+							}
+							if (tcost.tasksCostFrom(0, cmp, threshold, side, match, n, cat, measure, null) !== expected) costMismatch++;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+check('cost: both measures agree with the predicate for every small split', costMismatch === 0);
+reset();
+place(0, RIGHT, 0);
+place(1, RIGHT, 5);
+sim.simFillDist();
+tasks.tasksAssign(0, 'left', 'red', '<', 50, 'hold', 'total');
+check('cost: empty side can satisfy a whole-category task', tasks.tasksView[0].satisfied
+	&& tasks.tasksView[0].cost === 0 && tcost.tasksCost(CAT_RED, CMP_LT, 50, true, 1) === 0);
+check('cost: an absent category never satisfies a whole-category task',
+	tcost.tasksCost(CAT_BLUE, CMP_LT, 50, true, 1) === -1
+	&& tcost.tasksCost(CAT_BLUE, CMP_GT, 50, true, 1) === -1);
+reset();
+place(0, LEFT, 0);
+place(1, RIGHT, 0);
+sim.simFillDist();
+check('cost: removing the last matching ball can complete a whole-category task',
+	tcost.tasksCost(CAT_RED, CMP_LT, 50, true, 1) === 1
+	&& tcost.tasksCrossValue(CAT_RED, CMP_LT, 50, true, 1, 1, 0) === 1);
+
+
 console.log('pass=' + pass + ' fail=' + fail);
 process.exitCode = fail ? 1 : 0;

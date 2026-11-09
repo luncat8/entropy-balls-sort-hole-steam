@@ -135,7 +135,8 @@ check('aim: a ball that bounces back in time is waited for', bot.botAim(1) === t
 field(100, 200, -280, 0, 'hot');
 check('aim: a matching ball leaving the named chamber draws no lane', bot.botAim(1) === false);
 field(900, 200, 200, 0, 'hot');
-check('aim: a ball that cannot come back inside the horizon is no lane', bot.botAim(1) === false);
+check('aim: a useful ball beyond the scoring horizon is waited for', bot.botAim(1) === true
+	&& near(bot.botState.targetY[1], 200, 1));
 
 field(200, 200, 200, 0, 'hot');
 check('aim: a ball already in the named chamber is not a target', bot.botAim(1) === false
@@ -354,6 +355,56 @@ check('contest: a rival with more to gain takes a parked lane',
 // a rival that stops aiming leaves no opposition, so the turn goes
 bot.botState.aimed[1] = 0;
 check('contest: a rival that gave up lets the turn go', bot.botContest() === -1);
+
+// Side shares can improve by removing a non-category ball, even when no ball is due soon.
+field(300, 400, 0, 0, 'hot');
+place(1, 100, 200, -100, 0, coolPalette());
+place(2, 200, 600, 0, 0, coolPalette());
+sim.simFillDist();
+tasks.tasksAssign(1, 'left', 'hot', '>', 50, 'immediate', 'side');
+bot.botState.aimed[1] = 1;
+bot.botState.targetY[1] = 600;
+check('aim: waits for a non-category ball to leave a side-share task despite a stale lane', bot.botAim(1)
+	&& near(bot.botState.targetY[1], 200, 1));
+
+// A predicted return is not useful unless its first, harmful crossing actually happens.
+field(300, 200, 200, 0, 'hot');
+place(1, 900, 700, 0, 0, warmPalette());
+sim.simFillDist();
+sim.simAperture.y = 200;
+tasks.tasksAssign(1, 'left', 'hot', '>', 90, 'immediate', 'total');
+check('aim: a speculative return does not attract a wait', !bot.botAim(1)
+	|| Math.abs(bot.botState.targetY[1] - 200) > sim.simAperture.size / 2);
+
+// A defensive plan can have a negative score; a weaker defensive plan must not repeatedly outbid it.
+field(900, 200, -200, 0, 'hot');
+players.playersInit(2, 3);
+bot.botInit();
+bot.botState.aimed.fill(1);
+bot.botState.targetY[0] = 100;
+bot.botState.targetY[1] = 700;
+bot.botState.owner = 0;
+bot.botState.gain[0] = -2;
+bot.botState.gain[1] = -3;
+sim.simAperture.y = 400;
+check('contest: negative defensive scores do not trade the hole every step',
+	bot.botContest() === 0 && bot.botContest() === 0);
+bot.botState.gain[1] = 1;
+check('contest: useful traffic can outbid a defensive owner', bot.botContest() === 1);
+
+field(900, 12, -200, 0, 'hot');
+const cornerCount = bot.botPredict(0, true);
+check('predict: corner crossing keeps its true height for lane fit', cornerCount === 1
+	&& near(bot.botScratch.y[0], 12) && !bot.botLaneHits(0, 100, 0)
+	&& bot.botLaneHits(0, sim.simAperture.size / 2, 0));
+
+field(900, 200, -200, 0, 'hot');
+for (let i = 1; i < sim.BALL_CAP; i++) place(i, 900, 200, -200, 0, warmPalette());
+const fullPasses = bot.botPredict(0, true, 20);
+check('predict: repeated crossings fit the full field buffer', fullPasses === sim.BALL_CAP * 3
+	&& Number.isFinite(bot.botScratch.t[fullPasses - 1])
+	&& Number.isFinite(bot.botScratch.y[fullPasses - 1])
+	&& bot.botScratch.dir[fullPasses - 1] === -1);
 
 check('wiring: the fixed-step hook runs both control channels', typeof main.mainControlStep === 'function');
 

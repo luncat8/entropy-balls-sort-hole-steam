@@ -42,18 +42,19 @@ function tasksCheapest(cat, cmp, thresh, isLeft, measure, out) {
 // the same walk from explicit counts, so a caller can price an imagined crossing without touching
 // the snapshot: the bot's crossing value and the difficulty are then one piece of arithmetic
 function tasksCostFrom(cat, cmp, thresh, sn, sc, nAll, nCat, measure, out) {
+	if (measure && nCat === 0) return -1;
 	const u = sn - sc;
 	let best = -1;
 	let bestClose = 0;
 	let bestSide = 0;
 	let bestMatch = 0;
-	for (let s = 1; s <= nAll; s++) {
+	for (let s = measure ? 0 : 1; s <= nAll; s++) {
 		const mHi = nCat < s ? nCat : s;
 		const mMin = nCat - (nAll - s);
 		const lo = mMin > 0 ? mMin : 0;
 		// the threshold is one linear inequality in m, so the satisfying m form one run
 		const denom = measure ? nCat : s;
-		// integer division, not Math.floor: the denominator is at least one and the threshold positive
+		// integer division, not Math.floor: the denominator is positive and the threshold is positive
 		const cut = cmp === 0 ? (thresh * denom / 100 | 0) + 1 : ((thresh * denom - 1) / 100 | 0);
 		const mFrom = cmp === 0 ? cut : lo;
 		const mTo = cmp === 0 ? mHi : cut;
@@ -87,8 +88,8 @@ function tasksCostFrom(cat, cmp, thresh, sn, sc, nAll, nCat, measure, out) {
 
 // The crossings the plan needs, scaled by how few balls can supply them: a job that only two balls on
 // the whole canvas can do costs more traffic to complete than one that ten balls can do, and the
-// draft's "total green is 2" case is exactly that. Cost stays the number the progress bar counts;
-// demand is the number the difficulty is banded on.
+// draft's "total green is 2" case is exactly that. Cost sets the label and the progress bar;
+// demand is the scarcity ceiling for generation.
 const tasksPlanScratch = { side: 0, match: 0 };
 function tasksDemand(cat, cmp, thresh, isLeft, measure) {
 	const plan = tasksPlanScratch;

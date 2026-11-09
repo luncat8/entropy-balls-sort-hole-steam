@@ -9,7 +9,7 @@ const { loadGame } = require('./vmload');
 // another ball leaving, and for a whole-canvas objective the other balls do not count at all.
 function classify(apis, id, ballIndex, nowLeft) {
 	const tasks = apis['tasks.js'];
-const tcost = apis['taskcost.js'];
+	const tcost = apis['taskcost.js'];
 	const sim = apis['simulation.js'];
 	const v = tasks.tasksView[id];
 	const cat = tasks.tasksCatFromName(v.category);
@@ -53,7 +53,6 @@ function match(seed, seconds, opts) {
 	if ((opts.humans || 2) === 2) tasks.tasksAttach(1);
 	if (opts.parked) sim.simSetControlHook(null);
 	const steps = Math.round(seconds / sim.FIXED_DT);
-	const gen0 = tasks.tasksGenCount();
 
 	const side = new Uint8Array(sim.BALL_CAP);
 	const ids = [];
@@ -116,7 +115,8 @@ function match(seed, seconds, opts) {
 			if (roster.players.type[id] === roster.PLAYER_BOT && force.forceState.held[id]) heldSteps++;
 			if (tasks.tasksWait[id]) waitingSteps++;
 		}
-		if (roster.players.count === 2 && force.forceState.dir[0] * force.forceState.dir[1] < 0) opposite++;
+		if (roster.players.count === 2 && force.forceState.held[0] && force.forceState.held[1]
+			&& force.forceState.dir[0] * force.forceState.dir[1] < 0) opposite++;
 		for (let b = 0; b < sim.simBalls.count; b++) {
 			const nowLeft = sim.simBalls.x[b] < sim.simField.wallX ? 1 : 0;
 			// a ball that spawns into a chamber did not cross the divider: the ledger read every
@@ -137,7 +137,6 @@ function match(seed, seconds, opts) {
 			side[b] = nowLeft;
 		}
 	}
-	const gen = tasks.tasksGenCount() - gen0;
 	const labels = [];
 	for (const key of Object.keys(labelStat)) {
 		const s = labelStat[key];
@@ -147,7 +146,8 @@ function match(seed, seconds, opts) {
 		labels: labels.join(','),
 		doneSide,
 		doneTotal,
-		gen,
+		done0: tasks.tasksScore[0],
+		done1: tasks.tasksScore[1],
 		travelled,
 		opposite: opposite / steps,
 		held: heldSteps / (steps * (roster.players.count === 2 ? 2 : 1)),
@@ -167,7 +167,7 @@ const humans = Number(process.argv[4] || 1);
 const parked = process.argv.includes('parked');
 const tuning = process.env.BOT_TUNE ? JSON.parse(process.env.BOT_TUNE) : null;
 const label = process.argv[5] || 'policy';
-const totals = { gen: 0, travelled: 0, opposite: 0, held: 0, waiting: 0, help: 0, harm: 0, crossings: 0, doneGt: 0, doneLt: 0, doneHold: 0, doneSide: 0, doneTotal: 0 };
+const totals = { done0: 0, done1: 0, travelled: 0, opposite: 0, held: 0, waiting: 0, help: 0, harm: 0, crossings: 0, doneGt: 0, doneLt: 0, doneHold: 0, doneSide: 0, doneTotal: 0 };
 const labelsAll = {};
 let bad = 0;
 for (let seed = 1; seed <= SEEDS; seed++) {
@@ -183,16 +183,17 @@ for (let seed = 1; seed <= SEEDS; seed++) {
 		}
 	}
 	for (const k of Object.keys(totals)) totals[k] += r[k];
-	if (r.gen === 0) bad++;
-	console.log('seed=' + seed + ' completed=' + r.gen + ' help=' + r.help + ' harm=' + r.harm
+	if (r.done0 + r.done1 === 0) bad++;
+	console.log('seed=' + seed + ' completed=' + (r.done0 + r.done1) + ' completed_by_bot=' + r.done0 + ',' + r.done1 + ' help=' + r.help + ' harm=' + r.harm
 		+ ' crossings=' + r.crossings + ' travelled_px=' + Math.round(r.travelled)
 		+ ' opposite_share=' + r.opposite.toFixed(3) + ' held_share=' + r.held.toFixed(3)
 		+ ' waiting_share=' + r.waiting.toFixed(3));
 }
 console.log('policy=' + label + ' runs=' + SEEDS + ' seconds=' + SECONDS + ' bots=' + (humans === 2 ? 2 : 1)
 	+ ' parked=' + parked
-	+ ' completed_all=' + totals.gen
-	+ ' completed_per_min=' + (totals.gen / (SEEDS * SECONDS / 60)).toFixed(2)
+	+ ' completed_all=' + (totals.done0 + totals.done1)
+	+ ' completed_by_bot=' + totals.done0 + ',' + totals.done1
+	+ ' completed_per_min=' + ((totals.done0 + totals.done1) / (SEEDS * SECONDS / 60)).toFixed(2)
 	+ ' help_total=' + totals.help + ' harm_total=' + totals.harm
 	+ ' net_per_min=' + ((totals.help - totals.harm) / (SEEDS * SECONDS / 60)).toFixed(2)
 	+ ' crossings_per_min=' + (totals.crossings / (SEEDS * SECONDS / 60)).toFixed(2)

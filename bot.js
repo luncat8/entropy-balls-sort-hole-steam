@@ -52,11 +52,11 @@ const botState = {
 };
 const botForceView = { energy: 0, capacity: 1 };
 const botScratch = {
-	t: new Float32Array(BALL_CAP),
-	y: new Float32Array(BALL_CAP),
-	r: new Float32Array(BALL_CAP),
-	cat: new Uint8Array(BALL_CAP),
-	dir: new Int8Array(BALL_CAP),
+	t: new Float32Array(BALL_CAP * BOT_CROSS_PASSES),
+	y: new Float32Array(BALL_CAP * BOT_CROSS_PASSES),
+	r: new Float32Array(BALL_CAP * BOT_CROSS_PASSES),
+	cat: new Uint8Array(BALL_CAP * BOT_CROSS_PASSES),
+	dir: new Int8Array(BALL_CAP * BOT_CROSS_PASSES),
 	n: 0
 };
 const botPlanOut = { side: 0, match: 0 };
@@ -196,12 +196,14 @@ function botBestWant(skip) {
 
 // A rival whose plan is worth much more can take the hole early, so a dodge never holds it hostage.
 // Any live lane can outbid, parked or moving: reading only "wants to move" let a parked owner keep a
-// lane worth almost nothing against a rival with traffic, because arriving drops both to zero.
+// lane worth almost nothing against a rival with traffic, because arriving drops both to zero. A
+// negative defensive score is floored at zero: multiplying it would let a worse plan outbid it.
 function botOutbid(owner) {
 	if (owner < 0) return false;
 	for (let id = 0; id < players.count; id++) {
 		if (id === owner || !botHoldsLane(id)) continue;
-		if (botState.gain[id] > botState.gain[owner] * BOT_PREEMPT + 1e-6) return true;
+		const ownerGain = Math.max(0, botState.gain[owner]);
+		if (botState.gain[id] > ownerGain * BOT_PREEMPT + 1e-6) return true;
 	}
 	return false;
 }
@@ -285,9 +287,7 @@ function botFoldY(y, vy, t, r) {
 // with both chambers the same width the interval repeats, and the lane advances by vy times it.
 // This is the structure a hole can exploit: a lane that collects repeat crossings beats one that
 // waits for a single ball.
-function botPredict(cat, isLeft, span = botTune.horizon) {
-	const yMin = simAperture.size / 2;
-	const yMax = simField.h - yMin;
+function botPredict(cat, isLeft, span = botTune.horizon, passes = BOT_CROSS_PASSES) {
 	let n = 0;
 	for (let i = 0; i < simBalls.count; i++) {
 		const t0 = botCrossTime(i);
@@ -302,10 +302,10 @@ function botPredict(cat, isLeft, span = botTune.horizon) {
 		let dir = simBalls.x[i] < simField.wallX ? 1 : -1;
 		// the height of a crossing is the vertical fold at that crossing's own time: reading the
 		// current height instead aims the hole where the ball is now, one crossing behind
-		for (let t = t0, k = 0; k < BOT_CROSS_PASSES && t <= span; k++) {
+		for (let t = t0, k = 0; k < passes && t <= span; k++) {
 			const y = botFoldY(simBalls.y[i], simBalls.vy[i], t, r);
 			botScratch.t[n] = t;
-			botScratch.y[n] = y < yMin ? yMin : (y > yMax ? yMax : y);
+			botScratch.y[n] = y;
 			botScratch.r[n] = r;
 			botScratch.cat[n] = cat0;
 			botScratch.dir[n] = dir;
@@ -396,9 +396,8 @@ function botAim(id) {
 	botState.aimed[id] = 0;
 	if (!botPlanOpen(id)) return false;
 	const n = botPredict(botPlan.cat, botPlan.isLeft);
-	if (!n) return false;
 	const here = botClampLane(prevY >= 0 ? prevY : simAperture.y);
-	let best = botLaneScore(n, here) + (prevY >= 0 ? botTune.switchLane : 0);
+	let best = n ? botLaneScore(n, here) + (prevY >= 0 ? botTune.switchLane : 0) : 0;
 	let bestY = here;
 	for (let k = 0; k < n; k++) {
 		const yc = botClampLane(botScratch.y[k]);
@@ -422,12 +421,10 @@ function botAim(id) {
 			}
 		}
 	}
-	// A scarce category has its next useful crossing past the horizon in both directions: a ">"
-	// objective waits for a matching ball to enter, and a "<" one waits for one to leave, which is
-	// the same wait mirrored. The guard read only a positive need, so a less-than objective whose
-	// only progress is a matching ball leaving stood idle whenever nothing scored inside the horizon.
-	if (best <= 0 && botPlan.needCat !== 0) {
-		const waitY = botWaitLane(botPredict(botPlan.cat, botPlan.isLeft, BOT_WAIT_SEC));
+	// If no traffic is imminent, wait for any helpful first crossing, including non-category balls.
+	// Later passes assume earlier crossings happened, so they cannot justify an unattended wait.
+	if (best <= 0 && botPlan.cost > 0 && (n === 0 || botPlan.needCat !== 0)) {
+		const waitY = botWaitLane(botPredict(botPlan.cat, botPlan.isLeft, BOT_WAIT_SEC, 1));
 		if (waitY >= 0) {
 			botState.targetY[id] = waitY;
 			botState.gain[id] = 0;

@@ -53,7 +53,8 @@ the live `(sn, sc)`. Only the run of satisfying `m` changes, because the inequal
 
 - side: the run is `m > thresh% of s` (or `<`), so it moves with `s`.
 - total: the run is `m > thresh% of nCat`, the same for every `s`, and the loop then picks the split
-  nearest the current chamber, which is the minimal move.
+  nearest the current chamber, which is the minimal move. An empty chamber is allowed because the
+  denominator is the category total; an absent category has a zero denominator and is never satisfied.
 
 For the whole-canvas measure the cost therefore collapses to `|cut - sc|`: only matching balls change
 the fraction, and the cheapest plan moves exactly those. The rest of the walk (goal view, progress
@@ -117,6 +118,13 @@ rule from 2.4 and removes every edge case it had:
   each predicted crossing, out of that ball's reach, and drives there only if that sheds traffic. That
   single rule replaces 2.4's separate hold-defence path and also fixes the play that read as "the bot
   ignores its own task": with no positive lane it stood still and let a crossing end a hold.
+- **Wait on real traffic.** If no crossing is imminent, look up to 10 seconds for the first helpful
+  crossing, including a non-category ball for a side-share objective. With imminent traffic and a
+  remaining category quota, the same search can supplement the scoring horizon. A later predicted
+  return assumes the earlier crossing happened and cannot justify a wait by itself. A stale lane
+  gets no switch bonus when there is no imminent traffic.
+- **Geometry stays physical.** Store each ball's true crossing height and clamp only candidate hole
+  centres. Size prediction buffers for three crossings per ball, not just one.
 - **Harm is weighted, not equal.** A crossing that loses ground costs `BOT_HARM = 1.6` of a gained
   crossing, because the travel spent arriving is not recovered.
 - **The horizon is 2.5 s.** Measured on this grammar, 4 s and 2.5 s complete the same number of
@@ -125,7 +133,8 @@ rule from 2.4 and removes every edge case it had:
   was not the reason a bot played the wrong objective.
 - **The turn follows the plan.** A contested hole is allocated to the bot with the more to gain, the
   owner keeps it while it still has a plan (not only while it is moving), and a rival must be worth
-  `BOT_PREEMPT ×` the owner's gain to take it early.
+  `BOT_PREEMPT ×` the owner's gain to take it early. For an owner with a negative defensive score,
+  the preemption baseline is zero so a worse negative score cannot seize the hole.
 
 ## Files and ownership
 
