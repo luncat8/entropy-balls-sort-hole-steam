@@ -13,6 +13,7 @@ function mainFrame(tMs) {
 	forcePanelPaint();
 	questPaint();
 	scoreboardPaint();
+	statusPaint(goalHolding(), inputChannel(0), inputChannel(1), players.count);
 	canvasDraw(dtSec);
 	requestAnimationFrame(mainFrame);
 }
@@ -50,9 +51,12 @@ function mainBoot() {
 	forceInit();
 	inputInit();
 	settingsInit();
+	drawerInit();
 	forcePanelInit();
 	botInit();
 	scoreboardInit(mainRestartRound);
+	statusInit();
+	statusPaint(goalHolding(), inputChannel(0), inputChannel(1), players.count);
 	simSetControlHook(mainControlStep);
 	requestAnimationFrame(mainFrame);
 }

@@ -187,11 +187,17 @@ stubs.win.devicePixelRatio = 2;
 field.clientWidth = 1000;
 field.clientHeight = 1000;
 canvas.canvasResize();
-check('field: CSS pixels map through letterboxing and device pixel ratio', near(canvas.canvasFieldY(500), 400)
+check('field: CSS pixels map through fitted field and device pixel ratio', near(canvas.canvasFieldY(500), 400)
 	&& near(canvas.canvasFieldY(350), 220));
 field.dispatch('pointerdown', { pointerId: 1, clientY: 350 });
 check('field: transformed pointer position chooses the correct direction', force.forceState.dir[0] === -1);
 field.dispatch('pointerup', { pointerId: 1 });
+field.clientWidth = 844;
+field.clientHeight = 390;
+canvas.canvasResize();
+check('field: short landscape keeps both vertical boundaries visible', canvas.canvasView.offY >= 0
+	&& canvas.canvasView.offY + sim.simField.h * canvas.canvasView.scale <= field.height + 0.01
+	&& near(canvas.canvasFieldY(0), 0) && near(canvas.canvasFieldY(390), sim.simField.h));
 
 reset();
 const wheelUp = field.dispatch('wheel', { deltaY: -100 });

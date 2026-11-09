@@ -68,22 +68,22 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 
 | draft asks for | status | where |
 | --- | --- | --- |
-| status bar for constant info and current help | **partial** | constants are shown per feature (task card, force panel, score table). There is no single `status.js` strip: `plangui.1.md` still lists it as the remaining slice of that plan |
+| status bar for constant info and current help | shipped | `status.js`, gui.1: live/preview state with per-slot controller help inside the gui.2 drawer; numeric task/energy values remain in their feature panels |
 
 ## What is open, and is it planned?
 
 Two different things are missing, and they are not the same kind of missing:
 
 - **Planned, with a plan file.** The task queue, task claiming and the open/claimed/complete states
-  (`plan1.0.md`), and the single status strip (`plangui.1.md`, the last unbuilt slice of that plan).
+  (`plan1.0.md`).
 - **Deferred by a recorded decision, with no plan file.** Ball size and same/random size, the ball
   collision checkbox, the white/dark theme and the spawn-rate slider. gui.1 trimmed the settings list
   to four working controls on purpose; each of these four needs a simulation or styling change before
   a control can exist, so a plan file would be a one-line table entry plus that change. "A player
   signs to a task" is part of 1.0 and is not needed while every live slot already owns one objective.
 
-There is no draft feature left without a plan file: the near-target quest category shipped in 2.5 as
-palette ranges, and the two denominators the quest list asks for both generate and complete.
+The remaining unplanned draft features are the simulation and styling controls listed above. The
+near-target quest category and both percentage denominators ship in 2.5.
 
 Everything else in `draft.txt` ships. Nothing in the draft is blocked by an architectural gap: each
 open item is a table row or a control.
@@ -97,8 +97,8 @@ open item is a table row or a control.
 - The task queue (1.0) was deferred behind the two-slot objective model. 2.0–2.2 gave each slot its
   own objective, which is a stronger version of "one task per player" for the two-player game; the
   queue is only needed if a player must choose among several open tasks.
-- `status.js` is the only planned file that has never been written. Its content exists, scattered
-  across the three panels; the plan asked for one strip so a narrow screen keeps one source of truth.
+- Status content inside the settings drawer owns live/preview state and contextual control help. Counts, hold progress and
+  energy stay in their feature panels so the same changing numbers do not compete for attention.
 - The quest grammar was complete in 2.4 except for one dimension the draft names explicitly: which
   total the percentage is read against. 2.5 added it rather than leaving it as an accident of the
   predicate, because the same threshold is a different objective under each reading.

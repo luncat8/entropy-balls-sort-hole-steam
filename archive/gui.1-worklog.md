@@ -27,3 +27,16 @@ changed:
 validation: L1 sim_smoke pass=44 fail=0, scoreboard_smoke pass=27 fail=0; shared L2/browser evidence in 2.2 worklog
 decisions: count is a population limit, not a round reset; lowering it reprices active objectives, raising it fills through generation; speed scales existing vectors without turning them
 next: remaining draft sliders (aperture, energy, ball size) on the same settings path
+
+## 2026-11-09 status and contextual controls
+plan id gui.1
+changed: status.js feature — cached live/preview message, per-slot pointer/keyboard/bot guidance, inactive-slot hiding
+changed: index.html feature — normal-flow footer below a contained play-space, bounded wrapping help
+changed: canvas.js fix — observe canvas resize when help changes the available field height
+changed: main.js wiring — initialize and feed status through public channel queries and the preview flag
+changed: experiments/status_smoke.js and vmload.js tests — status lifecycle, controller switches, restart, unchanged-frame writes
+validation: L0 touched JS; L2 smoke suites 352 passed, 0 failed; difficulty sweep 60 seeds, in_band_share=0.629, distributions_without_in_band=0/60
+validation: real-browser/manual pass pending — bundled Chromium cannot launch because host libnspr4.so is missing; no browser layout or file:// rendering result claimed
+decisions: retain numeric status in existing feature panels instead of duplicating task/energy readouts; reserve footer space rather than overlaying controls; canvas observes layout-driven resizing
+review: previous 0.5 code and smoke assertions already cover shipped aperture/energy controls; corrected stale plan-index status and contradictory draft coverage prose
+next: verify the gui.1 manual pass list in a browser, then design ball-size and collision settings before implementing those unplanned controls

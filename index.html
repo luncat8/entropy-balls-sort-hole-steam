@@ -4,470 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Entropy Balls Hole</title>
-<style>
-html, body { margin: 0; height: 100%; overflow: hidden; background: #12151b; }
-#app { position: fixed; inset: 0; }
-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.draw-options {
-	position: fixed;
-	top: 12px;
-	left: 12px;
-	z-index: 1;
-	color: #edf0f6;
-	font: 13px/1.35 system-ui, sans-serif;
-}
-.draw-options summary {
-	width: fit-content;
-	padding: 6px 10px;
-	border: 1px solid #495263;
-	border-radius: 7px;
-	background: rgba(18, 21, 27, 0.94);
-	font-weight: 600;
-	list-style: none;
-	cursor: pointer;
-}
-.draw-options summary::-webkit-details-marker { display: none; }
-.draw-options summary::before { content: '▸'; margin-right: 7px; color: #9ba6ba; }
-.draw-options[open] summary::before { content: '▾'; }
-.draw-options summary:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
-.draw-options fieldset {
-	box-sizing: border-box;
-	width: 280px;
-	max-width: calc(100vw - 16px);
-	max-height: calc(100vh - 65px);
-	overflow-y: auto;
-	margin: 6px 0 0;
-	padding: 8px 12px 10px;
-	border: 1px solid #495263;
-	border-radius: 8px;
-	background: rgba(18, 21, 27, 0.92);
-	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-}
-.draw-options legend { padding: 0 4px; color: #c9d1e0; }
-.draw-options-group { display: grid; gap: 6px; }
-.draw-options-group + .draw-options-group {
-	margin-top: 9px;
-	padding-top: 8px;
-	border-top: 1px solid rgba(73, 82, 99, 0.75);
-}
-.draw-options-heading {
-	color: #9ba6ba;
-	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 0.05em;
-	text-transform: uppercase;
-}
-.draw-options label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
-.draw-options input { margin: 0; accent-color: #83b8ff; }
-.preview-mode { margin-top: 9px; }
-.preview-mode label {
-	grid-template-columns: 16px 1fr 34px;
-	align-items: center;
-}
-/* one target, three shapes: an option must look like what it draws, not like a styled swatch */
-.target {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 1px;
-	box-sizing: border-box;
-	overflow: hidden;
-	flex: none;
-}
-.target i {
-	display: block;
-	flex: none;
-	border-radius: 50%;
-	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
-}
-.target-smooth i { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
-.target-empty { background: transparent; }
-.preview-mode .preview-sample {
-	width: 34px;
-	height: 22px;
-	border-radius: 4px;
-	border: 1px solid rgba(237, 240, 246, 0.25);
-}
-.preview-mode .target-mean i { width: 16px; height: 16px; }
-.preview-mode .target-range i { width: 5px; height: 5px; }
-.player-hud {
-	position: fixed;
-	top: 12px;
-	right: 12px;
-	z-index: 1;
-	width: 268px;
-	color: #edf0f6;
-	font: 13px/1.35 system-ui, sans-serif;
-}
-.score-panel {
-	padding: 9px 11px 8px;
-	border: 1px solid #495263;
-	border-radius: 8px;
-	background: rgba(18, 21, 27, 0.94);
-	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-}
-.score-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.score-header h2 { margin: 0; color: #c9d1e0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
-.score-restart {
-	padding: 3px 7px;
-	border: 1px solid #495263;
-	border-radius: 5px;
-	background: #202936;
-	color: #c9d1e0;
-	font: 10px/1.3 system-ui, sans-serif;
-	cursor: pointer;
-}
-.score-restart:hover { border-color: #83b8ff; color: #edf0f6; }
-.score-restart:focus-visible, .score-bot:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
-.score-table { width: 100%; margin-top: 5px; border-collapse: collapse; font-size: 12px; }
-.score-table thead th { padding: 2px 0 4px; color: #9ba6ba; font-size: 10px; font-weight: 500; }
-.score-table th:first-child { text-align: left; }
-.score-table th:nth-child(2), .score-table td:nth-child(2) { width: 38px; text-align: center; }
-.score-table th:last-child, .score-table td:last-child { width: 44px; text-align: right; }
-.score-row th { padding: 5px 0; font-weight: 600; }
-.score-row + .score-row { border-top: 1px solid rgba(73, 82, 99, 0.45); }
-.score-row[data-active="false"] th, .score-row[data-active="false"] .score-value { color: #778397; }
-.score-bot { width: 16px; height: 16px; margin: 0; vertical-align: middle; accent-color: #83b8ff; cursor: pointer; }
-.score-value { color: #a8d3ff; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.score-mode { margin-top: 5px; color: #9ba6ba; font-size: 10px; }
-.quest-list {
-	margin: 8px 0 0;
-	padding: 0;
-	list-style: none;
-}
-/* cards live in their player's column; this list is only the mount point before that column exists */
-.quest-list:empty { display: none; }
-.quest {
-	display: grid;
-	gap: 5px;
-	box-sizing: border-box;
-	padding: 7px 9px 6px;
-	border: 1px solid #495263;
-	border-radius: 8px;
-	background: rgba(18, 21, 27, 0.92);
-	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-	cursor: pointer;
-	touch-action: none;
-	user-select: none;
-}
-.quest-head { display: grid; grid-template-columns: 22px 20px minmax(0, 1fr); gap: 6px; align-items: center; }
-.quest-arrow { color: #a8d3ff; font: 700 24px/1 system-ui, sans-serif; text-align: center; }
-.quest + .quest { margin-top: 6px; }
-.quest:focus-visible { outline: 2px solid #83b8ff; outline-offset: 2px; }
-.quest[hidden] { display: none; }
-.quest:active { border-color: #83b8ff; }
-.quest-swatch {
-	width: 22px;
-	height: 22px;
-	border-radius: 5px;
-	border: 1px solid rgba(237, 240, 246, 0.25);
-}
-.quest-swatch.target-mean i { width: 16px; height: 16px; }
-.quest-swatch.target-range i { width: 4px; height: 4px; }
-.quest-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
-.quest-bar {
-	position: relative;
-	display: block;
-	height: 11px;
-	overflow: hidden;
-	border-radius: 3px;
-	background: #0b1119;
-	box-shadow: inset 0 0 0 1px #37424f;
-}
-.quest-bar-fill {
-	display: block;
-	box-sizing: border-box;
-	width: 0;
-	height: 100%;
-	background: linear-gradient(90deg, #4f8fce, #83b8ff);
-	color: #0b1119;
-	font: 700 8px/11px system-ui, sans-serif;
-	font-style: normal;
-	text-align: right;
-	padding-right: 3px;
-	font-variant-numeric: tabular-nums;
-	white-space: nowrap;
-	overflow: hidden;
-	transition: width 0.18s linear;
-}
-.quest[data-done="true"] .quest-bar-fill { background: linear-gradient(90deg, #4faf7f, #75d9a6); }
-.quest-meta { color: #9ba6ba; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.quest-panel {
-	position: fixed;
-	top: 12px;
-	right: 292px;
-	z-index: 1;
-	width: 236px;
-	padding: 10px 12px 12px;
-	border: 1px solid #495263;
-	border-radius: 8px;
-	background: rgba(18, 21, 27, 0.96);
-	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
-	color: #edf0f6;
-	font: 13px/1.35 system-ui, sans-serif;
-}
-.quest-panel[hidden] { display: none; }
-.quest-panel-swatch {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 2px;
-	height: 54px;
-	border-radius: 6px;
-	border: 1px solid rgba(237, 240, 246, 0.25);
-	overflow: hidden;
-}
-.quest-panel-swatch.target-mean i { width: 34px; height: 34px; }
-.quest-panel-swatch.target-range i { width: 10px; height: 10px; }
-.quest-panel-swatch.target-smooth i { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
-.quest-goal {
-	position: fixed;
-	left: 12px;
-	bottom: 12px;
-	z-index: 1;
-	max-width: 60vw;
-	padding: 6px 10px;
-	border: 1px solid #495263;
-	border-radius: 8px;
-	background: rgba(18, 21, 27, 0.92);
-	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-	color: #edf0f6;
-	font: 12px/1.35 system-ui, sans-serif;
-}
-.quest-goal[hidden] { display: none; }
-.quest-panel-title { margin-top: 8px; font-weight: 600; }
-.quest-panel-detail { margin-top: 3px; color: #9ba6ba; font-size: 11px; }
-.quest-panel-dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 7px; }
-.quest-panel-dots i {
-	width: 9px;
-	height: 9px;
-	border-radius: 50%;
-	border: 1px solid rgba(237, 240, 246, 0.35);
-}
-.quest-panel-dots i.on { background: #83b8ff; border-color: #83b8ff; }
-.force-panels {
-	position: fixed;
-	right: 12px;
-	bottom: 12px;
-	z-index: 1;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	gap: 10px;
-	max-width: calc(100vw - 24px);
-	color: #edf0f6;
-	font: 12px/1.35 system-ui, sans-serif;
-}
-/* the score table, then per player the objective and the control that serves it */
-.force-pair { display: grid; gap: 6px; width: 268px; max-width: 100%; }
-.force-pair .quest { width: 100%; box-shadow: none; }
-.force-pair .quest + .quest { margin-top: 0; }
-.force-panel {
-	box-sizing: border-box;
-	flex: 0 0 auto;
-	width: 268px;
-	min-width: 145px;
-	padding: 10px 11px 9px;
-	border: 1px solid #445263;
-	border-radius: 10px;
-	background: rgba(20, 26, 35, 0.96);
-	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-}
-.force-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.force-player { color: #eef3f8; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-.force-player::before {
-	content: '';
-	display: inline-block;
-	width: 6px;
-	height: 6px;
-	margin: 0 6px 2px 0;
-	border-radius: 50%;
-	background: #75d9a6;
-}
-/* the marker carries the control channel, so two players read as two colours, not two identical cards */
-.force-panel[data-channel="keys"] .force-player::before { background: #f3c567; }
-.force-kind { color: #9caabd; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
-.force-status { margin-top: 5px; color: #93a3b7; font-size: 11px; font-variant-numeric: tabular-nums; }
-.force-status[data-active="true"] { color: #a8d3ff; }
-.force-panel-body { display: grid; grid-template-columns: minmax(76px, 1fr) minmax(57px, 0.8fr); gap: 9px; margin-top: 12px; }
-.force-column-title { margin-bottom: 6px; color: #91a0b2; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-.force-scale { display: flex; align-items: stretch; gap: 2px; height: 146px; }
-.force-scale-labels {
-	display: flex;
-	flex: 0 0 35px;
-	flex-direction: column;
-	justify-content: space-between;
-	box-sizing: border-box;
-	padding: 4px 0;
-	color: #91a0b2;
-	font-size: 9px;
-	font-weight: 700;
-	white-space: nowrap;
-}
-.force-zero-label { color: #75d9a6; }
-.force-slider-shell { position: relative; flex: 1; min-width: 32px; height: 100%; border-radius: 6px; }
-.force-slider-shell:focus-within { outline: 2px solid #83b8ff; outline-offset: 2px; }
-.force-slider-rail { position: absolute; inset: 10px 0; pointer-events: none; }
-.force-slider-rail::before {
-	content: '';
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: 50%;
-	width: 5px;
-	transform: translateX(-50%);
-	border-radius: 4px;
-	background: #3c4a5a;
-}
-.force-slider-rail::after {
-	content: '';
-	position: absolute;
-	top: 50%;
-	left: 3px;
-	right: 3px;
-	height: 2px;
-	transform: translateY(-50%);
-	border-radius: 2px;
-	background: #75d9a6;
-	box-shadow: 0 0 7px rgba(117, 217, 166, 0.3);
-}
-.force-slider-thumb {
-	position: absolute;
-	left: 50%;
-	z-index: 1;
-	box-sizing: border-box;
-	width: 24px;
-	height: 14px;
-	transform: translate(-50%, -50%);
-	border: 2px solid #9acaff;
-	border-radius: 5px;
-	background: #e1f0ff;
-	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-.force-slider {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-	margin: 0;
-	opacity: 0;
-	writing-mode: vertical-lr;
-	direction: ltr;
-	touch-action: none;
-	cursor: ns-resize;
-}
-.force-slider:disabled { cursor: default; }
-/* a keyboard-owned slider still takes focus so its keys reach the window, but the pointer is player 1's */
-.force-slider-keys { cursor: default; pointer-events: none; }
-.force-selected { margin-top: 5px; color: #aab9c9; font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.force-energy-body { display: flex; align-items: stretch; gap: 7px; height: 146px; }
-.force-meter {
-	position: relative;
-	box-sizing: border-box;
-	flex: 0 0 16px;
-	height: 100%;
-	overflow: hidden;
-	border: 1px solid #445263;
-	border-radius: 5px;
-	background: #0b1119;
-}
-.force-meter-fill, .force-meter-use { position: absolute; right: 0; bottom: 0; left: 0; display: block; }
-.force-meter-fill { background: linear-gradient(#a3d5ff, #599fd6); }
-.force-meter-use { background: #e28083; box-shadow: inset 0 1px rgba(255, 222, 216, 0.8); }
-.force-energy-numbers { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; font-variant-numeric: tabular-nums; }
-.force-energy-number { color: #e2f2ff; font-size: 15px; font-weight: 700; line-height: 1.1; }
-.force-energy-capacity { color: #8697aa; font-size: 10px; }
-.force-cost-label { margin-top: auto; color: #9eacbc; font-size: 9px; white-space: nowrap; }
-.force-cost { color: #f0a1a1; font-size: 12px; font-weight: 700; }
-.force-help { margin-top: 9px; padding-top: 7px; border-top: 1px solid #34404d; color: #93a3b7; font-size: 10px; line-height: 1.35; }
-.settings-note { margin: -1px 0 0 20px; color: #9ba6ba; font-size: 11px; }
-.settings-range-label { justify-content: space-between; gap: 10px; }
-.settings-range-label output { color: #a8d3ff; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.draw-options input[type="range"] { width: 100%; min-height: 20px; cursor: pointer; }
-.settings-url { display: grid; gap: 4px; color: #9ba6ba; font-size: 11px; }
-.settings-url[hidden] { display: none; }
-.settings-url input { box-sizing: border-box; width: 100%; color: #edf0f6; background: #202936; border: 1px solid #495263; border-radius: 3px; }
-/* wide screens: the label and the force panel share the bottom edge from opposite corners */
-.bottom-panels { display: contents; }
-/* under this width the side panels would cover the divider, so the bottom edge becomes one flex row:
-   the goal label takes its own line above the two panels, whatever their height turns out to be */
-@media (max-width: 1150px) {
-	.draw-options { top: 8px; left: 8px; font-size: 12px; }
-	.player-hud { top: 8px; right: 8px; font-size: 12px; width: min(268px, calc(100vw - 112px)); }
-	.score-panel { padding: 7px 9px; }
-	.score-mode { font-size: 9px; }
-	.bottom-panels {
-		position: fixed;
-		left: 8px;
-		right: 8px;
-		bottom: 8px;
-		z-index: 1;
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		align-items: flex-end;
-		gap: 8px;
-		pointer-events: none;
-	}
-	.bottom-panels > * { position: static; pointer-events: auto; }
-	.force-panels { flex: 0 1 auto; max-width: 100%; overflow-x: auto; }
-	.force-pair { width: auto; }
-	.force-panel { font-size: 12px; }
-	.quest-panel { box-sizing: border-box; flex: 0 1 calc(50% - 4px); min-width: 0; }
-	.quest-panel-swatch { height: 40px; }
-	.quest-goal { order: -1; flex: 1 0 100%; max-width: none; }
-}
-@media (max-width: 700px) {
-	.force-panels { flex-direction: row; width: 100%; gap: 6px; }
-	.force-pair { flex: 1 1 0; min-width: 0; width: auto; }
-	.force-panel { flex: 1 1 auto; width: auto; min-width: 0; }
-}
-@media (max-width: 360px) {
-	.force-panel { min-width: 0; padding-right: 8px; padding-left: 8px; }
-	.force-panel-body { grid-template-columns: minmax(60px, 1fr) minmax(48px, 0.8fr); gap: 5px; }
-	.force-scale-labels { flex-basis: 30px; font-size: 8px; }
-	.force-slider-shell { min-width: 26px; }
-	.force-energy-body { gap: 4px; }
-	.force-meter { flex-basis: 13px; }
-	.force-energy-number { font-size: 13px; }
-	.force-selected { font-size: 9px; }
-}
-@media (max-height: 600px) {
-	.force-panels { flex-direction: row; align-items: flex-end; }
-	.quest-meta { display: none; }
-	.quest { padding: 5px 8px; gap: 3px; }
-	.quest-swatch { width: 20px; height: 20px; }
-	.quest-head { grid-template-columns: 20px 18px minmax(0, 1fr); }
-	.quest-arrow { font-size: 21px; }
-	.score-panel { padding: 6px 9px; }
-	.score-table { margin-top: 2px; }
-	.score-row th { padding: 3px 0; }
-	.score-mode { margin-top: 3px; }
-	.force-panel { padding-top: 7px; padding-bottom: 7px; }
-	.force-status { margin-top: 2px; }
-	.force-panel-body { margin-top: 5px; }
-	.force-column-title { margin-bottom: 3px; }
-	.force-scale, .force-energy-body { height: 72px; }
-	.force-selected { margin-top: 3px; }
-	.force-help {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		margin: -1px;
-		padding: 0;
-		overflow: hidden;
-		border: 0;
-		clip-path: inset(50%);
-		white-space: nowrap;
-	}
-	.force-panel::after { content: attr(data-hint); display: block; margin-top: 3px; color: #93a3b7; font-size: 9px; }
-}
-@media (max-height: 450px) {
-	.quest-bar { height: 9px; }
-	.quest-head { grid-template-columns: 18px 16px minmax(0, 1fr); }
-	.quest-arrow { font-size: 19px; }
-}
-</style>
+<link rel="stylesheet" href="game.css">
 </head>
 <body>
 <div id="app">
@@ -487,11 +24,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 	</section>
 	<ul id="task-list" class="quest-list" aria-live="polite"></ul>
 </div>
-<!-- the bottom edge reads as one row of panels: on a narrow screen they stack inside one container, so the
-     goal label can never land on top of a control whose height no stylesheet can predict -->
-<div class="bottom-panels">
+<div class="preview-overlays">
 	<div id="quest-goal" class="quest-goal" hidden aria-live="polite"></div>
-	<div id="force-panels" class="force-panels" aria-label="Player force controls"></div>
 	<aside id="quest-panel" class="quest-panel" hidden aria-live="polite">
 		<div class="quest-panel-swatch"></div>
 		<div class="quest-panel-title" data-field="title"></div>
@@ -499,60 +33,71 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 		<div class="quest-panel-dots" data-field="dots"></div>
 	</aside>
 </div>
-<details id="settings-panel" class="draw-options" aria-label="Settings" open>
-	<summary>Settings</summary>
-	<fieldset>
-		<legend>Game settings</legend>
-		<div class="draw-options-group">
-			<span class="draw-options-heading">Wall cues · before hit</span>
-			<label><input id="draw-predicted-position" type="checkbox" checked> Predicted position</label>
-			<label><input id="draw-trajectory-lines" type="checkbox" checked> Trajectory lines</label>
-		</div>
-		<div class="draw-options-group">
-			<span class="draw-options-heading">Wall cues · after hit</span>
-			<label><input id="draw-slow-fade-hit-spot" type="checkbox"> Slow fade hit spot</label>
-		</div>
-		<div class="draw-options-group">
-			<span class="draw-options-heading">Hole</span>
-			<label class="settings-range-label" for="settings-hole-size"><span>Hole size</span><output id="settings-hole-size-value" for="settings-hole-size">113 px</output></label>
-			<input id="settings-hole-size" type="range" min="60" max="240" step="1" value="113">
-			<label class="settings-range-label" for="settings-hole-speed"><span>Max hole speed</span><output id="settings-hole-speed-value" for="settings-hole-speed">700 px/s</output></label>
-			<input id="settings-hole-speed" type="range" min="200" max="1400" step="10" value="700">
-			<label><input id="settings-friction" type="checkbox"> Friction force</label>
-			<span class="settings-note">Faster movement meets more resistance.</span>
-		</div>
-		<div class="draw-options-group">
-			<span class="draw-options-heading">Energy</span>
-			<label class="settings-range-label" for="settings-energy-cost"><span>Spend per second</span><output id="settings-energy-cost-value" for="settings-energy-cost">25/s</output></label>
-			<input id="settings-energy-cost" type="range" min="5" max="80" step="1" value="25">
-			<label class="settings-range-label" for="settings-energy-store"><span>Storage</span><output id="settings-energy-store-value" for="settings-energy-store">100</output></label>
-			<input id="settings-energy-store" type="range" min="25" max="300" step="5" value="100">
-			<span class="settings-note">Recharge is a tenth of the storage per second.</span>
-		</div>
-		<div class="draw-options-group">
-			<span class="draw-options-heading">Balls</span>
-			<label class="settings-range-label" for="settings-balls"><span>Ball count limit</span><output id="settings-balls-value" for="settings-balls">24</output></label>
-			<input id="settings-balls" type="range" min="6" max="36" step="1" value="24">
-			<label class="settings-range-label" for="settings-ball-speed"><span>Average ball speed</span><output id="settings-ball-speed-value" for="settings-ball-speed">175 px/s</output></label>
-			<input id="settings-ball-speed" type="range" min="50" max="350" step="5" value="175">
-			<span class="settings-note">Changes apply to the live field. New balls arrive gradually.</span>
-		</div>
-		<div class="draw-options-group">
-			<span class="draw-options-heading">Second player</span>
-			<label><input id="settings-humans" type="checkbox"> Enable player 2</label>
-			<span class="settings-note">Use the Bot checkboxes in the player table to automate either player. Two humans: Player 1 uses mouse, touch and wheel; Player 2 uses ↑↓ and holds →.</span>
-		</div>
-		<div class="draw-options-group settings-url" id="settings-url-wrap" hidden>
-			<label for="settings-url">Copy settings URL</label>
-			<input id="settings-url" type="text" readonly>
-		</div>
-		<div class="draw-options-group preview-mode" id="preview-mode">
-			<span class="draw-options-heading">Quest target color</span>
-			<label><input type="radio" name="preview-mode" value="mean"> A ball of the average color</label>
-			<label><input type="radio" name="preview-mode" value="range"> A few balls across the range</label>
-			<label><input type="radio" name="preview-mode" value="smooth" checked> A smooth palette rectangle</label>
-		</div>
-	</fieldset>
+<div id="force-panels" class="force-panels" aria-label="Player force controls"></div>
+<div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+<details id="settings-panel" class="draw-options" aria-label="Settings">
+	<summary id="drawer-toggle">Settings &amp; help</summary>
+	<div class="drawer-content">
+		<section class="game-status" aria-label="Game status and controls">
+			<p id="game-status-state" role="status" aria-live="polite"></p>
+			<div class="game-status-controls">
+				<p id="game-status-player-0"><strong>Player 1: </strong><span id="game-status-control-0"></span></p>
+				<p id="game-status-player-1" hidden><strong>Player 2: </strong><span id="game-status-control-1"></span></p>
+			</div>
+		</section>
+		<fieldset>
+			<legend>Game settings</legend>
+			<div class="draw-options-group">
+				<span class="draw-options-heading">Wall cues · before hit</span>
+				<label><input id="draw-predicted-position" type="checkbox" checked> Predicted position</label>
+				<label><input id="draw-trajectory-lines" type="checkbox" checked> Trajectory lines</label>
+			</div>
+			<div class="draw-options-group">
+				<span class="draw-options-heading">Wall cues · after hit</span>
+				<label><input id="draw-slow-fade-hit-spot" type="checkbox"> Slow fade hit spot</label>
+			</div>
+			<div class="draw-options-group">
+				<span class="draw-options-heading">Hole</span>
+				<label class="settings-range-label" for="settings-hole-size"><span>Hole size</span><output id="settings-hole-size-value" for="settings-hole-size">113 px</output></label>
+				<input id="settings-hole-size" type="range" min="60" max="240" step="1" value="113">
+				<label class="settings-range-label" for="settings-hole-speed"><span>Max hole speed</span><output id="settings-hole-speed-value" for="settings-hole-speed">700 px/s</output></label>
+				<input id="settings-hole-speed" type="range" min="200" max="1400" step="10" value="700">
+				<label><input id="settings-friction" type="checkbox"> Friction force</label>
+				<span class="settings-note">Faster movement meets more resistance.</span>
+			</div>
+			<div class="draw-options-group">
+				<span class="draw-options-heading">Energy</span>
+				<label class="settings-range-label" for="settings-energy-cost"><span>Spend per second</span><output id="settings-energy-cost-value" for="settings-energy-cost">25/s</output></label>
+				<input id="settings-energy-cost" type="range" min="5" max="80" step="1" value="25">
+				<label class="settings-range-label" for="settings-energy-store"><span>Storage</span><output id="settings-energy-store-value" for="settings-energy-store">100</output></label>
+				<input id="settings-energy-store" type="range" min="25" max="300" step="5" value="100">
+				<span class="settings-note">Recharge is a tenth of the storage per second.</span>
+			</div>
+			<div class="draw-options-group">
+				<span class="draw-options-heading">Balls</span>
+				<label class="settings-range-label" for="settings-balls"><span>Ball count limit</span><output id="settings-balls-value" for="settings-balls">24</output></label>
+				<input id="settings-balls" type="range" min="6" max="36" step="1" value="24">
+				<label class="settings-range-label" for="settings-ball-speed"><span>Average ball speed</span><output id="settings-ball-speed-value" for="settings-ball-speed">175 px/s</output></label>
+				<input id="settings-ball-speed" type="range" min="50" max="350" step="5" value="175">
+				<span class="settings-note">Changes apply to the live field. New balls arrive gradually.</span>
+			</div>
+			<div class="draw-options-group">
+				<span class="draw-options-heading">Second player</span>
+				<label><input id="settings-humans" type="checkbox"> Enable player 2</label>
+				<span class="settings-note">Use the Bot checkboxes in the player table to automate either player. Two humans: Player 1 uses mouse, touch and wheel; Player 2 uses ↑↓ and holds →.</span>
+			</div>
+			<div class="draw-options-group settings-url" id="settings-url-wrap" hidden>
+				<label for="settings-url">Copy settings URL</label>
+				<input id="settings-url" type="text" readonly>
+			</div>
+			<div class="draw-options-group preview-mode" id="preview-mode">
+				<span class="draw-options-heading">Quest target color</span>
+				<label><input type="radio" name="preview-mode" value="mean"> A ball of the average color</label>
+				<label><input type="radio" name="preview-mode" value="range"> A few balls across the range</label>
+				<label><input type="radio" name="preview-mode" value="smooth" checked> A smooth palette rectangle</label>
+			</div>
+		</fieldset>
+	</div>
 </details>
 <script src="color.js"></script>
 <script src="simulation.js"></script>
@@ -569,6 +114,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 <script src="quest.js"></script>
 <script src="goalview.js"></script>
 <script src="preview.js"></script>
+<script src="status.js"></script>
+<script src="drawer.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

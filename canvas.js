@@ -41,6 +41,7 @@ function canvasInit() {
 	cvCtx = cvEl.getContext('2d');
 	canvasInitDrawOptions();
 	window.addEventListener('resize', canvasResize);
+	new ResizeObserver(canvasResize).observe(cvEl);
 	canvasResize();
 }
 

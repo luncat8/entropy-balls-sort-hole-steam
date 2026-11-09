@@ -14,7 +14,8 @@ function makeStubs() {
 	const win = {
 		devicePixelRatio: 1,
 		location: new URL('http://game.test/index.html'),
-		matchMedia() { return { matches: false }; },
+		matchMedia() { return { matches: false, addEventListener: noop }; },
+		localStorage: { getItem() { return null; }, setItem: noop },
 		addEventListener(type, fn) {
 			(listeners[type] = listeners[type] || []).push(fn);
 		}
@@ -136,7 +137,9 @@ function makeStubs() {
 		'draw-trajectory-lines': element({ checked: false }),
 		'draw-slow-fade-hit-spot': element({ checked: true }),
 		'force-panels': element({}),
-		'settings-panel': element({ open: true }),
+		'settings-panel': element({ open: false }),
+		'drawer-toggle': element({}),
+		'drawer-backdrop': element({ hidden: true }),
 		'settings-friction': element({ checked: false }),
 		'settings-humans': element({ checked: false }),
 		'settings-balls': element({ value: '24' }),
@@ -151,6 +154,11 @@ function makeStubs() {
 		'settings-hole-speed-value': element({ textContent: '700 px/s' }),
 		'settings-energy-cost-value': element({ textContent: '25/s' }),
 		'settings-energy-store-value': element({ textContent: '100' }),
+		'game-status-state': element({}),
+		'game-status-player-0': element({}),
+		'game-status-player-1': element({ hidden: true }),
+		'game-status-control-0': element({}),
+		'game-status-control-1': element({}),
 		'score-rows': element({}),
 		'score-mode': element({ textContent: '' }),
 		'score-restart': element({}),
@@ -181,6 +189,7 @@ function makeStubs() {
 		URL,
 		URLSearchParams,
 		Math,
+		ResizeObserver: class { observe() {} },
 		requestAnimationFrame: noop,
 		console
 	};

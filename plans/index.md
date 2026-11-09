@@ -9,7 +9,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 3. ~~0.4 — Objective difficulty~~ — done: [plan](../archive/0.4-plan.md), [worklog](../archive/0.4-worklog.md).
 4. ~~1.1 — Quest goal preview~~ — done: [plan](../archive/1.1-plan.md), [worklog](../archive/1.1-worklog.md).
 5. ~~0.3 — Hole force and energy~~ — done (force GUI in place).
-6. [gui.1 — Settings and status UI](plangui.1.md): settings table and URL persistence include friction, players, ball count and speed; the status strip remains.
+6. ~~gui.1 — Settings and status UI~~ — done: [plan](plangui.1.md), [worklog](../archive/gui.1-worklog.md). Settings persistence and contextual live/preview status in the settings drawer.
 7. [1.0 — Task queue](plan1.0.md): deferred task list and task claiming, after the single-task loop is proven.
 8. ~~2.0 — Two players and bot~~ — done: [plan](plan2.0.md), independent objectives and shared controls.
 9. ~~2.1 — Bot opponent policy~~ — done: [plan](plan2.1.md), lane aim and energy rests.
@@ -20,8 +20,9 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 13. ~~2.5 — Both denominators, priced scarcity, a bot that reads the plan~~ — done: [plan](plan2.5.md),
     [worklog](../archive/2.5-worklog.md). Chamber-share and whole-canvas objectives, palette-range
     categories, difficulty with a demand ceiling, crossing values in the bot.
-14. [0.5 — Aperture and energy settings](plan0.5.md): hole size, hole speed, energy cost and storage.
+14. ~~0.5 — Aperture and energy settings~~ — done: [plan](plan0.5.md). Hole size/speed and energy cost/storage controls with URL persistence.
 15. [draft coverage](draft-coverage.md): what `draft.txt` asks for, what ships, what is still open.
+16. ~~gui.2 — Full-screen field and edge HUD~~ — done: [plan](plangui.2.md), [worklog](../archive/gui.2-worklog.md). Responsive settings drawer, saved disclosure preferences and left/right player columns.
 
 ## Shared product decisions
 

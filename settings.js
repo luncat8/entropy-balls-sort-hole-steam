@@ -12,7 +12,7 @@ const settingsState = {
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY
 };
 const settingsUi = {
-	panel: null, friction: null, humans: null, balls: null, ballSpeed: null,
+	friction: null, humans: null, balls: null, ballSpeed: null,
 	holeSize: null, holeSpeed: null, energyCost: null, energyStore: null,
 	ballsValue: null, ballSpeedValue: null, holeSizeValue: null, holeSpeedValue: null,
 	energyCostValue: null, energyStoreValue: null, urlWrap: null, url: null
@@ -94,7 +94,6 @@ function settingsFromSearch(search) {
 }
 
 function settingsInit() {
-	settingsUi.panel = $('settings-panel');
 	settingsUi.friction = $('settings-friction');
 	settingsUi.humans = $('settings-humans');
 	settingsUi.balls = $('settings-balls');
@@ -121,7 +120,6 @@ function settingsInit() {
 	settingsUi.energyStore.addEventListener('input', settingsEnergyStoreChanged);
 	const url = settingsFromSearch(window.location.search);
 	settingsApply(url, false);
-	settingsUi.panel.open = !window.matchMedia('(max-width: 700px)').matches;
 }
 
 function settingsFrictionChanged() {

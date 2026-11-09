@@ -40,6 +40,7 @@ function forcePanelRebuild() {
 // that chase it, so reading a card and using its force never means looking at two screen corners
 function forcePanelPair(id) {
 	const pair = forcePanelElement('div', 'force-pair');
+	pair.setAttribute('data-player', String(id));
 	questMount(pair, id);
 	pair.append(forcePanelBuild(id));
 	return pair;
@@ -140,7 +141,7 @@ function forcePanelHint(row) {
 function forcePanelHelp(row, bot) {
 	if (!row.controlled) return bot ? 'Bot control · read only' : 'Read only';
 	if (row.channel === 'keys') return '↑↓ move slider · hold Right to apply';
-	if (inputTwoHumans()) return 'Press slider, field or Space · scroll changes force';
+	if (inputTwoHumans()) return 'Hold slider or field · scroll changes force';
 	return 'Hold slider or field · scroll / ↑↓ to adjust · hold Space';
 }
 

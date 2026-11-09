@@ -72,7 +72,9 @@ getObj().data().action()
 	preview.js — owns quest target appearance modes, their shapes and samples, the hold preview panel and its mode radios. edit for appearance modes, target shapes, panel copy.
 	goalview.js — owns the held-quest goal view: which balls cross, goal layout, goal label. edit for goal layout, crossing rules, goal copy.
 	settings.js — owns the settings table, defaults, URL persistence and controls. edit for settings keys, URL keys, ball count/speed and friction controls.
-	status.js — (planned) status/help presentation. not implemented yet.
+	status.js — owns live/preview status and per-slot contextual control help. edit for status copy and controller guidance.
+	drawer.js — owns responsive settings disclosure, dismissal and per-layout localStorage preferences. edit for drawer behavior.
+	game.css — owns game/HUD presentation. edit for full-screen field, edge player columns, score and drawer styles.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.
@@ -145,7 +147,7 @@ a card carries the side as a 24 px arrow glyph, a progress bar measured in price
 an objective reads its threshold against one of two totals: the named chamber's balls (`>40% hot`) or every ball of the category on the canvas (`>90% of red`). the bot scores a crossing by the priced distance it removes, so both totals and all four traffic directions use one rule.
 the difficulty label bands crossings; a scarcity demand rejects "only two green balls exist" jobs, and the whole-canvas immediate form is floored one crossing higher because its crossings arrive twice as fast.
 plans/draft-coverage.md is the answer to "is this in the plan or still missing" — update it when a draft feature ships.
-status.js remains unwritten; its content lives in the task card, force panel and score table.
+gui.2 uses a full-screen canvas with a centred, fully fitted field (no cropping) and a central divider. Player 1 is anchored left, Player 2 right, score top-right. Settings/help overlay compact screens and default to a left drawer on wide screens; drawer.js stores separate wide/compact visibility preferences. status.js lives inside the drawer, not a footer. Numeric task/energy readouts stay in their feature panels.
 
 ## housekeeping
 
