@@ -139,3 +139,17 @@ to reproduce old pixel defaults in a measurement, editing `BALL_SIZE_DEFAULT` al
 `mainBoot` -> `settingsInit` -> `settingsApply` runs `settingsNormalize` with a step, so 13.717 became
 14 and 176.36 became 175. any A/B of a default value has to go through the same normalize/step path
 the setting exposes, or the run silently measures the old value.
+
+## an opponent-aware lane score must refuse, not retaliate (2026-11-09)
+a bot that adds "the crossings that hurt the opponent" as a reward is a spite engine: the lanes that
+cost the opponent's plan usually cost its own too, so the score prefers hurting both and two such bots
+stall. measured on the same 20 × 90 s two-bot matches: charging the opponent's gains *and* rewarding
+their losses gave 3 completions with 17 empty matches; charging only their gains gave 73 completions
+with the same seed set. if a character is meant to "minimise the opponent's profit", count the profit
+it takes away, never the damage it causes.
+
+## a preference that pays for denial must be swept against a mirror match (2026-11-09)
+denial strength looks free in a mixed match and is not: at a weight of 1.25 the denier's opponent lost
+the same completions it lost at 0.6, while two deniers fell from 73 to 46 completions. sweep the
+weight in both the mixed and the mirror pairing and pick the largest value that keeps the mirror
+match at the baseline rate — the opponent's suppression saturates long before the mirror match dies.
