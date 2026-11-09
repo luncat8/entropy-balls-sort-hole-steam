@@ -59,9 +59,9 @@ getObj().data().action()
 
 - keep this map updated when ownership changes:
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
-	simulation.js — owns field, balls, aperture position/bounds, physics, ball color generation, distribution snapshot. edit for constants, spawn, stepping, snapshot fields. the aperture's velocity is the drive force.js funds; simulation never reads a request.
+	simulation.js — owns field size (the canvas in CSS pixels), balls, ball size/variety/collisions, aperture position/bounds, physics, ball color generation, distribution snapshot. edit for constants, spawn, resize, stepping, snapshot fields. the aperture's velocity is the drive force.js funds; simulation never reads a request.
 	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
-	canvas.js — owns canvas sizing/drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
+	canvas.js — owns canvas sizing (device-pixel backing store), drawing, impact/forecast buffers and visual cue controls. edit for cue options and draw styles.
 	force.js — owns per-participant hole requests, energy stores, funding, the combined drive and the store readout. edit for energy rates, funding rules, readout.
 	bot.js — owns bot policy: the value of each kind of crossing, predicted crossings (every repeat, at the height and time it happens), lane aim with an arrival gate and a baseline defence, energy rests and one-owner turns when bots contest the hole. edit for heuristics, aim horizon, rest thresholds, scoring weights, contest turns. it reads tasks.js's view and taskcost.js's values and writes only through force.js; never reads input.
 	input.js — owns both human control channels: the pointer/wheel channel (player 1) and the keys channel (player 2 with two humans), their selections and holds. edit for bindings, strengths, hold gestures, channel assignment.
@@ -147,7 +147,7 @@ a card carries the side as a 24 px arrow glyph, a progress bar measured in price
 an objective reads its threshold against one of two totals: the named chamber's balls (`>40% hot`) or every ball of the category on the canvas (`>90% of red`). the bot scores a crossing by the priced distance it removes, so both totals and all four traffic directions use one rule.
 the difficulty label bands crossings; a scarcity demand rejects "only two green balls exist" jobs, and the whole-canvas immediate form is floored one crossing higher because its crossings arrive twice as fast.
 plans/draft-coverage.md is the answer to "is this in the plan or still missing" — update it when a draft feature ships.
-gui.2 uses a full-screen canvas with a centred, fully fitted field (no cropping) and a central divider. Player 1 is anchored left, Player 2 right, score top-right. Settings/help overlay compact screens and default to a left drawer on wide screens; drawer.js stores separate wide/compact visibility preferences. status.js lives inside the drawer, not a footer. Numeric task/energy readouts stay in their feature panels.
+gui.2/gui.3: the canvas is the field — world units are CSS pixels, balls reflect off the screen edge, nothing is drawn around it, and the divider is always at half the width. A resize rescales balls and aperture instead of letterboxing. Player 1 is anchored left, Player 2 right, score top-right. Settings/help overlay compact screens and default to a left drawer on wide screens; drawer.js stores separate wide/compact visibility preferences. status.js lives inside the drawer, not a footer. Numeric task/energy readouts stay in their feature panels.
 
 ## housekeeping
 
