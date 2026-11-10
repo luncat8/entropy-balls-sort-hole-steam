@@ -55,23 +55,29 @@ getObj().data().action()
 	main.js — owns boot/wiring only. edit for load order, boot, wiring.
 	simulation.js — owns field size (the canvas in CSS pixels), the field scale, every size and speed as a share of it, balls, ball size/variety/collisions, aperture position/bounds, physics, ball color generation, distribution snapshot. edit for constants, spawn, resize, stepping, snapshot fields. the aperture's velocity is the drive force.js funds; simulation never reads a request.
 	color.js — owns color conversions, warm/cold/near-target tests, the ball color envelope and circular hue mean. edit for palette hues, hue boundaries, distance metric, envelope.
-	trajectory.js — owns the forecast of one ball's centre path: screen-edge bounces, the divider's whole-body fit, the hit or the pass. edit for path events, end states, point budget. it restates simulation.js's edge bounce and divider fit: change them together.
-	canvas.js — owns canvas sizing (device-pixel backing store), drawing, impact marks, the forecast cues (dashed line, plate mark, their fade and reach) and the cue controls. edit for cue options, forecast styles and draw styles.
+	trajectory.js — owns the forecast of one ball's centre path: screen-edge bounces, the divider's whole-body fit, the hit or the pass. edit for path events, end states, point budget, mode passage/hole-shift parameters. it restates simulation.js's edge bounce and divider fit: change them together.
+	canvas.js — owns canvas sizing (device-pixel backing store), drawing, impact marks, the forecast cues (dashed line, plate mark, their fade and reach), the cue controls and the mode drawing hooks. edit for cue options, forecast styles and draw styles.
 	force.js — owns per-participant hole requests, energy stores, funding, the combined drive and the store readout. edit for energy rates, funding rules, readout.
 	bot-policy.js — owns bot crossing prediction and priced plans: every repeat at its own time and height, the objective value of each crossing, and lane fit at first touch and centre line. edit for crossing events, fit bounds and value arithmetic. it reads tasks.js's view and taskcost.js's values; it writes no input or force.
 	bot.js — owns bot characters and their draw, lane aim, energy rests and one-owner turns when bots contest the hole. edit for characters and weights, aim horizon, rest thresholds, lane choice and contest turns. it reads bot-policy.js's values and writes only through force.js; never reads input.
 	forcepanel.js — owns per-participant force panels and energy/usage presentation, including the character a bot slot drew. edit for panel layout, accessible readouts, bot request display and character badge.
-	input.js — owns both human control channels: the pointer/wheel channel (player 1) and the keys channel (player 2 with two humans), their selections and holds. edit for bindings, strengths, hold gestures, channel assignment.
+	input.js — owns both human control channels: the pointer/wheel channel (player 1) and the keys channel (player 2 with two humans), their selections and holds, and the mode enable flags. edit for bindings, strengths, hold gestures, channel assignment.
 	players.js — owns participant identity, type and lifecycle. edit for the roster, controller mask, adding bots.
 	tasks.js — owns objective rules, the category grammar (hot, cold, palette colours, palette ranges), generation, completion scores, per-participant lifecycle and the task view model (side, measure, counts, need, progress). edit for predicates, candidates, threshold table, hold duration, scores, progress measure.
 	taskcost.js — owns the priced walk from the live distribution to a satisfying split, the per-crossing value, the scarcity demand and the difficulty bands, floors and ceilings. edit for cost/demand arithmetic, band edges, floors, crossing values.
 	scoreboard.js — owns the player table, per-slot bot checkboxes, the character badge beside each name, mode readout and restart control. edit for score columns, controller controls, character badge, table copy.
 	preview.js — owns quest target appearance modes, their shapes and samples, the hold preview panel and its mode radios. edit for appearance modes, target shapes, panel copy.
 	goalview.js — owns the held-quest goal view: which balls cross, goal layout, goal label. edit for goal layout, crossing rules, goal copy.
-	settings.js — owns the settings table, defaults, URL persistence, their percentage readouts and controls. edit for settings keys, URL keys, ball count/speed and friction controls.
+	settings.js — owns the settings table, defaults, URL persistence, their percentage readouts and controls, including mode/rooms keys and mode-dependent defaults. edit for settings keys, URL keys, ball count/speed and friction controls.
 	status.js — owns live/preview status and per-slot contextual control help. edit for status copy and controller guidance.
 	drawer.js — owns responsive settings disclosure, dismissal and per-layout localStorage preferences. edit for drawer behavior.
-	game.css — owns game/HUD presentation. edit for full-screen field, edge player columns, score, character badge and drawer styles.
+	game.css — owns game/HUD presentation. edit for full-screen field, edge player columns, score, character badge, mode HUD and drawer styles.
+	mode.js — owns the active game mode, its lifecycle, hook registration and the mode HUD/help state. edit for mode list, boot/reset and help copy.
+	modecolor.js — owns the mode hues, the one match/capture tolerance, room/wall colors and precomputed hue tables. edit for player colors and tint.
+	territorypaint.js — owns the fixed-capacity painted wall segments, localized blending, merging, shares and passage lookup. edit for capacity, blend rate and match blend.
+	territory.js — owns territory rooms, guns, divider rules, capture counting and the territory view/HUD. edit for room layout, ray tuning and gate.
+	gun.js — owns the ball-gun gravity ray, target selection, push refusal, predicted path and the gun view/HUD. edit for falloff, push cap and forecast budget.
+	modeinput.js — owns the middle/left/touch gestures and every release path shared by the new modes. edit for gesture mapping and touch hold threshold.
 - new code goes to its owner, never appended "because the file is already there". no owner exists -> new file + header + map entry.
 - file > ~500 lines = defect. split by feature within the same plan.
 - moves are pure moves: contiguous ranges, snap to enclosing declarations, no behavior change.

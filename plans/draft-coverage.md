@@ -83,11 +83,13 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 
 | draft asks for | status | where |
 | --- | --- | --- |
-| Colored-wall territory mode, with persistent central-wall paint, neutral balls leaving no mark, and player-colored ownership | planned | [plan 3.0](plan3.0.md) |
-| Matching-color passages plus a universal top passage; players move their guns along their own colored territory | planned | [plan 3.0](plan3.0.md) |
-| One player steers the aperture while the other uses a pointer ball gun | planned | [plan 3.1](plan3.1.md) |
-| Gravity-ray pull that weakens with distance and aim error; push refusal when a predicted path passes the hole | planned | [plan 3.1](plan3.1.md) |
-| Show the selected ball's predicted path and filter other-ball forecasts to likely passes | planned | [plan 3.1](plan3.1.md) |
+| Colored-wall territory mode, with persistent central-wall paint, neutral balls leaving no mark, and player-colored ownership | shipped | [plan 3.0](plan3.0.md), [worklog](../archive/3.0-worklog.md); `territorypaint.js`, `territory.js` |
+| Matching-color passages plus a universal top passage; players move their guns along their own colored territory | shipped | [plan 3.0](plan3.0.md); one passage predicate shared by simulation and trajectory |
+| Colored rooms that gradually change a ball to the room's color; highlighted forecasts through player color | shipped | `rooms` setting (on by default in territory), `territory.js`, `canvas.js` mode forecast hook |
+| One player steers the aperture while the other uses a pointer ball gun | shipped | [plan 3.1](plan3.1.md), [worklog](../archive/3.1-worklog.md); `gun.js` |
+| Gravity-ray pull that weakens with distance and aim error; push refusal when a predicted path passes the hole | shipped | [plan 3.1](plan3.1.md); `gun.js`, `trajectory.js` hole shift |
+| Show the selected ball's predicted path and filter other-ball forecasts to likely passes | shipped | [plan 3.1](plan3.1.md); six-point pass budget, standard forecast untouched |
+| Middle mouse aim instead of the right button, touch hold/tap, and a URL-selectable mode for each draft | shipped | `modeinput.js`, `mode.js`, `settings.js` |
 | Bot whole-body fit at first touch and centre line, policy split, and field-relative live fade | shipped | [plan 0.7](plan0.7.md), [worklog](../archive/0.7-worklog.md) |
 
 ## What is open, and is it planned?
@@ -103,6 +105,8 @@ Two different things are missing, and they are not the same kind of missing:
 The only remaining unplanned feature from `draft.txt` is the light theme. The generation slider and
 copy-link button are already shipped; the task queue has its own deferred plan. The near-target quest
 category and both percentage denominators ship in 2.5; ball size and collisions ship in gui.3.
+Both additional mode drafts ship in 3.0 and 3.1, including middle-button aim, colored rooms and
+forecast filters.
 
 Everything else in `draft.txt` ships. Nothing in the draft is blocked by an architectural gap: each
 open item is a table row or a control.
@@ -124,11 +128,11 @@ open item is a table row or a control.
 
 ## Next step
 
-The two additional mode drafts are planned separately: plan 3.0 defines persistent colored-wall
-territory and plan 3.1 defines the asymmetric ball-gun duel. Plan 0.7 closes the next forecast/bot
-accuracy gap by checking whole-body fit at first touch and centre line, then verifies the already-live
-mean-free-path fade (526 shares at 24 balls). The existing settings already include a generation slider,
-URL-backed table keys and a copy-link fallback; the remaining small settings feature from the earlier
-draft is a light theme. The task queue remains optional: implement plan 1.0 only if players need to
-choose among several simultaneous objectives, and preserve its bounded queue/state-machine design
-rather than reusing an unreviewed generator loop.
+Plans 3.0 and 3.1 now ship: territory mode (persistent wall paint, colored rooms, matching passages,
+two wall guns) and ball-gun mode (gravity-ray pull, predicted push refusal, filtered forecasts) are
+URL-selectable alongside the unchanged standard field. Plan 0.7 already closed the forecast/bot
+accuracy gap with whole-body fit at first touch and centre line. The existing settings include a
+generation slider, URL-backed table keys and a copy-link fallback; the remaining small settings
+feature from the earlier draft is a light theme. The task queue remains optional: implement plan 1.0
+only if players need to choose among several simultaneous objectives, and preserve its bounded
+queue/state-machine design rather than reusing an unreviewed generator loop.

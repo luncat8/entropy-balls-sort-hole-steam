@@ -35,8 +35,8 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
     A dashed path from each ball to the divider, through screen-edge bounces, ending in a mark on the
     plate or a run through the opening, and fading with the flight still ahead.
 21. ~~0.7 — Whole-body bot crossings and live forecast reach~~ — done: [plan](plan0.7.md), [worklog](../archive/0.7-worklog.md). Bot lanes require whole-body fit at first touch and centre line; forecast fade follows live mean free path.
-22. [3.0 — Colored-wall territory mode](plan3.0.md): separate URL-selectable mode with persistent color wall, color-matched passages and capture.
-23. [3.1 — Ball-gun capture mode](plan3.1.md): separate URL-selectable mode with gravity-ray pull, predicted push and asymmetric player roles.
+22. ~~3.0 — Colored-wall territory mode~~ — done: [plan](plan3.0.md), [worklog](../archive/3.0-worklog.md). URL-selectable mode with persistent color wall, colored rooms, color-matched passages, two wall guns and capture HUD.
+23. ~~3.1 — Ball-gun capture mode~~ — done: [plan](plan3.1.md), [worklog](../archive/3.1-worklog.md). URL-selectable mode with middle-button gravity-ray pull, predicted push refusal and asymmetric gun/hole roles.
 
 ## Shared product decisions
 
@@ -47,6 +47,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 - The control model is explicit signed push/pull along the aperture’s vertical track. Pointer hold/touch hold activates it; mouse wheel and a visible slider adjust force magnitude. This avoids relying on ambiguous pointer gestures.
 - Settings and live gameplay values have one owner each, and the browser URL is the shareable settings representation. The design remains local and file:// friendly, with classic script tags and no build or network dependency.
 - Single-player starts with one human. The player table exposes both slots; either can be a bot, and two bots can play while the user spectates. Each participant keeps its own task, input channel and energy store. A bot plays a character drawn when it takes its slot — profit (its own completions) or denier (the opponent's crossings are charged to the lane it chooses) — shown as an icon and tint beside the player's name.
+- Standard is the default game mode; territory and ball-gun are separate URL-selectable modes owned by `mode.js`. A mode installs explicit hooks at the simulation, trajectory and canvas boundaries, so with no hook installed the standard field, quests and forecasts are unchanged. The two new modes use middle-button hold to pull and a left press to push; the right button is never an aim gesture.
 
 ## Manual completion checklist
 

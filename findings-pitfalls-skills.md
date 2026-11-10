@@ -235,3 +235,9 @@ segfaults now and then and the identical retry works, so rerun once before diagn
 that can be compared between two trees, replace `requestAnimationFrame` and seed `Math.random` in an
 init script, call `mainFrame(1000 + k * 1000 / 60)` yourself and screenshot at fixed frame numbers;
 real-time captures of two trees never show the same frame.
+
+## right mouse is not an aim button (2026-11-10)
+a right-button hold opens the context menu and the gesture dies; use the middle button (button 1) and prevent `mousedown`/`auxclick` so desktop Chromium does not start autoscroll. keep pointer movement as the aim and the button as the pull, so the same press/release pair works for mouse, and give touch one deliberate pair (hold = pull, tap = push) instead of two fingers.
+
+## mode hooks instead of mode checks (2026-11-10)
+scattering `if (mode === ...)` through simulation, trajectory and canvas breaks the standard field's forecasts. one mode owner installs optional hooks at stable boundaries (control step, before/after ball motion, divider contact, trace passage, draw layers); with no hook every standard call runs with its old arguments. a mode's passage predicate must be shared by the divider hook and `trajTrace`, otherwise a drawn pass and an actual pass disagree.
