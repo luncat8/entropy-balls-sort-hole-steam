@@ -34,6 +34,17 @@ after hit:
 
 
 
+dashed lines end on wall without gap (current has gap)
+
+add to settings  
+
+in this game mode by default should not
+[] draw trajectories that cross hole.
+
+[x] dash movement similar look as in prototype/claude-haiku-5.5.html
+if unckecked - dash not move as now.
+
+
 
 make 2 player with checkbox is bot. who have different tasks and can push and pull  hole .
 player use mouse wheel or slider to change push and pull force. force activated on hold mouse or press touch.
@@ -101,9 +112,22 @@ quest list target color drawn options radio buttons (with preview of what option
 [x] rectangle with smooth palette of possible range
 
 
+## 
+
+agent suggest Next step:
 
 
-## deferred
+Give bot.js the whole-body fit and split the file while there. After that, derive the reach from the mean free path of the live field: it is 526 shares at 24 balls, which matches how fast the measured accuracy falls, so the fade would then be right at any ball count and with contacts
+
+Table-driven settings. It makes the next two cheap.
+Generation slider. simSetSpawnRate already exists in simulation.js; only the setting is missing.
+Light/dark theme.
+Task queue with claiming, if you want plan 1.0. Do not copy its generator: the fallback loop's guard is inverted (|| guard > 50) and can only prolong the loop.
+Small ones: copy-link button (in settings)
+
+
+
+## low priority
 
 status bar for constant info and current help messages
 
@@ -111,5 +135,10 @@ status bar for constant info and current help messages
 add task list with few tasks generated to keep list full.
 player can sign to task
 
+### task generator
+
+- task is opposite: one player execute task another prevent it.
+- task is same (coop).
+- random different tasks
 
 
