@@ -34,6 +34,9 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 20. ~~0.6 — Forecast lines~~ — done: [plan](plan0.6.md), [worklog](../archive/0.6-worklog.md).
     A dashed path from each ball to the divider, through screen-edge bounces, ending in a mark on the
     plate or a run through the opening, and fading with the flight still ahead.
+21. ~~0.7 — Whole-body bot crossings and live forecast reach~~ — done: [plan](plan0.7.md), [worklog](../archive/0.7-worklog.md). Bot lanes require whole-body fit at first touch and centre line; forecast fade follows live mean free path.
+22. [3.0 — Colored-wall territory mode](plan3.0.md): separate URL-selectable mode with persistent color wall, color-matched passages and capture.
+23. [3.1 — Ball-gun capture mode](plan3.1.md): separate URL-selectable mode with gravity-ray pull, predicted push and asymmetric player roles.
 
 ## Shared product decisions
 

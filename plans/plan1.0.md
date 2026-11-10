@@ -7,7 +7,7 @@ Replace the single active objective with a small continuously replenished task l
 ## Design
 
 - `tasks.js` remains the owner of objective predicates and lifecycle. Add a fixed-size queue (small enough to display at once) and stable task ids; avoid unbounded generation or allocation in the simulation loop.
-- Generate new tasks until the configured visible queue size is reached. Only generate on initialization, claim/complete/abandon events, or explicit queue maintenance—not every frame.
+- Generate new tasks until the configured visible queue size is reached. Only generate on initialization, claim/complete/abandon events, or explicit queue maintenance—not every frame. Do not copy the draft's fallback generator loop: its `|| guard > 50` condition is inverted, so reaching the guard can prolong rather than stop the loop. Use bounded candidate scans and surface an explicit empty/waiting state when no playable candidate exists.
 - Task state is `open`, `claimed`, or `complete`. A task can be claimed once; a claimed task retains its claimant. Completing it removes it from active work and replenishes the open list. Do not auto-claim or silently transfer tasks.
 - In single-player, the player can claim one task at a time. The progress predicate remains the 0.2 definition and is evaluated from the shared distribution. Claimed task progress is shown separately from open task summaries.
 - If all available tasks are claimed, show that no open task is available until a task completes or is abandoned. Abandoning returns the task to `open`; it does not reset the field or objective definition.

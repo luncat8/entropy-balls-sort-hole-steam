@@ -14,11 +14,12 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | slider max hole speed | shipped | `holeSpeed`, 20–140 %/s, plans 0.5 and gui.4 |
 | slider energy consumption to move the hole | shipped | `energyCost`, plan 0.5 |
 | slider energy storage | shipped | `energyStore`, plan 0.5 |
-| slider ball generation | open | spawn rate is a constant; the count limit is a different knob |
+| slider ball generation | shipped | `settings.js` and `simulation.js`; field-relative count-scaled spawn rate, URL-persisted |
 | slider ball size, same or random size | shipped | `ballSize` 0.6–2.6 % mean radius with a random-sizes switch, gui.3; a share of the field since gui.4 |
 | average ball speed | shipped | `ballSpeed`, 5–35 %/s since gui.4 |
 | checkbox ball collisions | shipped | `collisions` setting driving `simSetBallCollisions`, gui.3 |
 | white/dark theme, hole as background color | open | one dark theme is hard-coded in the canvas and CSS |
+| Copy-link button in settings | shipped | `index.html`, `settings.js`; clipboard API with visible URL fallback |
 
 ## Force and hole control
 
@@ -78,18 +79,29 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | --- | --- | --- |
 | status bar for constant info and current help | shipped | `status.js`, gui.1: live/preview state with per-slot controller help inside the gui.2 drawer; numeric task/energy values remain in their feature panels |
 
+## Additional mode drafts
+
+| draft asks for | status | where |
+| --- | --- | --- |
+| Colored-wall territory mode, with persistent central-wall paint, neutral balls leaving no mark, and player-colored ownership | planned | [plan 3.0](plan3.0.md) |
+| Matching-color passages plus a universal top passage; players move their guns along their own colored territory | planned | [plan 3.0](plan3.0.md) |
+| One player steers the aperture while the other uses a pointer ball gun | planned | [plan 3.1](plan3.1.md) |
+| Gravity-ray pull that weakens with distance and aim error; push refusal when a predicted path passes the hole | planned | [plan 3.1](plan3.1.md) |
+| Show the selected ball's predicted path and filter other-ball forecasts to likely passes | planned | [plan 3.1](plan3.1.md) |
+| Bot whole-body fit at first touch and centre line, policy split, and field-relative live fade | shipped | [plan 0.7](plan0.7.md), [worklog](../archive/0.7-worklog.md) |
+
 ## What is open, and is it planned?
 
 Two different things are missing, and they are not the same kind of missing:
 
 - **Planned, with a plan file.** The task queue, task claiming and the open/claimed/complete states
   (`plan1.0.md`).
-- **Deferred by a recorded decision, with no plan file.** The white/dark theme and the spawn-rate
-  slider. Each needs a styling or simulation change before a control can exist, so a plan file would be
-  a one-line table entry plus that change. "A player signs to a task" is part of 1.0 and is not needed
-  while every live slot already owns one objective.
+- **Open, with no plan file.** The light theme. The spawn-rate slider is already implemented and
+  URL-persisted. "A player signs to a task" is part of 1.0 and is not needed while every live slot
+  already owns one objective.
 
-The remaining unplanned draft features are the theme and the generation slider. The near-target quest
+The only remaining unplanned feature from `draft.txt` is the light theme. The generation slider and
+copy-link button are already shipped; the task queue has its own deferred plan. The near-target quest
 category and both percentage denominators ship in 2.5; ball size and collisions ship in gui.3.
 
 Everything else in `draft.txt` ships. Nothing in the draft is blocked by an architectural gap: each
@@ -97,10 +109,10 @@ open item is a table row or a control.
 
 ## Why the gaps are gaps
 
-- The settings list was trimmed on purpose in gui.1: aperture size/speed, energy rates, ball size,
-  collision reflections and theme were deferred so the settings table could ship with a proven URL
-  format. Adding a key is one table entry (`SETTINGS_KEYS`) plus one normalize/encode branch; gui.3 and
-  0.5 filled in four of them that way.
+- Settings have one key/default table and generic URL read/write loops, while normalization, encoding,
+  binding and apply behavior remain explicit per setting. The generation slider already uses this path;
+  a broader table-driven refactor is only worthwhile when the next setting needs it. The light theme is
+  the one remaining setting-level gap from `draft.txt`.
 - The task queue (1.0) was deferred behind the two-slot objective model. 2.0–2.2 gave each slot its
   own objective, which is a stronger version of "one task per player" for the two-player game; the
   queue is only needed if a player must choose among several open tasks.
@@ -112,10 +124,11 @@ open item is a table row or a control.
 
 ## Next step
 
-gui.3 closed the ball-size, random-size and collision gaps. Plan 2.5 closed the two denominator gaps: a
-threshold can now be read against the named chamber or against every ball of the category, and the six
-palette ranges cover the draft's "similar to a random color" target. The light theme and the
-ball-generation slider are the settings left; the bot's next measurable gain is pricing ball-to-ball
-collisions in its lane score, because a 2.5 s forecast is still optimistic in a colliding field. Plan
-0.6 put numbers on that optimism: a forecast made 400–500 shares ahead comes true 43 % of the time at 24
-balls, and one crossing in six that fits at the centre line is turned back at first touch.
+The two additional mode drafts are planned separately: plan 3.0 defines persistent colored-wall
+territory and plan 3.1 defines the asymmetric ball-gun duel. Plan 0.7 closes the next forecast/bot
+accuracy gap by checking whole-body fit at first touch and centre line, then verifies the already-live
+mean-free-path fade (526 shares at 24 balls). The existing settings already include a generation slider,
+URL-backed table keys and a copy-link fallback; the remaining small settings feature from the earlier
+draft is a light theme. The task queue remains optional: implement plan 1.0 only if players need to
+choose among several simultaneous objectives, and preserve its bounded queue/state-machine design
+rather than reusing an unreviewed generator loop.

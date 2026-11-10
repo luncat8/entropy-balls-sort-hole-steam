@@ -397,8 +397,33 @@ check('contest: useful traffic can outbid a defensive owner', bot.botContest() =
 field(900, 12, -200, 0, 'hot');
 const cornerCount = bot.botPredict();
 check('predict: corner crossing keeps its true height for lane fit', cornerCount === 1
-	&& near(bot.botScratch.y[0], 12) && !bot.botLaneHits(0, 100, 0)
-	&& bot.botLaneHits(0, sim.simAperture.size / 2, 0));
+	&& near(bot.botScratch.y[0], 12) && near(bot.botScratch.touchY[0], 12)
+	&& !bot.botLaneHits(0, 100, 0) && bot.botLaneHits(0, sim.simAperture.size / 2, 0));
+
+field(900, 100, -200, 800, 'hot');
+bot.botPlanOpen(1, bot.botPlan);
+const lipCount = bot.botPredict();
+const centerLane = bot.botScratch.y[0];
+check('predict: a centre-line fit is rejected when the body clips a lip at first touch', lipCount === 1
+	&& near(bot.botScratch.touchY[0] - centerLane, 48, 0.01)
+	&& Math.abs(bot.botScratch.touchY[0] - centerLane) > bot.botLaneHalf(0)
+	&& !bot.botLaneHits(0, centerLane, bot.botScratch.touchT[0]));
+
+field(900, 400, -200, 0, 'hot');
+bot.botPlanOpen(1, bot.botPlan);
+bot.botPredict();
+const touchTime = bot.botScratch.touchT[0];
+check('predict: hole must arrive by first touch, not by the later centre crossing',
+	near(touchTime, bot.botScratch.t[0] - 12 / 200)
+	&& bot.botLaneHits(0, 400, touchTime - 0.001)
+	&& !bot.botLaneHits(0, 400, touchTime + 0.001));
+
+field(610, 400, -200, 0, 'hot');
+bot.botPlanOpen(1, bot.botPlan);
+bot.botPredict();
+check('predict: a ball already at first touch uses its current height and zero arrival time',
+	bot.botScratch.touchT[0] === 0 && near(bot.botScratch.touchY[0], 400)
+	&& bot.botLaneHits(0, 400, 0));
 
 field(900, 200, -200, 0, 'hot');
 for (let i = 1; i < sim.BALL_CAP; i++) place(i, 900, 200, -200, 0, warmPalette());

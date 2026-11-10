@@ -12,16 +12,18 @@ bottom of the screen, and ends at the divider in one of two ways:
   is no mark, because nothing is touched.
 
 The dashes stand still in the field and the ball eats them, so the balls stay the only moving things on
-screen. Brightness is trust: line and mark fade linearly with the flight still ahead and vanish at a
-reach of 700 shares (0.7 of the field scale), so a far forecast is a hint and a near one is a promise.
-`experiments/forecast_probe.js` (seed 1, 1200 × 800, ball contacts on) measures how often a forecast
-comes true, by the flight left when it was made:
+screen. Brightness is trust: line and mark fade exponentially over the live mean free path, calculated
+from field area and the sum of the current ball radii. At 24 default-size balls the reach is about 526
+field shares; denser or larger balls shorten it. With contacts disabled, the exact forecast stays fully
+bright and has no collision-based distance cutoff. `experiments/forecast_probe.js` (seed 1, 1200 × 800,
+ball contacts on) measures how often a forecast comes true, by the flight left when it was made:
 
 | flight left, shares | 0–100 | 100–200 | 200–300 | 300–400 | 400–500 | 500–600 | 600–700 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | right, 24 balls | 94 % | 77 % | 63 % | 53 % | 43 % | 36 % | 30 % |
 | right, 36 balls | 90 % | 68 % | 51 % | 39 % | 30 % | 23 % | 17 % |
-| brightness at mid-bin, of full | 93 % | 79 % | 64 % | 50 % | 36 % | 21 % | 7 % |
+| 24 balls, nominal mean-free-path fade | 91 % | 75 % | 62 % | 51 % | 42 % | 35 % | 29 % |
+| 36 balls, nominal mean-free-path fade | 87 % | 65 % | 49 % | 37 % | 28 % | 21 % | 16 % |
 
 With ball contacts off the forecast is the simulation: 4442 of 4451 random shots end the way the
 stepped simulation ends them (99.8 %), with a mean height error of 0.43 px at the plate.
@@ -60,8 +62,12 @@ opening parked there, while the top edge lets every one through. The tracer appl
 `canvasDrawForecasts` traces each ball once and draws both cues from that trace, so the mark and the
 line that leads to it cannot disagree. Nothing is drawn under a held goal view, which is a still frame.
 
-- Opacity is `FORECAST_ALPHA · (1 − dist / reach)` with `FORECAST_ALPHA` 0.85 for line and mark alike.
-  A forecast never reaches the opacity of a ball.
+- Opacity is `FORECAST_ALPHA · exp(−dist / reach)` with `FORECAST_ALPHA` 0.85 for line and mark alike.
+  Trace only as far as four mean free paths; the remaining opacity is negligible. A forecast never
+  reaches the opacity of a ball.
+- With contacts enabled, `reach = fieldArea / (4 · sqrt(2) · sum(ballRadii))`, the two-dimensional
+  hard-disk mean-free-path estimate. It is recalculated from the live field, so count, varied radii and
+  resize all change the fade. With contacts disabled, reach is infinite.
 - Width 2 px, dash 8 px, gap 8 px. They are pixels, like every stroke: a pattern has to stay readable,
   not scale with the field.
 - The dash offset is `span − (dist + gap) mod span`: the pattern is counted back from the first touch,
@@ -89,35 +95,35 @@ cannot guess: a line through the hole is a pass, and brightness is distance.
 
 ## Accepted limits
 
-- The reach is one number, tuned on 24 balls with contacts on. It does not follow the ball count, the
-  ball size or the collision switch: at 36 balls a line is brighter than its trust, and with contacts
-  off an exact forecast still fades.
+- Mean free path estimates collision distance for a live field, not the probability that a particular
+  forecast survives a collision. The empirical accuracy table still describes aggregate trust, and
+  ball-to-ball contacts are not traced.
 - The hole is traced where it stands. Moving it changes hit into pass on the next frame, which is the
   feedback the player steers by.
 - Two legs meet at a bounce with square ends instead of a mitre: a pixel of overlap inside the corner.
 - The path holds ten points: a flight with more than five bounces before the divider gives no forecast,
   and a ball still bouncing inside an edge gate when the points run out reports a hit. The reach ends a
   flight long before either.
-- `bot.js` keeps its own crossing forecast, which tests the fit only where the centre meets the centre
-  line. In a settled 24-ball field one such crossing in six never happens: the plate turns the ball back at first
-  touch (124 of 797 over six seeds, 10–26 % per run; the probe's `forecast_centre_line` line).
+- `bot-policy.js` predicts bot crossings separately from the full trajectory trace. It checks the ball
+  body at first touch and at the centre line using the same fit slack, but does not simulate ball contacts
+  or a moving hole.
 
 ## Files and ownership
 
 - `trajectory.js` — the trace: path events, end states, point budget.
 - `simulation.js` — `APERTURE_FIT_SLACK` in the divider fit test.
 - `canvas.js` — forecast constants, `canvasDrawForecasts`, `canvasStrokeForecast`, `canvasFillWallPatch`.
-- `index.html` — script order (`trajectory.js` after `simulation.js`) and the settings note.
-- `experiments/forecast_smoke.js` — trace against the stepped simulation, cue shape, anchoring, fade.
-- `experiments/sim_smoke.js` — the edge-gate fit; `experiments/vmload.js` — the fake canvas records
-  the dash offset of each call.
-- `experiments/forecast_probe.js` — the trust table, the exactness figure, the centre-line figure.
-- `experiments/forecast_raster.js` — the raster table.
+- `bot-policy.js` — bot crossing prediction, priced plans, and whole-body fit at first touch and centre line.
+- `bot.js` — character/turn/energy policy; `index.html` loads `bot-policy.js` before `bot.js`.
+- `experiments/bot_smoke.js` — bot arrival and whole-body fit, including first-touch lip clips.
+- `experiments/forecast_smoke.js` — trace/simulation agreement, cue shape, fade, live reach by count/radius/resize.
+- `experiments/sim_smoke.js` — edge-gate fit; `experiments/vmload.js` — fake canvas and classic-script loader.
+- `experiments/forecast_probe.js` — empirical trust and exactness; `experiments/forecast_raster.js` — raster cost.
 
 ## Validation
 
 - L0: `node --check` on touched JavaScript.
-- L1: `forecast_smoke` (29 checks), `sim_smoke` (edge gate on both screen edges).
+- L1: `forecast_smoke` (37 checks), `bot_smoke` (72 checks), `sim_smoke` (edge gate on both screen edges).
 - L2: every smoke suite and `layout_browser` (the script list changed).
 - Evidence: `node experiments/forecast_probe.js [seed] [w] [h] [balls]` prints the trust table, the
   exactness line and the centre-line line (18 s); `node experiments/forecast_raster.js [w] [h] [balls]`
@@ -135,9 +141,6 @@ cannot guess: a line through the hole is a pass, and brightness is distance.
 
 ## Next step
 
-Teach `bot.js` the whole-body fit: a crossing has two heights, at first touch and at the centre line,
-and both have to lie inside the lane. That removes the one predicted crossing in six that the plate
-turns back. Then derive the reach from the mean free path of the live field, so brightness matches
-trust at any ball count and with contacts off. The ball-gun mode of `draft-mode-push-ball.md` asks for
-passes only and for lines of 3–6 segments: the first is a filter on the trace's result, the second its
-reach, and the ten-point path already holds six legs before the divider.
+The forecast and bot fit now share the same whole-body divider rule, and the fade follows live mean
+free path. The next implementation can start with plan 3.0's mode lifecycle and colored-wall territory;
+plan 3.1 then adds the ball-gun control mode without duplicating mode selection or URL persistence.

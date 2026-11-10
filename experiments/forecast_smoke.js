@@ -314,5 +314,27 @@ draw();
 check('cue: a held goal view is a still frame and shows no forecast',
 	callsOf('stroke').length === 0 && patchCalls().length === 0);
 
+sim.simResizeField(1200, 800);
+sim.simSetBallSize(14, false);
+sim.simInit();
+sim.simSetBallCollisions(true);
+balls.count = 24;
+balls.r.fill(sim.simBallConfig.radius, 0, 24);
+const reach24 = cv.canvasForecastReach();
+const reach24Shares = reach24 / field.scale * 1000;
+check('cue: 24 default-size balls give the measured 526-share mean free path', near(reach24Shares, 526, 1));
+balls.count = 36;
+balls.r.fill(sim.simBallConfig.radius, 0, 36);
+const reach36 = cv.canvasForecastReach();
+check('cue: mean free path follows the live ball count', near(reach36 / reach24, 24 / 36, 1e-6));
+balls.r[0] *= 2;
+const reach36Varied = cv.canvasForecastReach();
+check('cue: mean free path follows the live summed radii', reach36Varied < reach36);
+sim.simResizeField(2400, 1600);
+check('cue: field resize preserves reach in field shares',
+	near(cv.canvasForecastReach() / field.scale * 1000, reach36Varied / (field.scale / 2) * 1000, 1e-4));
+sim.simSetBallCollisions(false);
+check('cue: no contacts means unlimited reach', cv.canvasForecastReach() === Infinity);
+
 console.log('pass=' + pass + ' fail=' + fail);
 process.exitCode = fail ? 1 : 0;
