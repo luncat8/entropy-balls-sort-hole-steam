@@ -22,6 +22,18 @@
 		</table>
 		<div id="score-mode" class="score-mode" aria-live="polite"></div>
 	</section>
+	<section id="territory-hud" class="mode-hud" hidden aria-label="Territory score">
+		<h2>Territory</h2>
+		<div class="mode-hud-row"><span class="mode-hud-name mode-red">P1 red</span><span id="territory-share-0">0 % wall</span><span id="territory-balls-0">0 balls</span></div>
+		<div class="mode-hud-row"><span class="mode-hud-name mode-blue">P2 blue</span><span id="territory-share-1">0 % wall</span><span id="territory-balls-1">0 balls</span></div>
+		<p class="mode-hud-note">Grow your color on the wall. Only neutral balls can be pulled or pushed.</p>
+	</section>
+	<section id="gun-hud" class="mode-hud" hidden aria-label="Ball gun state">
+		<h2>Ball gun</h2>
+		<div class="mode-hud-row"><span>Target</span><span id="gun-target">no ball</span></div>
+		<div class="mode-hud-row"><span>Push</span><span id="gun-push">0 ‰/s push</span></div>
+		<p id="gun-state" class="mode-hud-note">middle hold pulls · left click pushes</p>
+	</section>
 	<ul id="task-list" class="quest-list" aria-live="polite"></ul>
 </div>
 <div class="preview-overlays">
@@ -40,6 +52,7 @@
 	<div class="drawer-content">
 		<section class="game-status" aria-label="Game status and controls">
 			<p id="game-status-state" role="status" aria-live="polite"></p>
+			<p id="mode-help" class="mode-help" hidden aria-live="polite"></p>
 			<div class="game-status-controls">
 				<p id="game-status-player-0"><strong>Player 1: </strong><span id="game-status-control-0"></span></p>
 				<p id="game-status-player-1" hidden><strong>Player 2: </strong><span id="game-status-control-1"></span></p>
@@ -48,6 +61,17 @@
 		<fieldset>
 			<legend>Game settings</legend>
 			<p class="settings-intro">Sizes and speeds are shares of the field, so a small screen plays like a large one.</p>
+			<div class="draw-options-group">
+				<span class="draw-options-heading">Game mode</span>
+				<label class="settings-range-label" for="settings-mode"><span>Mode</span></label>
+				<select id="settings-mode">
+					<option value="standard">Standard · aperture sorting</option>
+					<option value="territory">Territory · colored wall</option>
+					<option value="ball-gun">Ball gun · pull and push</option>
+				</select>
+				<label><input id="settings-rooms" type="checkbox"> Colored rooms (recolor balls)</label>
+				<span class="settings-note">Rooms are on by default in territory mode. Middle mouse hold pulls, left click pushes; on touch hold pulls and tap pushes. The right mouse button is not used.</span>
+			</div>
 			<div class="draw-options-group">
 				<span class="draw-options-heading">Wall cues · before hit</span>
 				<label><input id="draw-predicted-position" type="checkbox" checked> Predicted position</label>
@@ -129,6 +153,12 @@
 <script src="preview.js"></script>
 <script src="status.js"></script>
 <script src="drawer.js"></script>
+<script src="modecolor.js"></script>
+<script src="territorypaint.js"></script>
+<script src="territory.js"></script>
+<script src="gun.js"></script>
+<script src="modeinput.js"></script>
+<script src="mode.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

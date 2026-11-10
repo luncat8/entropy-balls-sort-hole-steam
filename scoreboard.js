@@ -13,6 +13,12 @@ const SCORE_MODE_TEXT = [
 const scoreboardUi = { rows: [], mode: null, restart: null };
 const scoreboardCache = { mode: -1 };
 let scoreboardRestartHook = null;
+let scoreboardModeName = 'standard';
+
+function scoreboardSetMode(name) {
+	scoreboardModeName = name;
+	scoreboardCache.mode = -1;
+}
 
 function scoreboardInit(restartHook) {
 	scoreboardRestartHook = restartHook;
@@ -106,9 +112,11 @@ function scoreboardPaint() {
 	const mode = scoreboardMode();
 	if (mode === scoreboardCache.mode) return;
 	scoreboardCache.mode = mode;
-	scoreboardUi.mode.textContent = SCORE_MODE_TEXT[mode];
+	const suffix = scoreboardModeName === 'territory' ? ' · Territory'
+		: (scoreboardModeName === 'ball-gun' ? ' · Ball gun' : '');
+	scoreboardUi.mode.textContent = SCORE_MODE_TEXT[mode] + suffix;
 }
 
 if (typeof module !== 'undefined') module.exports = {
-	scoreboardUi, scoreboardInit, scoreboardPaint, scoreboardMode, SCORE_MODE_TEXT
+	scoreboardUi, scoreboardInit, scoreboardPaint, scoreboardMode, scoreboardSetMode, SCORE_MODE_TEXT
 };

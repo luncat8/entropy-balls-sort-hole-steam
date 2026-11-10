@@ -1,26 +1,30 @@
 // owns: setting defaults, URL persistence and the settings controls
-// edit for: settings keys, URL keys, settings bindings
+// edit for: settings keys, URL keys, settings bindings, mode defaults
 
 // Every key is one table entry, so one path reads, encodes and clamps all of them. Sizes and speeds
 // are shares of the field scale in thousandths, so the screen size never changes what the settings mean.
-const SETTINGS_KEYS = ['friction', 'humans', 'bots', 'balls', 'ballSpeed', 'ballSize', 'ballVaried', 'collisions',
-	'holeSize', 'holeSpeed', 'energyCost', 'energyStore', 'generation'];
+const SETTINGS_KEYS = ['mode', 'rooms', 'friction', 'humans', 'bots', 'balls', 'ballSpeed', 'ballSize', 'ballVaried',
+	'collisions', 'holeSize', 'holeSpeed', 'energyCost', 'energyStore', 'generation'];
+const SETTINGS_MODES = ['standard', 'territory', 'ball-gun'];
 const settingsDefaults = {
-	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT,
-	ballVaried: true, collisions: true,
+	mode: 'standard', rooms: false, friction: false, humans: 1, bots: 0, balls: 24,
+	ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT, ballVaried: true, collisions: true,
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY, generation: 100
 };
 const settingsState = {
-	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT,
-	ballVaried: true, collisions: true,
+	mode: 'standard', rooms: false, friction: false, humans: 1, bots: 0, balls: 24,
+	ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT, ballVaried: true, collisions: true,
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY, generation: 100
 };
 const settingsUi = {
-	friction: null, humans: null, balls: null, ballSpeed: null, ballSize: null, ballVaried: null, collisions: null,
+	mode: null, rooms: null, friction: null, humans: null, balls: null, ballSpeed: null, ballSize: null,
+	ballVaried: null, collisions: null,
 	holeSize: null, holeSpeed: null, energyCost: null, energyStore: null,
 	ballsValue: null, ballSpeedValue: null, ballSizeValue: null, holeSizeValue: null, holeSpeedValue: null,
 	energyCostValue: null, energyStoreValue: null, generation: null, generationValue: null, urlWrap: null, url: null
 };
+// an untouched rooms checkbox follows the mode's default; a user choice always wins
+let settingsRoomAuto = true;
 
 function settingsNumber(raw, min, max, step) {
 	const value = Number(raw);
@@ -36,6 +40,8 @@ function settingsPercent(share) {
 
 function settingsNormalize(key, raw) {
 	switch (key) {
+		case 'mode': return SETTINGS_MODES.indexOf(raw) < 0 ? 'standard' : raw;
+		case 'rooms':
 		case 'friction':
 		case 'ballVaried':
 		case 'collisions': return raw === true || raw === '1' || raw === 'true';
@@ -82,6 +88,11 @@ function settingsNormalize(key, raw) {
 
 function settingsEncode(key, value) {
 	switch (key) {
+		case 'mode': return value === 'standard' ? undefined : value;
+		case 'rooms': {
+			const def = settingsState.mode === 'territory';
+			return value === def ? undefined : (value ? '1' : '0');
+		}
 		case 'friction': return value ? '1' : undefined;
 		case 'collisions': return value ? undefined : '0';
 		case 'humans': return value === 2 ? '2' : undefined;
@@ -110,17 +121,21 @@ function settingsParam(key) {
 
 function settingsFromSearch(search) {
 	const params = new URLSearchParams(search);
+	const mode = settingsNormalize('mode', params.get('mode'));
 	const out = {};
 	for (let i = 0; i < SETTINGS_KEYS.length; i++) {
 		const key = SETTINGS_KEYS[i];
 		const raw = params.get(settingsParam(key));
-		out[key] = raw === null ? settingsDefaults[key] : settingsNormalize(key, raw);
+		if (raw !== null) out[key] = settingsNormalize(key, raw);
+		else out[key] = key === 'rooms' ? mode === 'territory' : settingsDefaults[key];
 	}
 	if (out.bots & 2) out.humans = 2;
 	return out;
 }
 
 function settingsInit() {
+	settingsUi.mode = $('settings-mode');
+	settingsUi.rooms = $('settings-rooms');
 	settingsUi.friction = $('settings-friction');
 	settingsUi.humans = $('settings-humans');
 	settingsUi.balls = $('settings-balls');
@@ -145,6 +160,8 @@ function settingsInit() {
 	$('settings-copy-link').addEventListener('click', settingsCopyLink);
 	settingsUi.urlWrap = $('settings-url-wrap');
 	settingsUi.url = $('settings-url');
+	settingsUi.mode.addEventListener('change', settingsModeChanged);
+	settingsUi.rooms.addEventListener('change', settingsRoomsChanged);
 	settingsUi.friction.addEventListener('change', settingsFrictionChanged);
 	settingsUi.humans.addEventListener('change', settingsHumansChanged);
 	settingsUi.balls.addEventListener('input', settingsBallsChanged);
@@ -156,8 +173,17 @@ function settingsInit() {
 	settingsUi.holeSpeed.addEventListener('input', settingsHoleSpeedChanged);
 	settingsUi.energyCost.addEventListener('input', settingsEnergyCostChanged);
 	settingsUi.energyStore.addEventListener('input', settingsEnergyStoreChanged);
+	settingsRoomAuto = new URLSearchParams(window.location.search).get('rooms') === null;
 	const url = settingsFromSearch(window.location.search);
 	settingsApply(url, false);
+}
+
+function settingsModeChanged() {
+	settingsSetMode(settingsUi.mode.value, true);
+}
+
+function settingsRoomsChanged() {
+	settingsSetRooms(settingsUi.rooms.checked, true);
 }
 
 function settingsFrictionChanged() {
@@ -205,6 +231,8 @@ function settingsEnergyStoreChanged() {
 }
 
 function settingsSync() {
+	settingsUi.mode.value = settingsState.mode;
+	settingsUi.rooms.checked = settingsState.rooms;
 	settingsUi.friction.checked = settingsState.friction;
 	settingsUi.humans.checked = settingsState.humans === 2;
 	settingsUi.balls.value = String(settingsState.balls);
@@ -239,6 +267,10 @@ function settingsApply(values, updateUrl) {
 	const energyCost = settingsNormalize('energyCost', values.energyCost);
 	const energyStore = settingsNormalize('energyStore', values.energyStore);
 	const rebuild = humans !== settingsState.humans || mask !== settingsState.bots;
+	const mode = settingsNormalize('mode', values.mode);
+	const modeChanged = mode !== settingsState.mode;
+	settingsState.mode = mode;
+	settingsState.rooms = settingsNormalize('rooms', values.rooms);
 	settingsState.friction = !!values.friction;
 	settingsState.ballVaried = values.ballVaried === undefined
 		? settingsDefaults.ballVaried : settingsNormalize('ballVaried', values.ballVaried);
@@ -266,6 +298,8 @@ function settingsApply(values, updateUrl) {
 	simSetSpawnRate(settingsState.generation / 60);
 	if (simSetBallCount(settingsState.balls)) tasksRegenerate();
 	if (rebuild) settingsRebuild();
+	modeSetRooms(settingsState.rooms);
+	if (modeChanged) modeSet(mode);
 	if (updateUrl) settingsWriteUrl();
 }
 
@@ -276,6 +310,18 @@ function settingsRebuild() {
 	inputRebind();
 	botInit();
 	tasksRestart();
+}
+
+// switching mode keeps untouched settings: the rooms checkbox follows its mode default until used
+function settingsSetMode(mode, updateUrl) {
+	const values = { ...settingsState, mode: settingsNormalize('mode', mode) };
+	if (settingsRoomAuto) values.rooms = values.mode === 'territory';
+	settingsApply(values, updateUrl);
+}
+
+function settingsSetRooms(on, updateUrl) {
+	settingsRoomAuto = false;
+	settingsApply({ ...settingsState, rooms: on }, updateUrl);
 }
 
 function settingsSetFriction(on, updateUrl) {
@@ -374,7 +420,8 @@ function settingsWriteUrl() {
 }
 
 if (typeof module !== 'undefined') module.exports = {
-	settingsState, settingsInit, settingsApply, settingsSetFriction, settingsSetHumans, settingsSetBot,
+	settingsState, settingsInit, settingsApply, settingsSetMode, settingsSetRooms,
+	settingsSetFriction, settingsSetHumans, settingsSetBot,
 	settingsSetBalls, settingsSetBallSpeed, settingsSetBallSize, settingsSetBallVaried,
 	settingsSetCollisions, settingsSetHoleSize, settingsSetHoleSpeed,
 	settingsSetEnergyCost, settingsSetEnergyStore, settingsRebuild, settingsNormalize,

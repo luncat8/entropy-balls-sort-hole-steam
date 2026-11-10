@@ -14,14 +14,14 @@ function mainFrame(tMs) {
 	questPaint();
 	scoreboardPaint();
 	statusPaint(goalHolding(), inputChannel(0), inputChannel(1), players.count);
+	modeFrame();
 	canvasDraw(dtSec);
 	requestAnimationFrame(mainFrame);
 }
 
-// the bot is one more writer of a hole request, so it runs on the same fixed-step hook as the humans
+// one fixed-step boundary: the standard field keeps its channels, a mode owns its own controls
 function mainControlStep(dt) {
-	inputStep();
-	botStep(dt);
+	modeControlStep(dt);
 }
 
 // A round resets play, not the chosen controllers or simulation settings.
@@ -30,6 +30,7 @@ function mainRestartRound() {
 	goalClose();
 	inputRelease();
 	simInit();
+	modeRoundReset();
 	forceInit();
 	inputRebind();
 	botInit();
@@ -52,6 +53,7 @@ function mainBoot() {
 	previewInit();
 	forceInit();
 	inputInit();
+	modeInit();
 	settingsInit();
 	drawerInit();
 	forcePanelInit();

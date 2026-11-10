@@ -1,5 +1,5 @@
 // owns: field, balls, aperture, physics, ball color generation, distribution snapshot
-// edit for: constants, spawn, stepping, snapshot fields
+// edit for: constants, spawn, stepping, snapshot fields, mode hooks
 
 // The field is the canvas, so it is measured in CSS pixels and rebuilt on every resize; the divider
 // is always halfway across, and balls bounce off the screen edge instead of a drawn border.
@@ -101,6 +101,10 @@ const simDist = {
 let simBallCollisions = true;
 let simFrictionEnabled = false;
 let simControlHook = null;
+let simModeHook = null;
+// mode multipliers scale the setting-derived speeds without writing the settings themselves
+let simModeSpeed = 1;
+let simApertureSpeedScale = 1;
 let spawnRate = SPAWN_RATE;
 let spawnAcc = 0;
 let stepAcc = 0;
@@ -123,10 +127,10 @@ function simBallMaxRadius() {
 function simApplyShares() {
 	simField.wallT = simPx(WALL_SHARE);
 	simBallConfig.radius = simPx(simBallConfig.sizeShare);
-	simBallConfig.speed = simPx(simBallConfig.speedShare);
+	simBallConfig.speed = simPx(simBallConfig.speedShare) * simModeSpeed;
 	simBallRadius.max = simBallMaxRadius();
 	simAperture.size = simPx(simAperture.sizeShare);
-	simAperture.speed = simPx(simAperture.speedShare);
+	simAperture.speed = simPx(simAperture.speedShare) * simApertureSpeedScale;
 }
 
 function simSetFriction(on) {
@@ -136,6 +140,32 @@ function simSetFriction(on) {
 
 function simSetControlHook(hook) {
 	simControlHook = hook;
+}
+
+// a mode owns its divider rule and its per-step forces; no hook means the standard field
+function simSetModeHook(hook) {
+	simModeHook = hook;
+}
+
+function simSetModeSpeed(scale) {
+	const next = scale > 0 ? scale : 1;
+	if (next === simModeSpeed) return false;
+	const ratio = next / simModeSpeed;
+	simModeSpeed = next;
+	simBallConfig.speed *= ratio;
+	for (let i = 0; i < simBalls.count; i++) {
+		simBalls.vx[i] *= ratio;
+		simBalls.vy[i] *= ratio;
+	}
+	return true;
+}
+
+function simSetModeApertureSpeed(scale) {
+	const next = scale > 0 ? scale : 1;
+	if (next === simApertureSpeedScale) return false;
+	simApertureSpeedScale = next;
+	simAperture.speed = simPx(simAperture.speedShare) * next;
+	return true;
 }
 
 // the centre stays put and the hole is pushed back inside the walls, so a big aperture never
@@ -189,7 +219,7 @@ function simSetApertureSpeed(speed) {
 	const next = simShareClamp(speed, APERTURE_SPEED_MIN, APERTURE_SPEED_MAX);
 	if (next === simAperture.speedShare) return false;
 	simAperture.speedShare = next;
-	simAperture.speed = simPx(next);
+	simAperture.speed = simPx(next) * simApertureSpeedScale;
 	return true;
 }
 
@@ -235,7 +265,7 @@ function simSetBallSize(size, varied) {
 function simSetBallSpeed(speed) {
 	const next = simShareClamp(speed, BALL_SPEED_MIN, BALL_SPEED_MAX);
 	if (next === simBallConfig.speedShare) return false;
-	const px = simPx(next);
+	const px = simPx(next) * simModeSpeed;
 	const scale = px / simBallConfig.speed;
 	simBallConfig.speedShare = next;
 	simBallConfig.speed = px;
@@ -405,6 +435,8 @@ function simDividerTouch(i) {
 	const dx = simBalls.x[i] - simField.wallX;
 	if (dx > r || dx < -r) return;
 	const y = simBalls.y[i];
+	// a mode owns the whole divider: gate, colored passages, repaint and reflection
+	if (simModeHook && simModeHook.divider && simModeHook.divider(i, y, r, dx)) return;
 	const half = simAperture.size / 2;
 	if (y - r >= simAperture.y - half - APERTURE_FIT_SLACK && y + r <= simAperture.y + half + APERTURE_FIT_SLACK) return;
 	const side = dx >= 0 ? 1 : -1;
@@ -467,8 +499,10 @@ function simStep(dt) {
 	simAperture.drive = forceDrive(dt);
 	simMoveAperture(dt);
 	simSpawnTick(dt);
+	if (simModeHook && simModeHook.beforeBalls) simModeHook.beforeBalls(dt);
 	for (let i = 0; i < simBalls.count; i++) simMoveBall(i, dt);
 	if (simBallCollisions) simCollideBalls();
+	if (simModeHook && simModeHook.afterBalls) simModeHook.afterBalls(dt);
 	simFillDist();
 	tasksStep(dt); // per fixed step so catch-up still evaluates hold time (plan 0.2)
 }
@@ -484,6 +518,7 @@ function simAdvance(dtSec) {
 if (typeof module !== 'undefined') module.exports = {
 	simField, simBalls, simAperture, simDist, simBallConfig, simInit, simAdvance, simStep, simSpawn, simFillDist,
 	simSetBallCollisions, simSetSpawnRate, simSetBallCount, simSetBallSpeed, simSetFriction, simSetControlHook,
+	simSetModeHook, simSetModeSpeed, simSetModeApertureSpeed,
 	simSetApertureSize, simSetApertureSpeed, simResizeField, simSetBallSize, simBallRadius,
 	simPx, simApplyShares, SIM_SHARE, WALL_SHARE, SPAWN_GAP_SHARE,
 	FIELD_MIN_W, FIELD_MIN_H, BALL_SIZE_MIN, BALL_SIZE_MAX, BALL_SIZE_DEFAULT, BALL_SIZE_VARIETY,

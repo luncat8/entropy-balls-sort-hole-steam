@@ -1,5 +1,5 @@
 // owns: canvas sizing/drawing, impact marks, forecast cues and their controls, and the held quest goal layer
-// edit for: drawing options and styles
+// edit for: drawing options and styles, mode drawing hooks
 
 const IMPACT_TTL = 3;
 const IMPACT_CAP = 128;
@@ -39,6 +39,7 @@ impactMarks.age.fill(IMPACT_TTL + 1);
 let cvEl = null;
 let cvCtx = null;
 let goalBallsHook = null;
+let canvasModeHook = null;
 let predictedPositionInput = null;
 let trajectoryLinesInput = null;
 let slowFadeHitSpotInput = null;
@@ -119,6 +120,7 @@ function canvasResize() {
 		canvasView.dpr = dpr;
 	}
 	simResizeField(cw, ch);
+	if (canvasModeHook && canvasModeHook.resize) canvasModeHook.resize();
 }
 
 function canvasFieldY(clientY) {
@@ -126,9 +128,19 @@ function canvasFieldY(clientY) {
 	return (clientY - rect.top) * simField.h / cvEl.clientHeight;
 }
 
+function canvasFieldX(clientX) {
+	const rect = cvEl.getBoundingClientRect();
+	return (clientX - rect.left) * simField.w / cvEl.clientWidth;
+}
+
 // the goal layer is optional: no hook or a null result means the live field is what gets drawn
 function canvasSetGoalHook(hook) {
 	goalBallsHook = hook;
+}
+
+// a mode may own its background, wall and overlay; no hook draws the standard field
+function canvasSetModeHook(hook) {
+	canvasModeHook = hook;
 }
 
 function canvasAddImpact(faceX, y, radius, side, rgb) {
@@ -157,11 +169,15 @@ function canvasDraw(dtSec) {
 	ctx.fillRect(0, 0, canvasView.w, canvasView.h);
 	// the screen edge is the field boundary: balls reflect off it, so nothing is drawn there
 	ctx.setTransform(canvasView.dpr, 0, 0, canvasView.dpr, 0, 0);
+	if (canvasModeHook && canvasModeHook.background) canvasModeHook.background(ctx);
 	const f = simField;
 	const half = simAperture.size / 2;
-	ctx.fillStyle = STYLE_WALL;
-	ctx.fillRect(f.wallX - f.wallT / 2, 0, f.wallT, simAperture.y - half);
-	ctx.fillRect(f.wallX - f.wallT / 2, simAperture.y + half, f.wallT, f.h - simAperture.y - half);
+	if (canvasModeHook && canvasModeHook.wall) canvasModeHook.wall(ctx);
+	else {
+		ctx.fillStyle = STYLE_WALL;
+		ctx.fillRect(f.wallX - f.wallT / 2, 0, f.wallT, simAperture.y - half);
+		ctx.fillRect(f.wallX - f.wallT / 2, simAperture.y + half, f.wallT, f.h - simAperture.y - half);
+	}
 	// impact and forecast cues describe live motion; a goal layer is a still frame, so they would lie
 	const goal = goalBallsHook ? goalBallsHook() : null;
 	if (!goal && canvasDrawOptions.slowFadeHitSpot) {
@@ -176,6 +192,7 @@ function canvasDraw(dtSec) {
 	if (!goal) canvasDrawForecasts(ctx, canvasDrawOptions.predictedPosition, canvasDrawOptions.trajectoryLines);
 	ctx.globalAlpha = 1;
 	canvasDrawBalls(ctx, goal || simBalls, goal);
+	if (!goal && canvasModeHook && canvasModeHook.overlay) canvasModeHook.overlay(ctx);
 }
 
 // a goal layer dims the balls that stay put and rings the ones that cross, so the same picture answers
@@ -216,21 +233,30 @@ function canvasFillWallPatch(ctx, faceX, centerY, radius, side) {
 // one trace per ball feeds both cues, so the patch on the plate and the line that leads to it cannot disagree
 function canvasDrawForecasts(ctx, showPosition, showLines) {
 	if (!showPosition && !showLines) return;
-	const reach = canvasForecastReach();
+	const baseReach = canvasForecastReach();
+	const reach = canvasModeHook && canvasModeHook.forecastReach ? canvasModeHook.forecastReach(baseReach) : baseReach;
 	ctx.lineWidth = FORECAST_W;
 	ctx.setLineDash(FORECAST_DASH);
 	for (let i = 0; i < simBalls.count; i++) {
 		const r = simBalls.r[i];
-		const end = trajTrace(simBalls.x[i], simBalls.y[i], simBalls.vx[i], simBalls.vy[i], r, reach * 4, trajPath);
+		const budget = canvasModeHook && canvasModeHook.forecastBudget ? canvasModeHook.forecastBudget(i) : TRAJ_POINTS;
+		const end = trajTrace(simBalls.x[i], simBalls.y[i], simBalls.vx[i], simBalls.vy[i], r, reach * 4, trajPath, i, budget, 0);
 		if (end === TRAJ_NONE) continue;
-		ctx.globalAlpha = reach === Infinity ? FORECAST_ALPHA : FORECAST_ALPHA * Math.exp(-trajPath.dist / reach);
-		if (showPosition && end === TRAJ_HIT) {
-			ctx.fillStyle = simBalls.css[i];
+		let style = 1;
+		if (canvasModeHook && canvasModeHook.forecast) style = canvasModeHook.forecast(i, end, trajPath);
+		if (style === 0) continue;
+		ctx.globalAlpha = style === 2 || reach === Infinity ? FORECAST_ALPHA
+			: FORECAST_ALPHA * Math.exp(-trajPath.dist / reach);
+		const css = style === 2 && canvasModeHook.forecastCss ? canvasModeHook.forecastCss(i, end, trajPath) : simBalls.css[i];
+		if (showPosition && end === TRAJ_HIT && !(canvasModeHook && canvasModeHook.noPositionMarks)) {
+			ctx.fillStyle = css;
 			const faceX = simField.wallX + trajPath.side * simField.wallT / 2;
 			canvasFillWallPatch(ctx, faceX, trajPath.y[trajPath.n - 1], r, trajPath.side);
 		}
-		if (showLines && (end === TRAJ_HIT || canvasDrawOptions.drawPassLines)) {
-			canvasStrokeForecast(ctx, trajPath, simBalls.css[i]);
+		if (showLines && (end === TRAJ_HIT || canvasDrawOptions.drawPassLines || style === 2)) {
+			if (style === 2) ctx.lineWidth = FORECAST_W * 1.8;
+			canvasStrokeForecast(ctx, trajPath, css);
+			if (style === 2) ctx.lineWidth = FORECAST_W;
 		}
 	}
 	ctx.setLineDash(FORECAST_SOLID);
@@ -295,9 +321,12 @@ if (typeof module !== 'undefined') module.exports = {
 	canvasInit,
 	canvasResize,
 	canvasFieldY,
+	canvasFieldX,
 	canvasDraw,
 	canvasAddImpact,
 	canvasSetGoalHook,
+	canvasSetModeHook,
+	canvasStrokeForecast,
 	canvasForecastReach,
 	GOAL_RING,
 	GOAL_RING_W,

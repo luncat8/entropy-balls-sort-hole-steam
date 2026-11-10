@@ -1,5 +1,5 @@
 // owns: the human players' hole controls — pointer, wheel and keys per participant
-// edit for: bindings, hold gestures, channel assignment
+// edit for: bindings, hold gestures, channel assignment, mode enable
 
 const INPUT_FORCE_STEP = 5;
 const INPUT_FORCE_START = 60;
@@ -16,7 +16,9 @@ const inputState = {
 	canvasPointer: null,
 	canvasClientY: null,
 	targetY: null,
-	keyHold: null
+	keyHold: null,
+	pointerEnabled: true,
+	keysEnabled: true
 };
 
 function inputInit() {
@@ -42,6 +44,18 @@ function inputInit() {
 	window.addEventListener('resize', inputResize);
 	document.addEventListener('visibilitychange', inputVisibilityChanged);
 	inputRebind();
+}
+
+// modes own the pointer/keyboard while they are active; the hole channel comes back unchanged
+function inputSetEnabled(on) {
+	inputState.pointerEnabled = !!on;
+	inputState.keysEnabled = !!on;
+	if (!on) inputReleaseAll();
+}
+
+function inputSetPointerEnabled(on) {
+	inputState.pointerEnabled = !!on;
+	if (!on) inputReleaseAll();
 }
 
 function inputTwoHumans() {
@@ -183,7 +197,7 @@ function inputVisibilityChanged() {
 
 function inputSliderDown(e) {
 	const id = e.currentTarget.inputId;
-	if (!inputControls(id)) return;
+	if (!inputState.pointerEnabled || !inputControls(id)) return;
 	if ((e.button !== undefined && e.button !== 0) || inputState.sliderPointer[id] !== INPUT_NONE) return;
 	e.preventDefault();
 	inputState.sliderPointer[id] = e.pointerId;
@@ -194,7 +208,7 @@ function inputSliderDown(e) {
 
 function inputSliderMove(e) {
 	const id = e.currentTarget.inputId;
-	if (e.pointerId !== inputState.sliderPointer[id]) return;
+	if (!inputState.pointerEnabled || e.pointerId !== inputState.sliderPointer[id]) return;
 	const rect = e.currentTarget.getBoundingClientRect();
 	const ratio = (e.clientY - rect.top - INPUT_SLIDER_INSET) / (rect.height - 2 * INPUT_SLIDER_INSET);
 	inputSetValue(id, -100 + ratio * 200);
@@ -202,12 +216,13 @@ function inputSliderMove(e) {
 
 function inputSliderEnd(e) {
 	const id = e.currentTarget.inputId;
-	if (e.pointerId !== inputState.sliderPointer[id]) return;
+	if (!inputState.pointerEnabled || e.pointerId !== inputState.sliderPointer[id]) return;
 	inputState.sliderPointer[id] = INPUT_NONE;
 	inputRefresh(id);
 }
 
 function inputSliderChanged(e) {
+	if (!inputState.pointerEnabled) return;
 	inputSetValue(e.currentTarget.inputId, Number(e.currentTarget.value));
 }
 
@@ -220,7 +235,7 @@ function inputTargetAt(id, clientY) {
 
 function inputCanvasDown(e) {
 	const id = inputState.mouse;
-	if (!inputControls(id)) return;
+	if (!inputState.pointerEnabled || !inputControls(id)) return;
 	if ((e.button !== undefined && e.button !== 0) || inputState.canvasPointer[id] !== INPUT_NONE) return;
 	e.preventDefault();
 	inputState.canvasPointer[id] = e.pointerId;
@@ -231,14 +246,14 @@ function inputCanvasDown(e) {
 
 function inputCanvasMove(e) {
 	const id = inputState.mouse;
-	if (e.pointerId !== inputState.canvasPointer[id]) return;
+	if (!inputState.pointerEnabled || e.pointerId !== inputState.canvasPointer[id]) return;
 	inputTargetAt(id, e.clientY);
 	inputRefresh(id);
 }
 
 function inputCanvasEnd(e) {
 	const id = inputState.mouse;
-	if (e.pointerId !== inputState.canvasPointer[id]) return;
+	if (!inputState.pointerEnabled || e.pointerId !== inputState.canvasPointer[id]) return;
 	inputState.canvasPointer[id] = INPUT_NONE;
 	inputRefresh(id);
 }
@@ -259,10 +274,12 @@ function inputWheelStep(id, deltaY) {
 }
 
 function inputWheel(e) {
+	if (!inputState.pointerEnabled) return;
 	if (inputWheelStep(inputState.mouse, e.deltaY)) e.preventDefault();
 }
 
 function inputPanelWheel(e) {
+	if (!inputState.pointerEnabled) return;
 	if (inputWheelStep(e.currentTarget.inputId, e.deltaY)) e.preventDefault();
 }
 
@@ -276,7 +293,7 @@ function inputOwned(e) {
 
 function inputKeyDown(e) {
 	const id = inputState.keys;
-	if (!inputControls(id) || inputOwned(e)) return;
+	if (!inputState.keysEnabled || !inputControls(id) || inputOwned(e)) return;
 	if (e.code === inputApplyKey()) {
 		e.preventDefault();
 		inputState.keyHold[id] = 1;
@@ -290,6 +307,7 @@ function inputKeyDown(e) {
 
 // Releases whatever key still holds a request, even after focus or channel changes.
 function inputKeyUp(e) {
+	if (!inputState.keysEnabled) return;
 	if (e.code !== 'Space' && e.code !== 'ArrowRight') return;
 	for (let id = 0; id < PLAYER_CAP; id++) {
 		if (!inputState.keyHold[id]) continue;
@@ -301,5 +319,6 @@ function inputKeyUp(e) {
 if (typeof module !== 'undefined') module.exports = {
 	inputUi, inputState, inputInit, inputControls, inputValue, inputBindPanel, inputPreparePanels,
 	inputChannel, inputSetValue, inputRebind, inputRelease, inputStep, inputTwoHumans, inputApplyKey,
+	inputSetEnabled, inputSetPointerEnabled,
 	INPUT_FORCE_STEP, INPUT_FORCE_START, INPUT_SLIDER_INSET, INPUT_NONE
 };

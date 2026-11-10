@@ -1,5 +1,5 @@
 // owns: the forecast of one ball's centre path — screen-edge bounces, the divider's whole-body fit, the hit or the pass
-// edit for: path events, end states, point budget
+// edit for: path events, end states, point budget, mode passage rule
 
 // The forecast is the simulation's own rules run ahead with the hole standing still: the centre turns one
 // radius off a screen edge, meets the divider one radius before its centre line, and gets through only if
@@ -20,6 +20,12 @@ const trajPath = {
 	side: 0
 };
 const trajRay = { x: 0, y: 0, ux: 0, uy: 0 };
+// a mode may add its own passage predicate and its own gate aperture; no hook is the standard field
+let trajModeHook = null;
+
+function trajSetModeHook(hook) {
+	trajModeHook = hook;
+}
 
 function trajPoint(out, ray) {
 	out.x[out.n] = ray.x;
@@ -58,15 +64,19 @@ function trajFlight(ray, out, planeX, r, reach, points) {
 }
 
 // true when the body stays inside the opening from first touch to the centre line; otherwise the ray
-// stops where the plate turns the ball back, which is a lip when the body drifts onto it part-way
-function trajThrough(ray, out, r) {
-	const half = simAperture.size / 2;
-	const top = simAperture.y - half + r - APERTURE_FIT_SLACK;
-	const bot = simAperture.y + half - r + APERTURE_FIT_SLACK;
+// stops where the plate turns the ball back, which is a lip when the body drifts onto it part-way.
+// A mode's predicate answers painted passages with the same whole-body fit the simulation uses.
+function trajThrough(ray, out, r, ballIndex, holeShift, points) {
+	if (trajModeHook && trajModeHook.pass && trajModeHook.pass(ballIndex, ray.y, r)) return true;
+	const ap = trajModeHook && trajModeHook.aperture ? trajModeHook.aperture : simAperture;
+	const half = ap.size / 2;
+	const center = ap.y + holeShift;
+	const top = center - half + r - APERTURE_FIT_SLACK;
+	const bot = center + half - r + APERTURE_FIT_SLACK;
 	if (ray.y < top || ray.y > bot) return false;
 	const lo = r;
 	const hi = simField.h - r;
-	while (out.n < TRAJ_POINTS - 2) {
+	while (out.n < points - 2) {
 		trajLeg(ray, simField.wallX, top > lo ? top : lo, bot < hi ? bot : hi);
 		if (ray.x === simField.wallX) return true;
 		// an opening parked on a screen edge has no lip there: the ball bounces on the edge and flies on
@@ -79,7 +89,8 @@ function trajThrough(ray, out, r) {
 
 // The path ends where the divider settles the ball's fate: a hit where the plate stops the centre, a pass
 // where the body has cleared the divider. What the ball does after that is not forecast.
-function trajTrace(x, y, vx, vy, r, reach, out) {
+function trajTrace(x, y, vx, vy, r, reach, out, ballIndex, budget, holeShift) {
+	const points = budget || TRAJ_POINTS;
 	const f = simField;
 	const dir = Math.sign(vx);
 	out.n = 0;
@@ -93,18 +104,18 @@ function trajTrace(x, y, vx, vy, r, reach, out) {
 	ray.ux = vx / speed;
 	ray.uy = vy / speed;
 	trajPoint(out, ray);
-	out.dist = trajFlight(ray, out, f.wallX - dir * r, r, reach, TRAJ_POINTS - 3);
+	out.dist = trajFlight(ray, out, f.wallX - dir * r, r, reach, points - 3);
 	if (out.dist < 0) return TRAJ_NONE;
 	out.side = -dir;
 	out.end = TRAJ_HIT;
-	if (trajThrough(ray, out, r)) {
+	if (trajThrough(ray, out, r, ballIndex === undefined ? -1 : ballIndex, holeShift || 0, points)) {
 		out.end = TRAJ_PASS;
-		trajFlight(ray, out, f.wallX + dir * r, r, Infinity, TRAJ_POINTS - 1);
+		trajFlight(ray, out, f.wallX + dir * r, r, Infinity, points - 1);
 	}
 	trajPoint(out, ray);
 	return out.end;
 }
 
 if (typeof module !== 'undefined') module.exports = {
-	trajPath, trajTrace, TRAJ_POINTS, TRAJ_NONE, TRAJ_HIT, TRAJ_PASS
+	trajPath, trajTrace, trajSetModeHook, TRAJ_POINTS, TRAJ_NONE, TRAJ_HIT, TRAJ_PASS
 };

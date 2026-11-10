@@ -1,5 +1,5 @@
 // owns: color conversions and warm/cold/near-target tests
-// edit for: palette hues, hue boundaries, distance metric
+// edit for: palette hues, hue boundaries, distance metric, hue tables
 
 const PALETTE = [
 	['red', 0], ['orange', 35], ['yellow', 60],
@@ -65,6 +65,32 @@ function colorCss(packed) {
 	return '#' + packed.toString(16).padStart(6, '0');
 }
 
+// hue of a packed RGB color; the mode tint stores hue and rebuilds RGB from a precomputed table
+function colorRgbHue(packed) {
+	const r = ((packed >> 16) & 255) / 255;
+	const g = ((packed >> 8) & 255) / 255;
+	const b = (packed & 255) / 255;
+	const max = Math.max(r, g, b);
+	const min = Math.min(r, g, b);
+	const d = max - min;
+	if (d === 0) return 0;
+	let h = max === r ? (g - b) / d : (max === g ? (b - r) / d + 2 : (r - g) / d + 4);
+	h *= 60;
+	return h < 0 ? h + 360 : h;
+}
+
+function colorNearestPalette(hue) {
+	let best = 0;
+	let gap = 361;
+	for (let p = 0; p < PALETTE.length; p++) {
+		const d = colorHueDist(hue, PALETTE[p][1]);
+		if (d >= gap) continue;
+		gap = d;
+		best = p;
+	}
+	return best;
+}
+
 if (typeof module !== 'undefined') module.exports = {
 	PALETTE,
 	BALL_SAT_MIN,
@@ -77,5 +103,7 @@ if (typeof module !== 'undefined') module.exports = {
 	colorHueNear,
 	colorMeanHue,
 	colorHslToRgb,
-	colorCss
+	colorCss,
+	colorRgbHue,
+	colorNearestPalette
 };
