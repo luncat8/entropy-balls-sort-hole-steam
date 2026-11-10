@@ -221,6 +221,25 @@ for (let k = 0; k < 200 && !bigFlipped; k++) {
 }
 check('aperture: oversized ball reflects', bigFlipped && Math.abs(sim.simBalls.x[0] - (sim.simField.wallX - 100)) < 1);
 
+// an opening parked on a screen edge is a gate with no lip on that side: the edge itself must not block
+for (const bottom of [false, true]) {
+	let through = 0;
+	for (let k = 0; k < 40; k++) {
+		freshWorld();
+		// radii a float32 cannot hold exactly, like the ones generation makes
+		const r = 9 + k * 0.237;
+		const half = sim.simAperture.size / 2;
+		sim.simAperture.y = bottom ? sim.simField.h - half : half;
+		const edgeY = bottom ? sim.simField.h - r : r;
+		const vy = bottom ? 150 : -150;
+		// 45 degrees, timed to meet the edge a third of the way into the divider zone
+		place(0, sim.simField.wallX - r * 0.7 - 80, edgeY - Math.sign(vy) * 80, 150, vy, r, 0x445566);
+		for (let s = 0; s < 240; s++) sim.simStep(1 / 120);
+		if (sim.simBalls.x[0] > sim.simField.wallX + r && sim.simBalls.vx[0] > 0) through++;
+	}
+	check('aperture on the ' + (bottom ? 'bottom' : 'top') + ' edge: a ball skimming that edge passes', through === 40);
+}
+
 freshWorld();
 place(0, 500, 400, 200, 0, 10, 1);
 place(1, 560, 400, -200, 0, 10, 2);

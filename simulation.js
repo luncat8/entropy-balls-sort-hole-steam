@@ -50,6 +50,9 @@ const APERTURE_FRICTION = 1;
 const FIXED_DT = 1 / 120;
 const MAX_CATCHUP = 0.25;
 const MAX_SUBSTEPS = 8;
+// a ball lying on a screen edge holds a float32 height, so an exact fit test turns back two in five of the
+// balls that skim the bottom edge into an opening parked there, while the top edge passes them all
+const APERTURE_FIT_SLACK = 1e-3;
 
 const simBalls = {
 	count: 0,
@@ -403,7 +406,7 @@ function simDividerTouch(i) {
 	if (dx > r || dx < -r) return;
 	const y = simBalls.y[i];
 	const half = simAperture.size / 2;
-	if (y - r >= simAperture.y - half && y + r <= simAperture.y + half) return;
+	if (y - r >= simAperture.y - half - APERTURE_FIT_SLACK && y + r <= simAperture.y + half + APERTURE_FIT_SLACK) return;
 	const side = dx >= 0 ? 1 : -1;
 	if ((side === -1 && simBalls.vx[i] > 0) || (side === 1 && simBalls.vx[i] < 0)) {
 		simBalls.vx[i] = -simBalls.vx[i];

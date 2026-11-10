@@ -33,7 +33,8 @@ function makeStubs() {
 				args,
 				globalAlpha: t.globalAlpha,
 				fillStyle: t.fillStyle,
-				strokeStyle: t.strokeStyle
+				strokeStyle: t.strokeStyle,
+				lineDashOffset: t.lineDashOffset
 			});
 		},
 		set(t, k, v) { t[k] = v; return true; }

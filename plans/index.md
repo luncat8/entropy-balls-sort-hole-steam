@@ -31,6 +31,9 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
     phone plays like a desktop.
 19. ~~2.6 — Bot characters~~ — done: [plan](plan2.6.md), [worklog](../archive/2.6-worklog.md).
     A slot draws a profit bot or a denier, shown as an icon and tint next to the player's name.
+20. ~~0.6 — Forecast lines~~ — done: [plan](plan0.6.md), [worklog](../archive/0.6-worklog.md).
+    A dashed path from each ball to the divider, through screen-edge bounces, ending in a mark on the
+    plate or a run through the opening, and fading with the flight still ahead.
 
 ## Shared product decisions
 
@@ -46,6 +49,7 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 
 - At narrow and wide viewport sizes, the divider stays central and the whole screen is playable field.
 - Balls remain inside the field, pass only through the opening, and do not acquire drift from drag.
+- A forecast line ends on the plate where its ball lands, or runs through the opening when the ball will pass; its dashes stand still, and it brightens as the ball gets near.
 - The task's displayed category, side, comparator, threshold and denominator agree with the measured ball distribution, and its difficulty label is shown.
 - Holding a quest item draws the goal on the canvas and opens its panel; the field stops while held and resumes on release, pointer cancellation, or focus loss.
 - The goal drawn on the canvas satisfies the held objective, rings only the balls that have to cross, and states its split and crossing count.

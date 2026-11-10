@@ -153,3 +153,85 @@ denial strength looks free in a mixed match and is not: at a weight of 1.25 the 
 the same completions it lost at 0.6, while two deniers fell from 73 to 46 completions. sweep the
 weight in both the mixed and the mirror pairing and pick the largest value that keeps the mirror
 match at the baseline rate — the opponent's suppression saturates long before the mirror match dies.
+
+## a dashed line that starts at its ball crawls; pin the pattern to the field (2026-11-10)
+a stroke's dash pattern starts at the path's first point, so a line drawn from a moving ball drags its
+dashes along and every forecast on screen shimmers. set `lineDashOffset = span − (lengthToAnchor + gap)
+mod span` with the anchor at the end that does not move (the first touch of the divider): a whole dash
+ends at the anchor and the pattern stands still while the ball eats it. in the fake canvas, record
+`lineDashOffset` at call time and assert that it shifts by exactly the distance flown. in a browser,
+compare the stroke masks of two frames in a box ahead of the ball: a level line differs in 0 pixels, a
+slanted one in a couple of dozen (27 and 23 here) — edge pixels of a line that got brighter, not motion.
+
+## a GPU canvas dashes one shape in a shader: a level two-point line (2026-11-10)
+Chromium's GPU canvas (Skia Ganesh, `DashOp::CanDrawDashLine`) takes a dashed stroke on its fast path
+only when the path is two points, horizontal or vertical *before* the transform, with one dash and one
+gap and no round caps; the matrix may rotate. a slanted line or a polyline is cut into dashes on the
+CPU and rastered as a general path, every frame. so stroke each leg as `moveTo(0, 0); lineTo(len, 0)`
+under `setTransform(ux, uy, -uy, ux, x0, y0)` (all times the pixel ratio) and carry the dash offset from
+leg to leg: the same picture (at most 1449 of 960000 px differ, antialiasing) at 6.7 ms a frame against
+18.1 ms under software GL, 1920x1080 with 24 balls, 1.9 ms with the cues off
+(`experiments/forecast_raster.js`). dash ops merge only when their colour is equal, so the floor is one
+draw per differently coloured line. in a one-scene bench the level line cost 4.7–4.9 ms; a slanted
+two-point stroke per leg, hand-built dash segments and the polyline 29–33 ms; `fillRect` dashes in a
+turned frame 13 ms. the price is a butt joint at a corner and one more piece of context state to hand
+back: restore the field frame after each line and assert that whatever is drawn next sees it. a
+zero-length leg would turn the frame by NaN, which a canvas ignores; none turned up in 2 564 414 traced
+paths, so the stroke carries no guard — count an edge case before guarding it.
+
+## measure a canvas frame by flushing it, not by pacing or by a tight loop (2026-11-10)
+canvas calls are recorded and rastered later, so timing `canvasDraw` measures the recording (0.08 ms
+here) and a loop of draws with one readback at the end measures nothing reproducible. frame pacing in
+headless Chromium is no better: on software GL the page stalls for 0.5–1 s every 1.5 s from about 22 s
+after load on an unchanged tree, so a stall proves nothing about a change. what works: step the frames
+by hand (replace `requestAnimationFrame`, call `mainFrame(t)` on a fixed clock, seed `Math.random`),
+read one pixel back after each frame so the canvas must raster it now, and ask for the context with
+`willReadFrequently: false` — a canvas that is read back without it is moved to the CPU, where the cost
+under test does not exist (0.71 ms a frame for solid lines, 0.90 ms for per-leg dashes). print the
+WebGL renderer string beside the numbers: SwiftShader figures rank the variants, they do not say what
+a GPU pays.
+
+## an exact fit test on float32 heights is a coin toss at the bottom edge (2026-11-10)
+ball positions are `Float32Array`s. a ball lying on the bottom screen edge holds `fround(h − r)`, and
+`y + r <= openingBottom` with the opening parked on that edge passes or fails on the rounding of that
+one radius: 160 of 400 balls skimming the bottom edge were turned back by an opening they fit, while
+the top edge, where the height is the radius itself, passed them all. give a fit test a slack far below
+a pixel (`APERTURE_FIT_SLACK`, 0.001) and use the same constant wherever the rule is restated — the
+tracer refused 39 of 40 radii rolling along the bottom edge without it. the regression test needs radii
+a float32 cannot hold: `9 + k * 0.25` is exact and passed without the fix, `9 + k * 0.237` failed.
+
+## a forecast's worth is what came true, per flight left; it dies at the mean free path (2026-11-10)
+a straight-line forecast in a field with ball contacts is right 94 % of the time with under 100 shares
+to fly and 30 % at 600–700 (24 balls; 90 % and 17 % at 36). with contacts off the same tracer matches
+the stepped simulation in 4442 of 4451 shots, so the loss is all contacts, and it follows the kinetic
+mean free path `area / (√2 · 4r · count)`: 526 shares at 24 balls and 351 at 36, while the two tables
+fall by e every 525 and 364 shares of flight. measure it by settling every pending forecast of a ball
+with the next thing the divider does to that ball, binned by the flight left when the forecast was made
+(`experiments/forecast_probe.js`), and fade the cue on the same axis so brightness is the trust. the
+shipped reach is a fixed 700 shares tuned on 24 balls; a fade of `exp(−flight / path)` should hold at
+any ball count and size (checked at 24 and 36 only) and stays at full brightness with contacts off.
+
+## a prediction that tests the fit at one instant counts crossings that never happen (2026-11-10)
+the divider takes a ball only if the whole body stays inside the opening from first touch to the
+centre line. `bot.js` tests the height where the centre meets the centre line, one radius of flight
+later, so a ball still drifting into the opening is counted although the plate turns it back at first
+touch: 124 of 797 such arrivals over six seeded 600 s runs (16 %, 10–26 % per run, the probe's
+`forecast_centre_line`); evenly spread directions predict about r / (opening − 2r), 16 % at the default
+sizes. a crossing has two heights and both have to be inside the lane. the mirror case — in at first
+touch, onto a lip before the centre line — is a hit that ends inside the divider; the ball's shadow on
+the plate has no height there, so the cue lights the tip of the lip instead.
+
+## mutate the code to learn what a new smoke protects (2026-11-10)
+a smoke written beside its feature passes by construction. twenty one-line mutations of the tracer, the
+cue and the fit slack were run against `forecast_smoke.js`; one went unnoticed — the tracer without the
+slack, because no shot rolled along the bottom edge — and became a check. drive the list from a
+throwaway script that restores each file from a copy in a `finally`, and compare checksums afterwards.
+
+## running the page in the sandbox's Chromium (2026-11-10)
+`@sparticuz/chromium` starts without the host's `libnspr4`/`libnss3` when it believes it is on Lambda:
+with `AWS_LAMBDA_JS_RUNTIME=nodejs22.x` set for `node experiments/layout_browser.js` the package unpacks
+its own copies (delete `/tmp/chromium` first if it was unpacked without the variable). the launch
+segfaults now and then and the identical retry works, so rerun once before diagnosing. for pictures
+that can be compared between two trees, replace `requestAnimationFrame` and seed `Math.random` in an
+init script, call `mainFrame(1000 + k * 1000 / 60)` yourself and screenshot at fixed frame numbers;
+real-time captures of two trees never show the same frame.

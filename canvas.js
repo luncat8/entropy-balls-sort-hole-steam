@@ -1,4 +1,4 @@
-// owns: canvas sizing/drawing, impact/forecast buffers, visual cue controls, and the held quest goal layer
+// owns: canvas sizing/drawing, impact marks, forecast cues and their controls, and the held quest goal layer
 // edit for: drawing options and styles
 
 const IMPACT_TTL = 3;
@@ -6,8 +6,17 @@ const IMPACT_CAP = 128;
 
 const STYLE_BG = '#12151b';
 const STYLE_WALL = '#495263';
-const FORECAST_ALPHA = 0.55;
+const FORECAST_ALPHA = 0.85;
 const FORECAST_W = 2;
+// dash and gap are pixels like the line width: a stroke pattern has to stay readable, not scale with the field
+const FORECAST_DASH = [8, 8];
+const FORECAST_DASH_SPAN = FORECAST_DASH[0] + FORECAST_DASH[1];
+const FORECAST_SOLID = [];
+// A cue is drawn while its ball's flight to the divider is inside this reach, and its opacity falls
+// linearly to zero at it, so brightness says how far a forecast can be trusted: with ball contacts on and
+// the default 24 balls, one made under 100 shares ahead comes true 94 % of the time, 300-400 ahead 53 %,
+// 600-700 ahead 30 % (experiments/forecast_probe.js).
+const FORECAST_REACH_SHARE = 700;
 const GOAL_RING = 'rgba(237, 240, 246, 0.9)';
 const GOAL_RING_W = 2;
 const GOAL_DIM_ALPHA = 0.35;
@@ -26,8 +35,6 @@ const impactMarks = {
 	write: 0
 };
 impactMarks.age.fill(IMPACT_TTL + 1);
-
-const forecastScratch = new Float32Array(4);
 
 let cvEl = null;
 let cvCtx = null;
@@ -140,27 +147,7 @@ function canvasDraw(dtSec) {
 			canvasFillWallPatch(ctx, impactMarks.x[i], impactMarks.y[i], impactMarks.radius[i], impactMarks.side[i]);
 		}
 	}
-	const showPredictedPosition = !goal && canvasDrawOptions.predictedPosition;
-	const showTrajectoryLines = !goal && canvasDrawOptions.trajectoryLines;
-	if (showPredictedPosition || showTrajectoryLines) {
-		ctx.globalAlpha = FORECAST_ALPHA;
-		if (showTrajectoryLines) ctx.lineWidth = FORECAST_W;
-		for (let i = 0; i < simBalls.count; i++) {
-			if (!canvasForecast(i, forecastScratch)) continue;
-			const side = simBalls.vx[i] > 0 ? -1 : 1;
-			if (showPredictedPosition) {
-				ctx.fillStyle = simBalls.css[i];
-				canvasFillWallPatch(ctx, forecastScratch[2], forecastScratch[3], simBalls.r[i], side);
-			}
-			if (showTrajectoryLines) {
-				ctx.strokeStyle = simBalls.css[i];
-				ctx.beginPath();
-				ctx.moveTo(forecastScratch[0], forecastScratch[1]);
-				ctx.lineTo(forecastScratch[2], forecastScratch[3]);
-				ctx.stroke();
-			}
-		}
-	}
+	if (!goal) canvasDrawForecasts(ctx, canvasDrawOptions.predictedPosition, canvasDrawOptions.trajectoryLines);
 	ctx.globalAlpha = 1;
 	canvasDrawBalls(ctx, goal || simBalls, goal);
 }
@@ -184,44 +171,67 @@ function canvasDrawBalls(ctx, balls, goal) {
 	ctx.globalAlpha = 1;
 }
 
+// A ball that only clips a lip shades next to none of the plate, so the mark on the plate nearer to it
+// never shrinks below the plate's own thickness: the tip of the lip lights up.
 function canvasFillWallPatch(ctx, faceX, centerY, radius, side) {
 	const wallT = simField.wallT;
 	const x = faceX + (side > 0 ? -wallT : 0);
-	const top = centerY - radius;
-	const bottom = centerY + radius;
 	const half = simAperture.size / 2;
 	const apTop = simAperture.y - half;
 	const apBot = simAperture.y + half;
-	if (top < apTop) {
-		const patchBottom = bottom < apTop ? bottom : apTop;
-		if (patchBottom > top) ctx.fillRect(x, top, wallT, patchBottom - top);
-	}
-	if (bottom > apBot) {
-		const patchTop = top > apBot ? top : apBot;
-		if (bottom > patchTop) ctx.fillRect(x, patchTop, wallT, bottom - patchTop);
-	}
+	let top = centerY - radius;
+	let bottom = centerY + radius;
+	if (centerY < simAperture.y) top = Math.min(top, apTop - wallT);
+	else bottom = Math.max(bottom, apBot + wallT);
+	if (top < apTop) ctx.fillRect(x, top, wallT, Math.min(bottom, apTop) - top);
+	if (bottom > apBot) ctx.fillRect(x, Math.max(top, apBot), wallT, bottom - Math.max(top, apBot));
 }
 
-// straight-line cue only; bounces and ball contacts can still invalidate it
-function canvasForecast(i, out) {
-	const x = simBalls.x[i], y = simBalls.y[i], r = simBalls.r[i];
-	const vx = simBalls.vx[i], vy = simBalls.vy[i];
-	if ((simField.wallX - x) * vx <= 0) return false;
-	const faceX = simField.wallX - (vx > 0 ? r : -r);
-	const tHit = (faceX - x) / vx;
-	let tWall = Infinity;
-	if (vy > 0) tWall = (simField.h - r - y) / vy;
-	else if (vy < 0) tWall = (r - y) / vy;
-	if (tWall < tHit) return false;
-	const yHit = y + vy * tHit;
-	const half = simAperture.size / 2;
-	if (yHit - r >= simAperture.y - half && yHit + r <= simAperture.y + half) return false;
-	const inv = 1 / Math.sqrt(vx * vx + vy * vy);
-	out[0] = x + vx * inv * r;
-	out[1] = y + vy * inv * r;
-	out[2] = simField.wallX - (vx > 0 ? simField.wallT / 2 : -simField.wallT / 2);
-	out[3] = yHit;
-	return true;
+// one trace per ball feeds both cues, so the patch on the plate and the line that leads to it cannot disagree
+function canvasDrawForecasts(ctx, showPosition, showLines) {
+	if (!showPosition && !showLines) return;
+	const reach = simPx(FORECAST_REACH_SHARE);
+	ctx.lineWidth = FORECAST_W;
+	ctx.setLineDash(FORECAST_DASH);
+	for (let i = 0; i < simBalls.count; i++) {
+		const r = simBalls.r[i];
+		const end = trajTrace(simBalls.x[i], simBalls.y[i], simBalls.vx[i], simBalls.vy[i], r, reach, trajPath);
+		if (end === TRAJ_NONE) continue;
+		ctx.globalAlpha = FORECAST_ALPHA * (1 - trajPath.dist / reach);
+		if (showPosition && end === TRAJ_HIT) {
+			ctx.fillStyle = simBalls.css[i];
+			const faceX = simField.wallX + trajPath.side * simField.wallT / 2;
+			canvasFillWallPatch(ctx, faceX, trajPath.y[trajPath.n - 1], r, trajPath.side);
+		}
+		if (showLines) canvasStrokeForecast(ctx, trajPath, simBalls.css[i]);
+	}
+	ctx.setLineDash(FORECAST_SOLID);
+}
+
+// The dash pattern is pinned to the spot where the ball first touches the divider, not to the ball: the
+// dashes stand still in the field and the ball eats them, so the only things moving on screen are balls.
+// Each leg is stroked on its own, as a level line in a frame turned along it: Chromium's GPU canvas
+// dashes only that shape in a shader and cuts any other dashed path into pieces on the CPU every frame,
+// two to three times the frame's raster cost (plan 0.6, experiments/forecast_raster.js).
+function canvasStrokeForecast(ctx, path, css) {
+	const dpr = canvasView.dpr;
+	let offset = FORECAST_DASH_SPAN - (path.dist + FORECAST_DASH[1]) % FORECAST_DASH_SPAN;
+	ctx.strokeStyle = css;
+	for (let k = 1; k < path.n; k++) {
+		const dx = path.x[k] - path.x[k - 1];
+		const dy = path.y[k] - path.y[k - 1];
+		const len = Math.sqrt(dx * dx + dy * dy);
+		const ux = dpr * dx / len;
+		const uy = dpr * dy / len;
+		ctx.setTransform(ux, uy, -uy, ux, dpr * path.x[k - 1], dpr * path.y[k - 1]);
+		ctx.lineDashOffset = offset;
+		ctx.beginPath();
+		ctx.moveTo(0, 0);
+		ctx.lineTo(len, 0);
+		ctx.stroke();
+		offset = (offset + len) % FORECAST_DASH_SPAN;
+	}
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 if (typeof module !== 'undefined') module.exports = {
@@ -238,5 +248,8 @@ if (typeof module !== 'undefined') module.exports = {
 	GOAL_RING_W,
 	GOAL_DIM_ALPHA,
 	IMPACT_CAP,
-	IMPACT_TTL
+	IMPACT_TTL,
+	FORECAST_ALPHA,
+	FORECAST_DASH,
+	FORECAST_REACH_SHARE
 };

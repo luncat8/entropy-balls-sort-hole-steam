@@ -68,9 +68,9 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | balls fly without friction | shipped | `simulation.js` |
 | random ball colors with good saturation and light | shipped | `color.js`; six palette hues with random S/L, not a full wheel |
 | warm/cold/near-target color tests | shipped | `color.js` |
-| draw the trajectory of balls heading for the wall, in the ball's color | shipped | `canvas.js` |
-| predicted position and trajectory lines, off by default where noted | shipped | `canvas.js` |
-| slow fade hit spot after a hit | shipped | `canvas.js` |
+| draw the trajectory of balls heading for the wall, in the ball's color | shipped | `trajectory.js` traces, `canvas.js` draws: a dashed line through screen-edge bounces that ends on the plate or runs through the hole, and fades with the flight left, plan 0.6 |
+| predicted position and trajectory lines, off by default where noted | shipped | `canvas.js`: the plate mark (the ball's diameter, or the tip of a lip it clips) and the line come from one trace; both on by default, plan 0.6 |
+| slow fade hit spot after a hit | shipped | `canvas.js`, off by default; marks the same rectangle the forecast did |
 
 ## Status and help
 
@@ -116,4 +116,6 @@ gui.3 closed the ball-size, random-size and collision gaps. Plan 2.5 closed the 
 threshold can now be read against the named chamber or against every ball of the category, and the six
 palette ranges cover the draft's "similar to a random color" target. The light theme and the
 ball-generation slider are the settings left; the bot's next measurable gain is pricing ball-to-ball
-collisions in its lane score, because a 2.5 s forecast is still optimistic in a colliding field.
+collisions in its lane score, because a 2.5 s forecast is still optimistic in a colliding field. Plan
+0.6 put numbers on that optimism: a forecast made 400–500 shares ahead comes true 43 % of the time at 24
+balls, and one crossing in six that fits at the centre line is turned back at first touch.
