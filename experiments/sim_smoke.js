@@ -181,7 +181,7 @@ cv.canvasDrawOptions.trajectoryLines = true;
 ctx2d.calls.length = 0;
 cv.canvasDraw(0);
 check('forecast option: trajectory line can show without position mark',
-	!hasRectCall(sim.simField.wallX - sim.simField.wallT / 2, 386, sim.simField.wallT, 28) && countCalls('stroke') === 1);
+	!hasRectCall(sim.simField.wallX - sim.simField.wallT / 2, 386, sim.simField.wallT, 28) && countCalls('stroke') === 2);
 
 freshWorld();
 sim.simAperture.y = 400;

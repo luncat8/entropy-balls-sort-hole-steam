@@ -12,17 +12,17 @@ const FORECAST_W = 2;
 const FORECAST_DASH = [8, 8];
 const FORECAST_DASH_SPAN = FORECAST_DASH[0] + FORECAST_DASH[1];
 const FORECAST_SOLID = [];
-// A cue is drawn while its ball's flight to the divider is inside this reach, and its opacity falls
-// linearly to zero at it, so brightness says how far a forecast can be trusted: with ball contacts on and
-// the default 24 balls, one made under 100 shares ahead comes true 94 % of the time, 300-400 ahead 53 %,
-// 600-700 ahead 30 % (experiments/forecast_probe.js).
-const FORECAST_REACH_SHARE = 700;
+// Fade over the live mean free path; beyond four paths the cue is nearly invisible.
+// With contacts off there is no contact fade.
 const GOAL_RING = 'rgba(237, 240, 246, 0.9)';
 const GOAL_RING_W = 2;
 const GOAL_DIM_ALPHA = 0.35;
 
 const canvasView = { dpr: 1, w: 0, h: 0 };
-const canvasDrawOptions = { predictedPosition: true, trajectoryLines: true, slowFadeHitSpot: false };
+const canvasDrawOptions = {
+	predictedPosition: true, trajectoryLines: true, slowFadeHitSpot: false,
+	drawPassLines: false, prototypeDash: true
+};
 
 const impactMarks = {
 	x: new Float32Array(IMPACT_CAP),
@@ -42,6 +42,8 @@ let goalBallsHook = null;
 let predictedPositionInput = null;
 let trajectoryLinesInput = null;
 let slowFadeHitSpotInput = null;
+let passLinesInput = null;
+let prototypeDashInput = null;
 
 function canvasInit() {
 	cvEl = $('canv');
@@ -56,12 +58,18 @@ function canvasInitDrawOptions() {
 	predictedPositionInput = $('draw-predicted-position');
 	trajectoryLinesInput = $('draw-trajectory-lines');
 	slowFadeHitSpotInput = $('draw-slow-fade-hit-spot');
+	passLinesInput = $('draw-pass-lines');
+	prototypeDashInput = $('draw-prototype-dash');
 	predictedPositionInput.checked = canvasDrawOptions.predictedPosition;
 	trajectoryLinesInput.checked = canvasDrawOptions.trajectoryLines;
 	slowFadeHitSpotInput.checked = canvasDrawOptions.slowFadeHitSpot;
+	passLinesInput.checked = canvasDrawOptions.drawPassLines;
+	prototypeDashInput.checked = canvasDrawOptions.prototypeDash;
 	predictedPositionInput.addEventListener('change', canvasPredictedPositionChanged);
 	trajectoryLinesInput.addEventListener('change', canvasTrajectoryLinesChanged);
 	slowFadeHitSpotInput.addEventListener('change', canvasSlowFadeHitSpotChanged);
+	passLinesInput.addEventListener('change', canvasPassLinesChanged);
+	prototypeDashInput.addEventListener('change', canvasPrototypeDashChanged);
 }
 
 function canvasPredictedPositionChanged() {
@@ -75,6 +83,24 @@ function canvasTrajectoryLinesChanged() {
 function canvasSlowFadeHitSpotChanged() {
 	canvasDrawOptions.slowFadeHitSpot = slowFadeHitSpotInput.checked;
 	if (!canvasDrawOptions.slowFadeHitSpot) impactMarks.age.fill(IMPACT_TTL + 1);
+}
+
+function canvasPassLinesChanged() {
+	canvasDrawOptions.drawPassLines = passLinesInput.checked;
+}
+
+function canvasPrototypeDashChanged() {
+	canvasDrawOptions.prototypeDash = prototypeDashInput.checked;
+}
+
+// Estimate the live field's mean free path using the actual ball radii and field area.
+function canvasForecastReach() {
+	const n = simBalls.count;
+	if (!simBallCollisions || n < 2) return Infinity;
+	let radii = 0;
+	for (let i = 0; i < n; i++) radii += simBalls.r[i];
+	if (radii <= 0) return Infinity;
+	return simField.w * simField.h / (Math.SQRT2 * 4 * (radii / n) * n);
 }
 
 // The backing store scales with the device pixel ratio, the world does not: the field is the CSS
@@ -190,37 +216,55 @@ function canvasFillWallPatch(ctx, faceX, centerY, radius, side) {
 // one trace per ball feeds both cues, so the patch on the plate and the line that leads to it cannot disagree
 function canvasDrawForecasts(ctx, showPosition, showLines) {
 	if (!showPosition && !showLines) return;
-	const reach = simPx(FORECAST_REACH_SHARE);
+	const reach = canvasForecastReach();
 	ctx.lineWidth = FORECAST_W;
 	ctx.setLineDash(FORECAST_DASH);
 	for (let i = 0; i < simBalls.count; i++) {
 		const r = simBalls.r[i];
-		const end = trajTrace(simBalls.x[i], simBalls.y[i], simBalls.vx[i], simBalls.vy[i], r, reach, trajPath);
+		const end = trajTrace(simBalls.x[i], simBalls.y[i], simBalls.vx[i], simBalls.vy[i], r, reach * 4, trajPath);
 		if (end === TRAJ_NONE) continue;
-		ctx.globalAlpha = FORECAST_ALPHA * (1 - trajPath.dist / reach);
+		ctx.globalAlpha = reach === Infinity ? FORECAST_ALPHA : FORECAST_ALPHA * Math.exp(-trajPath.dist / reach);
 		if (showPosition && end === TRAJ_HIT) {
 			ctx.fillStyle = simBalls.css[i];
 			const faceX = simField.wallX + trajPath.side * simField.wallT / 2;
 			canvasFillWallPatch(ctx, faceX, trajPath.y[trajPath.n - 1], r, trajPath.side);
 		}
-		if (showLines) canvasStrokeForecast(ctx, trajPath, simBalls.css[i]);
+		if (showLines && (end === TRAJ_HIT || canvasDrawOptions.drawPassLines)) {
+			canvasStrokeForecast(ctx, trajPath, simBalls.css[i]);
+		}
 	}
 	ctx.setLineDash(FORECAST_SOLID);
 }
 
-// The dash pattern is pinned to the spot where the ball first touches the divider, not to the ball: the
-// dashes stand still in the field and the ball eats them, so the only things moving on screen are balls.
-// Each leg is stroked on its own, as a level line in a frame turned along it: Chromium's GPU canvas
-// dashes only that shape in a shader and cuts any other dashed path into pieces on the CPU every frame,
-// two to three times the frame's raster cost (plan 0.6, experiments/forecast_raster.js).
+// Two dash anchors: the prototype's, where the pattern starts at the ball and moves with it, and the
+// field's, where it is pinned to the spot the ball first touches the divider so the dashes stand still
+// and the ball eats them. Each leg is stroked on its own, as a level line in a frame turned along it:
+// Chromium's GPU canvas dashes only that shape in a shader and cuts any other dashed path into pieces
+// on the CPU every frame, two to three times the frame's raster cost (plan 0.6, forecast_raster.js).
 function canvasStrokeForecast(ctx, path, css) {
 	const dpr = canvasView.dpr;
-	let offset = FORECAST_DASH_SPAN - (path.dist + FORECAST_DASH[1]) % FORECAST_DASH_SPAN;
+	let offset = canvasDrawOptions.prototypeDash ? 0
+		: FORECAST_DASH_SPAN - (path.dist + FORECAST_DASH[1]) % FORECAST_DASH_SPAN;
 	ctx.strokeStyle = css;
 	for (let k = 1; k < path.n; k++) {
-		const dx = path.x[k] - path.x[k - 1];
-		const dy = path.y[k] - path.y[k - 1];
+		let endX = path.x[k];
+		let endY = path.y[k];
+		if (k === path.n - 1 && path.end === TRAJ_HIT) {
+			// Extend the centre forecast to the visible face, including a lip hit.
+			const faceX = simField.wallX + path.side * simField.wallT / 2;
+			const half = simAperture.size / 2;
+			const top = simAperture.y - half;
+			const bottom = simAperture.y + half;
+			const dx = endX - path.x[k - 1];
+			const dy = endY - path.y[k - 1];
+			if (dx) endY += dy * (faceX - endX) / dx;
+			if (endY > top && endY < bottom) endY = endY < simAperture.y ? top : bottom;
+			endX = faceX;
+		}
+		const dx = endX - path.x[k - 1];
+		const dy = endY - path.y[k - 1];
 		const len = Math.sqrt(dx * dx + dy * dy);
+		if (len < 1e-9) continue;
 		const ux = dpr * dx / len;
 		const uy = dpr * dy / len;
 		ctx.setTransform(ux, uy, -uy, ux, dpr * path.x[k - 1], dpr * path.y[k - 1]);
@@ -229,6 +273,16 @@ function canvasStrokeForecast(ctx, path, css) {
 		ctx.moveTo(0, 0);
 		ctx.lineTo(len, 0);
 		ctx.stroke();
+		// A moving dash can end in a gap. Finish the hit with a short solid tip so it
+		// always meets the wall without changing the moving pattern on the flight.
+		if (k === path.n - 1 && path.end === TRAJ_HIT) {
+			ctx.setLineDash(FORECAST_SOLID);
+			ctx.beginPath();
+			ctx.moveTo(Math.max(0, len - FORECAST_W * 2), 0);
+			ctx.lineTo(len, 0);
+			ctx.stroke();
+			ctx.setLineDash(FORECAST_DASH);
+		}
 		offset = (offset + len) % FORECAST_DASH_SPAN;
 	}
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -244,12 +298,12 @@ if (typeof module !== 'undefined') module.exports = {
 	canvasDraw,
 	canvasAddImpact,
 	canvasSetGoalHook,
+	canvasForecastReach,
 	GOAL_RING,
 	GOAL_RING_W,
 	GOAL_DIM_ALPHA,
 	IMPACT_CAP,
 	IMPACT_TTL,
 	FORECAST_ALPHA,
-	FORECAST_DASH,
-	FORECAST_REACH_SHARE
+	FORECAST_DASH
 };

@@ -4,22 +4,22 @@
 // Every key is one table entry, so one path reads, encodes and clamps all of them. Sizes and speeds
 // are shares of the field scale in thousandths, so the screen size never changes what the settings mean.
 const SETTINGS_KEYS = ['friction', 'humans', 'bots', 'balls', 'ballSpeed', 'ballSize', 'ballVaried', 'collisions',
-	'holeSize', 'holeSpeed', 'energyCost', 'energyStore'];
+	'holeSize', 'holeSpeed', 'energyCost', 'energyStore', 'generation'];
 const settingsDefaults = {
 	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT,
 	ballVaried: true, collisions: true,
-	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY
+	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY, generation: 100
 };
 const settingsState = {
 	friction: false, humans: 1, bots: 0, balls: 24, ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT,
 	ballVaried: true, collisions: true,
-	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY
+	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY, generation: 100
 };
 const settingsUi = {
 	friction: null, humans: null, balls: null, ballSpeed: null, ballSize: null, ballVaried: null, collisions: null,
 	holeSize: null, holeSpeed: null, energyCost: null, energyStore: null,
 	ballsValue: null, ballSpeedValue: null, ballSizeValue: null, holeSizeValue: null, holeSpeedValue: null,
-	energyCostValue: null, energyStoreValue: null, urlWrap: null, url: null
+	energyCostValue: null, energyStoreValue: null, generation: null, generationValue: null, urlWrap: null, url: null
 };
 
 function settingsNumber(raw, min, max, step) {
@@ -68,6 +68,10 @@ function settingsNormalize(key, raw) {
 			const value = settingsNumber(raw, 5, 80, 1);
 			return value === undefined ? settingsDefaults.energyCost : value;
 		}
+		case 'generation': {
+			const value = settingsNumber(raw, 0, 300, 5);
+			return value === undefined ? settingsDefaults.generation : value;
+		}
 		case 'energyStore': {
 			const value = settingsNumber(raw, 25, 300, 5);
 			return value === undefined ? settingsDefaults.energyStore : value;
@@ -90,6 +94,7 @@ function settingsEncode(key, value) {
 		case 'holeSpeed': return value === settingsDefaults.holeSpeed ? undefined : String(value);
 		case 'energyCost': return value === settingsDefaults.energyCost ? undefined : String(value);
 		case 'energyStore': return value === settingsDefaults.energyStore ? undefined : String(value);
+		case 'generation': return value === settingsDefaults.generation ? undefined : String(value);
 	}
 	return undefined;
 }
@@ -134,6 +139,10 @@ function settingsInit() {
 	settingsUi.holeSpeedValue = $('settings-hole-speed-value');
 	settingsUi.energyCostValue = $('settings-energy-cost-value');
 	settingsUi.energyStoreValue = $('settings-energy-store-value');
+	settingsUi.generation = $('settings-generation');
+	settingsUi.generationValue = $('settings-generation-value');
+	settingsUi.generation.addEventListener('input', () => settingsSetGeneration(Number(settingsUi.generation.value), true));
+	$('settings-copy-link').addEventListener('click', settingsCopyLink);
 	settingsUi.urlWrap = $('settings-url-wrap');
 	settingsUi.url = $('settings-url');
 	settingsUi.friction.addEventListener('change', settingsFrictionChanged);
@@ -214,6 +223,8 @@ function settingsSync() {
 	settingsUi.holeSpeedValue.textContent = settingsPercent(settingsState.holeSpeed) + ' %/s';
 	settingsUi.energyCostValue.textContent = settingsState.energyCost + '/s';
 	settingsUi.energyStoreValue.textContent = String(settingsState.energyStore);
+	settingsUi.generation.value = String(settingsState.generation);
+	settingsUi.generationValue.textContent = settingsState.generation + '/min';
 }
 
 function settingsApply(values, updateUrl) {
@@ -242,6 +253,7 @@ function settingsApply(values, updateUrl) {
 	settingsState.holeSpeed = holeSpeed;
 	settingsState.energyCost = energyCost;
 	settingsState.energyStore = energyStore;
+	settingsState.generation = settingsNormalize('generation', values.generation);
 	settingsSync();
 	simSetFriction(settingsState.friction);
 	simSetBallSpeed(settingsState.ballSpeed);
@@ -251,6 +263,7 @@ function settingsApply(values, updateUrl) {
 	simSetApertureSpeed(settingsState.holeSpeed);
 	forceSetCost(settingsState.energyCost);
 	forceSetCapacity(settingsState.energyStore);
+	simSetSpawnRate(settingsState.generation / 60);
 	if (simSetBallCount(settingsState.balls)) tasksRegenerate();
 	if (rebuild) settingsRebuild();
 	if (updateUrl) settingsWriteUrl();
@@ -318,7 +331,11 @@ function settingsSetEnergyStore(energyStore, updateUrl) {
 	settingsApply({ ...settingsState, energyStore }, updateUrl);
 }
 
-function settingsWriteUrl() {
+function settingsSetGeneration(generation, updateUrl) {
+	settingsApply({ ...settingsState, generation }, updateUrl);
+}
+
+function settingsUrl() {
 	const url = new URL(window.location.href);
 	for (let i = 0; i < SETTINGS_KEYS.length; i++) {
 		const key = SETTINGS_KEYS[i];
@@ -327,12 +344,31 @@ function settingsWriteUrl() {
 		if (encoded === undefined) url.searchParams.delete(param);
 		else url.searchParams.set(param, encoded);
 	}
+	return url.href;
+}
+
+function settingsCopyLink() {
+	const href = settingsUrl();
+	if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+		navigator.clipboard.writeText(href).catch(() => settingsShowUrl(href));
+	} else settingsShowUrl(href);
+}
+
+function settingsShowUrl(href) {
+	settingsUi.url.value = href;
+	settingsUi.urlWrap.hidden = false;
+	settingsUi.url.focus();
+	settingsUi.url.select();
+}
+
+function settingsWriteUrl() {
+	const href = settingsUrl();
 	try {
-		window.history.replaceState(window.history.state, '', url.href);
+		window.history.replaceState(window.history.state, '', href);
 		settingsUi.urlWrap.hidden = true;
 	} catch (error) {
 		// Some file:// browsers reject query replacement; the copyable URL still restores the settings.
-		settingsUi.url.value = url.href;
+		settingsUi.url.value = href;
 		settingsUi.urlWrap.hidden = false;
 	}
 }

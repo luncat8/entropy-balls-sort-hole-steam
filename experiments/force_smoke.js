@@ -470,6 +470,17 @@ check('settings: rejected file URL updates expose a copyable restoring URL', !st
 	&& stubs.els['settings-url'].value === 'file:///tmp/game/index.html?other=keep&friction=1#field');
 stubs.win.history.replaceState = replaceState;
 
+stubs.els['settings-generation'].value = '0';
+stubs.els['settings-generation'].dispatch('input');
+check('settings: generation slider persists and accepts zero',
+	settings.settingsState.generation === 0 && stubs.win.location.search.includes('generation=0')
+	&& settings.settingsFromSearch('?generation=150').generation === 150);
+settings.settingsApply({ ...settings.settingsState, generation: 100 }, true);
+check('settings: default generation is omitted', !stubs.win.location.search.includes('generation='));
+stubs.els['settings-copy-link'].dispatch('click');
+check('settings: copy fallback exposes a restoring URL', !stubs.els['settings-url-wrap'].hidden
+	&& stubs.els['settings-url'].value === stubs.win.location.href);
+
 // plan 0.5: aperture and energy settings share the same normalize/encode/apply path
 check('settings: hole size clamps, round-trips and omits its default',
 	settings.settingsFromSearch('?hole=240').holeSize === 240

@@ -218,75 +218,68 @@ check('trace: random shots end the way the stepped simulation ends them', traced
 
 world(100);
 shoot(300, 400, 200, 0);
+check('options: pass lines default off and moving dashes default on',
+	!cv.canvasDrawOptions.drawPassLines && cv.canvasDrawOptions.prototypeDash);
 draw();
-const stroke = callsOf('stroke')[0];
-const reach = sim.simPx(cv.FORECAST_REACH_SHARE);
-const span = cv.FORECAST_DASH[0] + cv.FORECAST_DASH[1];
-check('cue: the forecast is one dashed stroke in the ball colour',
-	callsOf('stroke').length === 1 && stateAt(stroke, 'setLineDash')[0] === cv.FORECAST_DASH && stroke.strokeStyle === CSS);
-check('cue: the frame hands back a solid line style', callsOf('setLineDash').pop().args[0].length === 0);
-check('cue: a whole dash ends where the ball first touches the divider',
-	near((286 + stroke.lineDashOffset) % span, cv.FORECAST_DASH[0], 1e-6));
-check('cue: opacity is the share of the reach still ahead',
-	near(stroke.globalAlpha, cv.FORECAST_ALPHA * (1 - 286 / reach), 1e-6)
-	&& patchCalls().length === 1 && patchCalls()[0].globalAlpha === stroke.globalAlpha);
+let lines = legs();
+check('cue: hit line and its solid tip reach the wall face',
+	lines.length === 2 && near(lines[0].x1, field.wallX - field.wallT / 2)
+	&& near(lines[1].x1, field.wallX - field.wallT / 2));
+check('cue: prototype dashes start at the ball', near(lines[0].offset, 0));
+check('cue: no contacts keeps forecasts fully bright', near(callsOf('stroke')[0].globalAlpha, cv.FORECAST_ALPHA));
 balls.x[0] = 305;
 draw();
-const later = callsOf('stroke')[0];
-check('cue: dashes stand still, the pattern shifts by exactly the distance flown',
-	near((later.lineDashOffset - stroke.lineDashOffset + span) % span, 5, 1e-6));
-check('cue: a nearer ball draws a brighter cue', later.globalAlpha > stroke.globalAlpha);
-
-world(100);
-shoot(100, 100, 150, 150);
+check('cue: prototype dashes follow the ball', near(legs()[0].offset, 0));
+cv.canvasDrawOptions.prototypeDash = false;
+balls.x[0] = 300;
 draw();
-const farStrokes = callsOf('stroke').length + patchCalls().length;
-shoot(110, 110, 150, 150);
+const pinned = legs()[0].offset;
+balls.x[0] = 305;
 draw();
-check('cue: a flight longer than the reach draws nothing, a shorter one fades in',
-	farStrokes === 0 && callsOf('stroke').length === 1 && callsOf('stroke')[0].globalAlpha < 0.05);
+const span = cv.FORECAST_DASH[0] + cv.FORECAST_DASH[1];
+check('cue: unchecked dash mode stays pinned to the field',
+	near((legs()[0].offset - pinned + span) % span, 5));
+cv.canvasDrawOptions.prototypeDash = true;
 
 world(600);
 shoot(200, 100, 150, -150);
 draw();
-const bounce = legs();
-check('cue: the line follows the bounce, one stroke per leg',
-	bounce.length === 2 && near(bounce[0].x0, 200) && near(bounce[0].y0, 100) && near(bounce[0].x1, 286) && near(bounce[0].y1, R)
-	&& near(bounce[1].x0, 286) && near(bounce[1].y0, R) && near(bounce[1].x1, field.wallX - R) && near(bounce[1].y1, 314));
-check('cue: past a bounce the dashes are still counted from the first touch of the divider',
-	near((300 * Math.SQRT2 + bounce[1].offset) % span, cv.FORECAST_DASH[0], 1e-3));
-check('cue: a leg is a level two-point line in a frame turned along it', bounce.every(levelLeg));
-
-// two balls: the second one's plate mark is filled after the first one's line was stroked
-world(100);
-shoot(300, 400, 200, 0);
-balls.x[1] = 900;
-balls.y[1] = 500;
-balls.vx[1] = -200;
-balls.vy[1] = 60;
-balls.r[1] = R;
-balls.css[1] = CSS;
-balls.count = 2;
-draw();
-check('cue: the field frame is back for whatever is drawn after a line',
-	legs().length === 2 && patchCalls().length === 2 && callsOf('arc').length === 2
-	&& patchCalls().every(fieldFrame) && callsOf('arc').every(fieldFrame));
-
-world(100);
-shoot(300, 400, 200, 0);
-cv.canvasView.dpr = 2;
-draw();
-const dense = legs();
-check('cue: on a dense screen the leg frame carries the pixel ratio, so the line stays on its ball',
-	dense.length === 1 && levelLeg(dense[0]) && near(dense[0].frame[4], 600) && near(dense[0].frame[5], 800)
-	&& near(dense[0].x1, field.wallX - R) && fieldFrame(callsOf('arc')[0]));
-cv.canvasView.dpr = 1;
+lines = legs();
+check('cue: forecast follows edge bounce and ends at wall',
+	lines.length === 3 && near(lines[0].x1, 286) && near(lines[0].y1, R)
+	&& near(lines[1].x0, 286) && near(lines[1].x1, field.wallX - field.wallT / 2));
+check('cue: all legs are GPU-friendly level strokes', lines.slice(0, 2).every(levelLeg));
+check('cue: frame and solid line style are restored',
+	fieldFrame(callsOf('arc')[0]) && callsOf('setLineDash').pop().args[0].length === 0);
 
 world(400);
 shoot(300, 400, 200, 0);
 draw();
-check('cue: a pass is a line through the opening with no mark on the plate',
+check('cue: passes are hidden by default', legs().length === 0 && patchCalls().length === 0);
+stubs.els['draw-pass-lines'].checked = true;
+stubs.els['draw-pass-lines'].dispatch('change');
+draw();
+check('cue: enabled passes cross the opening without a mark',
 	legs().length === 1 && near(legs()[0].x1, field.wallX + R) && patchCalls().length === 0);
+stubs.els['draw-pass-lines'].checked = false;
+stubs.els['draw-pass-lines'].dispatch('change');
+stubs.els['draw-prototype-dash'].checked = false;
+stubs.els['draw-prototype-dash'].dispatch('change');
+check('cue: controls update both options', !cv.canvasDrawOptions.drawPassLines && !cv.canvasDrawOptions.prototypeDash);
+cv.canvasDrawOptions.prototypeDash = true;
+
+world(100);
+shoot(300, 400, 200, 0);
+balls.count = 2;
+balls.r[1] = R;
+sim.simSetBallCollisions(true);
+const mfp = field.w * field.h / (Math.SQRT2 * 4 * R * 2);
+check('cue: reach uses live area, radii and count', near(cv.canvasForecastReach(), mfp));
+draw();
+check('cue: contacts fade exponentially with flight distance',
+	near(callsOf('stroke')[0].globalAlpha, cv.FORECAST_ALPHA * Math.exp(-286 / mfp), 1e-6));
+sim.simSetBallCollisions(false);
+check('cue: no contacts means unlimited reach', cv.canvasForecastReach() === Infinity);
 
 function tipIs(call, y) {
 	return near(call.args[0], field.wallX - field.wallT / 2) && near(call.args[1], y)
@@ -296,6 +289,9 @@ world(400);
 shoot(704, 120, -60, 200);
 draw();
 const lowerTip = patchCalls();
+check('cue: lip hit reaches the visible lip', legs().length > 0
+	&& near(legs()[legs().length - 1].x1, field.wallX + field.wallT / 2)
+	&& near(legs()[legs().length - 1].y1, hole.y + hole.size / 2));
 shoot(704, 680, -60, -200);
 draw();
 check('cue: a lip clip lights the tip of the lip it hits',

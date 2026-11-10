@@ -52,7 +52,9 @@
 				<span class="draw-options-heading">Wall cues · before hit</span>
 				<label><input id="draw-predicted-position" type="checkbox" checked> Predicted position</label>
 				<label><input id="draw-trajectory-lines" type="checkbox" checked> Trajectory lines</label>
-				<span class="settings-note">A line through the hole is a ball that will pass. Lines brighten as the ball gets near: a long flight can still be knocked off course.</span>
+				<label><input id="draw-pass-lines" type="checkbox"> Draw trajectories that cross hole</label>
+				<label><input id="draw-prototype-dash" type="checkbox" checked> Dash movement like prototype</label>
+				<span class="settings-note">Lines brighten as the ball gets near: a long flight can still be knocked off course. Dashes move with the ball like the prototype; uncheck to pin them to the field.</span>
 			</div>
 			<div class="draw-options-group">
 				<span class="draw-options-heading">Wall cues · after hit</span>
@@ -83,15 +85,18 @@
 				<input id="settings-ball-speed" type="range" min="50" max="350" step="5" value="180">
 				<label class="settings-range-label" for="settings-ball-size"><span>Ball size</span><output id="settings-ball-size-value" for="settings-ball-size">1.4 %</output></label>
 				<input id="settings-ball-size" type="range" min="6" max="26" step="1" value="14">
+				<label class="settings-range-label" for="settings-generation"><span>Ball generation at limit 24</span><output id="settings-generation-value" for="settings-generation">100/min</output></label>
+				<input id="settings-generation" type="range" min="0" max="300" step="5" value="100">
 				<label><input id="settings-ball-varied" type="checkbox" checked> Random sizes</label>
 				<label><input id="settings-collisions" type="checkbox" checked> Ball collisions</label>
-				<span class="settings-note">Changes apply to the live field. New balls arrive gradually.</span>
+				<span class="settings-note">Changes apply to the live field. Generation scales with the ball count limit.</span>
 			</div>
 			<div class="draw-options-group">
 				<span class="draw-options-heading">Second player</span>
 				<label><input id="settings-humans" type="checkbox"> Enable player 2</label>
 				<span class="settings-note">Use the Bot checkboxes in the player table to automate either player. Each bot draws a character: Profit plays for its own completions, Denier closes the crossings the opponent needs. Two humans: Player 1 uses mouse, touch and wheel; Player 2 uses ↑↓ and holds →.</span>
 			</div>
+			<button id="settings-copy-link" type="button">Copy settings link</button>
 			<div class="draw-options-group settings-url" id="settings-url-wrap" hidden>
 				<label for="settings-url">Copy settings URL</label>
 				<input id="settings-url" type="text" readonly>
