@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Split Field</title>
+<style>
+html,body{margin:0;height:100%;background:#0d0f14;overflow:hidden}
+canvas{display:block;width:100vw;height:100vh;touch-action:none;cursor:ns-resize}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(() => {
+	const canvas = document.getElementById('c');
+	const ctx = canvas.getContext('2d');
+
+	const BALL_R = 10;
+	const BALL_COUNT = 14;
+	const WALL = 12;
+	const HOLE_H = 120;
+	const SPEED = 280;
+	const KEY_SPEED = 420;
+	const MAX_SPLATS = 400;
+
+	let W = 0, H = 0, midX = 0;
+	let holeY = 0, holeTarget = 0;
+	const balls = [];
+	const splats = [];
+	const keys = {};
+
+	const rand = (a, b) => a + Math.random() * (b - a);
+
+	function col(o, a) {
+		return `hsla(${o.hue},${o.sat}%,${o.light}%,${a})`;
+	}
+
+	function clampHole(y) {
+		const min = WALL + HOLE_H / 2;
+		const max = H - WALL - HOLE_H / 2;
+		return Math.max(min, Math.min(max, y));
+	}
+
+	function inHole(y) {
+		return Math.abs(y - holeY) < HOLE_H / 2;
+	}
+
+	function resize() {
+		const dpr = window.devicePixelRatio || 1;
+		W = window.innerWidth;
+		H = window.innerHeight;
+		canvas.width = W * dpr;
+		canvas.height = H * dpr;
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		midX = W / 2;
+		if (!balls.length) {
+			holeY = H / 2;
+			holeTarget = holeY;
+		}
+		holeY = clampHole(holeY);
+		holeTarget = clampHole(holeTarget);
+		for (const b of balls) {
+			b.x = Math.max(WALL + BALL_R, Math.min(W - WALL - BALL_R, b.x));
+			b.y = Math.max(WALL + BALL_R, Math.min(H - WALL - BALL_R, b.y));
+		}
+	}
+
+	function spawnBalls() {
+		for (let i = 0; i < BALL_COUNT; i++) {
+			const left = i % 2 === 0;
+			const x = left
+				? rand(WALL + BALL_R + 5, midX - BALL_R - 5)
+				: rand(midX + BALL_R + 5, W - WALL - BALL_R - 5);
+			const y = rand(WALL + BALL_R + 5, H - WALL - BALL_R - 5);
+			const angle = rand(0, Math.PI * 2);
+			const speed = SPEED * rand(0.7, 1.3);
+			balls.push({
+				x, y,
+				vx: Math.cos(angle) * speed,
+				vy: Math.sin(angle) * speed,
+				hue: Math.floor(rand(0, 360)),
+				sat: Math.round(rand(75, 100)),
+				light: Math.round(rand(58, 75))
+			});
+		}
+	}
+
+	function addSplat(b, y) {
+		splats.push({ y, hue: b.hue, sat: b.sat, light: b.light });
+		if (splats.length > MAX_SPLATS) splats.shift();
+	}
+
+	function moveBall(b, h) {
+		const r = BALL_R;
+		const L = midX - r;
+		const R = midX + r;
+		const px = b.x;
+
+		b.x += b.vx * h;
+		b.y += b.vy * h;
+
+		// outer walls
+		if (b.y - r < WALL) { b.y = WALL + r; b.vy = Math.abs(b.vy); }
+		if (b.y + r > H - WALL) { b.y = H - WALL - r; b.vy = -Math.abs(b.vy); }
+		if (b.x - r < WALL) { b.x = WALL + r; b.vx = Math.abs(b.vx); }
+		if (b.x + r > W - WALL) { b.x = W - WALL - r; b.vx = -Math.abs(b.vx); }
+
+		// central wall
+		if (!inHole(b.y)) {
+			if (px <= L && b.x > L) {
+				b.x = L;
+				b.vx = -Math.abs(b.vx);
+				addSplat(b, b.y);
+			} else if (px >= R && b.x < R) {
+				b.x = R;
+				b.vx = Math.abs(b.vx);
+				addSplat(b, b.y);
+			} else if (b.x > L && b.x < R) {
+				// stuck inside the wall zone after the hole moved: push out
+				if (px < midX) { b.x = L; b.vx = -Math.abs(b.vx); }
+				else { b.x = R; b.vx = Math.abs(b.vx); }
+				addSplat(b, b.y);
+			}
+		}
+	}
+
+	function update(dt) {
+		if (keys['ArrowUp'] || keys['KeyW']) holeTarget -= KEY_SPEED * dt;
+		if (keys['ArrowDown'] || keys['KeyS']) holeTarget += KEY_SPEED * dt;
+		holeTarget = clampHole(holeTarget);
+		holeY += (holeTarget - holeY) * Math.min(1, dt * 12);
+
+		const steps = Math.max(1, Math.ceil(SPEED * 1.3 * dt / 4));
+		const h = dt / steps;
+		for (const b of balls) {
+			for (let i = 0; i < steps; i++) moveBall(b, h);
+		}
+	}
+
+	// Predicts the path of a ball toward the central wall, including
+	// reflections off outer walls and passing through the hole.
+	function predict(b) {
+		const r = BALL_R;
+		const L = midX - r;
+		const R = midX + r;
+		let x = b.x, y = b.y, vx = b.vx, vy = b.vy;
+
+		// only balls moving toward the central wall get a trajectory
+		if (!((vx > 0 && x <= L) || (vx < 0 && x >= R))) return null;
+
+		const pts = [{ x, y }];
+		for (let i = 0; i < 60; i++) {
+			let tMin = Infinity;
+			let type = '';
+
+			let tC = Infinity;
+			if (vx > 0 && x <= L) tC = (L - x) / vx;
+			else if (vx < 0 && x >= R) tC = (R - x) / vx;
+			if (tC < tMin) { tMin = tC; type = 'c'; }
+
+			const xo = vx > 0 ? W - WALL - r : WALL + r;
+			const tX = vx !== 0 ? (xo - x) / vx : Infinity;
+			if (tX < tMin) { tMin = tX; type = 'x'; }
+
+			const yo = vy > 0 ? H - WALL - r : WALL + r;
+			const tY = vy !== 0 ? (yo - y) / vy : Infinity;
+			if (tY < tMin) { tMin = tY; type = 'y'; }
+
+			if (!isFinite(tMin)) break;
+
+			x += vx * tMin;
+			y += vy * tMin;
+
+			if (type === 'c') {
+				if (!inHole(y)) {
+					pts.push({ x, y });
+					return { pts, impact: { x: midX, y } };
+				}
+				// passes through the hole: nudge past the plane
+				x += Math.sign(vx) * 0.5;
+			} else if (type === 'x') {
+				x = xo;
+				vx = -vx;
+			} else {
+				y = yo;
+				vy = -vy;
+			}
+			pts.push({ x, y });
+		}
+		return { pts, impact: null };
+	}
+
+	function drawTrajectories() {
+		for (const b of balls) {
+			const p = predict(b);
+			if (!p || !p.impact) continue;
+
+			ctx.save();
+			ctx.setLineDash([8, 8]);
+			ctx.strokeStyle = col(b, 0.55);
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.moveTo(p.pts[0].x, p.pts[0].y);
+			for (let i = 1; i < p.pts.length; i++) {
+				ctx.lineTo(p.pts[i].x, p.pts[i].y);
+			}
+			ctx.stroke();
+			ctx.setLineDash([]);
+
+			ctx.strokeStyle = col(b, 0.9);
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.arc(p.impact.x, p.impact.y, 8, 0, Math.PI * 2);
+			ctx.stroke();
+			ctx.restore();
+		}
+	}
+
+	function draw() {
+		ctx.fillStyle = '#0d0f14';
+		ctx.fillRect(0, 0, W, H);
+
+		// field background
+		ctx.fillStyle = '#161a23';
+		ctx.fillRect(WALL, WALL, W - 2 * WALL, H - 2 * WALL);
+
+		drawTrajectories();
+
+		// central wall with hole
+		const wallX = midX - WALL / 2;
+		const holeTop = holeY - HOLE_H / 2;
+		const holeBottom = holeY + HOLE_H / 2;
+		ctx.fillStyle = '#9aa3b5';
+		ctx.fillRect(wallX, WALL, WALL, holeTop - WALL);
+		ctx.fillRect(wallX, holeBottom, WALL, H - WALL - holeBottom);
+
+		// hole glow
+		ctx.fillStyle = 'rgba(120,200,255,0.08)';
+		ctx.fillRect(wallX - 4, holeTop, WALL + 8, HOLE_H);
+
+		// splats on the central wall
+		for (const s of splats) {
+			ctx.fillStyle = `hsla(${s.hue},${s.sat}%,${s.light}%,0.9)`;
+			ctx.beginPath();
+			ctx.arc(midX, s.y, 5, 0, Math.PI * 2);
+			ctx.fill();
+		}
+
+		// outer walls
+		ctx.fillStyle = '#9aa3b5';
+		ctx.fillRect(0, 0, W, WALL);
+		ctx.fillRect(0, H - WALL, W, WALL);
+		ctx.fillRect(0, 0, WALL, H);
+		ctx.fillRect(W - WALL, 0, WALL, H);
+
+		// balls
+		for (const b of balls) {
+			ctx.save();
+			ctx.shadowBlur = 18;
+			ctx.shadowColor = col(b, 0.8);
+			ctx.fillStyle = col(b, 1);
+			ctx.beginPath();
+			ctx.arc(b.x, b.y, BALL_R, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.restore();
+		}
+	}
+
+	window.addEventListener('keydown', e => {
+		keys[e.code] = true;
+		if (e.code === 'ArrowUp' || e.code === 'ArrowDown') e.preventDefault();
+	});
+	window.addEventListener('keyup', e => {
+		delete keys[e.code];
+	});
+	canvas.addEventListener('pointermove', e => {
+		holeTarget = clampHole(e.clientY);
+	});
+	canvas.addEventListener('pointerdown', e => {
+		holeTarget = clampHole(e.clientY);
+	});
+	window.addEventListener('resize', resize);
+
+	resize();
+	spawnBalls();
+
+	let last = performance.now();
+	function frame(now) {
+		const dt = Math.min(0.05, (now - last) / 1000);
+		last = now;
+		update(dt);
+		draw();
+		requestAnimationFrame(frame);
+	}
+	requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

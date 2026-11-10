@@ -1,5 +1,12 @@
-
 game field split by wallCentral with hole. user can move hole.
+
+
+balls fly in game field without friction, reflection from walls. walls also around game field.
+balls colors are random, mostly with good saturation and light.
+
+draw trajectory of balls that toward to central wall and hit spot with color of that ball.
+
+
 
 ## settings panel:
 settings save to url.
@@ -9,15 +16,21 @@ slider generation, storage
 slider balls size, average speed, same or random size
 checkbox balls collisions reflections,
 
-
-
-
-balls fly in game field without friction, reflection from walls. walls also around game field.
-balls colors are random, mostly with good saturation and light. need functions to check is color considered warm, cold, near some target, etc.
-
-draw trajectory of balls that toward to central wall and hit spot with color of that ball.
-
 hole same color as background. add white/dark theme settings
+
+
+### predicted hit spot 
+hit spot is segment of wall plate (rectangle faced to ball and same size as ball diameter)
+
+make option to draw:
+before hit:
+	[x] predicted position
+	[x] trajectory lines
+after hit:
+	[] slow fade hit spot
+	
+[x] is enabled by default
+[] is disabled by default
 
 
 
@@ -42,12 +55,6 @@ mouse wheel change force slider.
 no press mean this player no force applying
 
 draw force panels for each player (i can see what bot apply)
-
-##
-
-
-
-implement status bar for constant info and current help messages
 
 
 
@@ -75,22 +82,9 @@ Balance quests so they’re challenging but reasonably solvable. For example:
 
 >N% of LEFT should be Green - this is solvable if total green is sufficient. but hard solvable if total green is 2 and must firstly move all other balls from left to right.
 
+functions to check is color considered warm, cold, near some target, etc.
+
 Develop a difficulty metric to evaluate each quest and label its difficulty during generation. Use it to avoid quests that are excessively difficult or often solved by random immediately.
-
-
-
-## predicted hit spot 
-hit spot is segment of wall plate (rectangle faced to ball and same size as ball diameter)
-
-make option to draw:
-before hit:
-	[x] predicted position
-	[x] trajectory lines
-after hit:
-	[] slow fade hit spot
-	
-[x] is enabled by default
-[] is disabled by default
 
 
 ## quest list
@@ -109,15 +103,13 @@ quest list target color drawn options radio buttons (with preview of what option
 
 
 
-
 ## deferred
+
+status bar for constant info and current help messages
+
 
 add task list with few tasks generated to keep list full.
 player can sign to task
-
-
-
-
 
 
 
