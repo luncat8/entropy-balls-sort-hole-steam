@@ -106,6 +106,22 @@ check('passage: matching color crosses its painted region',
 territory.territoryState.hue[0] = mc.MODE_HUE[mc.MODE_BLUE];
 check('passage: other color is stopped by the same region',
 	territory.territoryPasses(0, contactY, 14) === false);
+check('paint: a mark is drawn one ball wide, centred on the wall and one contact tall', (() => {
+	const markY = territory.territoryState.gate + territory.territoryState.wallH * 0.96;
+	territory.territoryState.hue[0] = mc.MODE_HUE[mc.MODE_RED];
+	sim.simBalls.vx[0] = 100;
+	sim.simBalls.x[0] = sim.simField.wallX - 60;
+	territory.territoryDivider(0, markY, 14, -14);
+	stubs.ctx2d.calls.length = 0;
+	territory.territoryView.wall(stubs.ctx2d);
+	const mark = stubs.ctx2d.calls.find(c => c.method === 'fillRect'
+		&& c.fillStyle === mc.MODE_WALL_CSS[mc.MODE_RED]
+		&& c.args[1] < markY && c.args[1] + c.args[3] > markY);
+	const wide = sim.simBallConfig.radius * 2;
+	return !!mark && near(mark.args[2], wide, 1e-6)
+		&& near(mark.args[0], sim.simField.wallX - wide / 2, 1e-6)
+		&& near(mark.args[3], 28, 1e-3);
+})());
 
 // the trajectory hook shares the simulation's one passage predicate
 const redY = territory.territoryGuns[0].y;
@@ -189,8 +205,32 @@ check('gun: ray falloff is monotone and zero past reach',
 	&& gun.gunPullAccel(50, 5) > gun.gunPullAccel(50, 70)
 	&& gun.gunPullAccel(sim.simPx(700), 5) === 0);
 gun.gunSetForce(100);
-check('gun: push cap is field-relative in the 10-20 % range',
-	near(gun.gunPushStrength(), sim.simPx(150), 1));
+check('gun: push cap is field-relative at 4x the first 150 ‰/s tuning',
+	near(gun.gunPushStrength(), sim.simPx(600), 1));
+check('gun: the whole cursor range launches 4x the old strength', (() => {
+	const g = gun.gunState;
+	const before = len => Math.min(sim.simPx(150), len * 0.5);
+	gun.gunSetAim(g.x + 100, g.y + 100);
+	const shortLen = g.aimLen;
+	const shortPush = gun.gunPushStrength();
+	gun.gunSetAim(g.x + 1000, g.y + 1000);
+	return near(shortPush, before(shortLen) * 4, 1e-6)
+		&& near(gun.gunPushStrength(), before(g.aimLen) * 4, 1e-6);
+})());
+gun.gunSetForce(100);
+check('gun: a pulled ball leaves at twice the old 3x speed cap', (() => {
+	const g = gun.gunState;
+	gun.gunSetAim(g.x + 300, g.y + 400);
+	place(0, g.x + g.ux * 150, g.y + g.uy * 150, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	g.energy = g.energyCap;
+	g.pull = 1;
+	for (let k = 0; k < 30; k++) gun.gunStep(1 / 60);
+	g.pull = 0;
+	const speed = Math.sqrt(sim.simBalls.vx[0] * sim.simBalls.vx[0] + sim.simBalls.vy[0] * sim.simBalls.vy[0]);
+	sim.simBalls.count = 0;
+	return near(speed, sim.simBallConfig.speed * 6, 1e-6);
+})());
 gun.gunSetForce(60);
 
 // deterministic target selection: the ball nearer the aim ray wins
