@@ -5,11 +5,13 @@ const TERRITORY_GATE_SHARE = 120;
 const TERRITORY_SEED_SPAN = 0.09;
 const TERRITORY_ROOM_RATE = 110;
 const TERRITORY_PULL_REACH_SHARE = 420;
-const TERRITORY_PULL_ACC_SHARE = 900;
+const TERRITORY_PULL_ACC_SHARE = 1800;
 const TERRITORY_BEAM_SHARE = 80;
-const TERRITORY_PUSH_SHARE = 130;
+const TERRITORY_PUSH_SHARE = 520;
+const TERRITORY_PUSH_SLOPE = 2;
 const TERRITORY_GUN_MOVE_SHARE = 230;
-const TERRITORY_SPEED_CAP = 3;
+// a pulled ball is at the cap within a frame, so the cap is the pull strength a player feels (gun.js: 2x)
+const TERRITORY_SPEED_CAP = 6;
 const TERRITORY_CAPTURE_SHARE = 24;
 const TERRITORY_STORE_CAP = 3;
 const TERRITORY_FORCE_STEP = 5;
@@ -234,6 +236,11 @@ function territoryForceShare(id) {
 	return f / 100;
 }
 
+function territoryPushBase(g) {
+	const cap = simPx(TERRITORY_PUSH_SHARE);
+	return Math.min(cap, g.aimLen * TERRITORY_PUSH_SLOPE);
+}
+
 function territoryPullAccel(t, perp, id) {
 	const reach = territoryRayReach();
 	if (t <= 0 || t >= reach) return 0;
@@ -316,8 +323,7 @@ function territoryLaunchBall(id) {
 	const r = g.storeR[0];
 	const gap = simPx(TERRITORY_CAPTURE_SHARE);
 	const gx = territoryGunX(id);
-	const cap = simPx(TERRITORY_PUSH_SHARE);
-	const strength = Math.min(cap, g.aimLen * 0.5) * territoryForceShare(id);
+	const strength = territoryPushBase(g) * territoryForceShare(id);
 	if (strength <= 0) return -1;
 	const x = gx + g.ux * (r + gap);
 	const y = g.y + g.uy * (r + gap);
@@ -369,8 +375,7 @@ function territoryPush(id) {
 	if (g.target < 0 || g.target >= simBalls.count) return;
 	const i = g.target;
 	if (territoryBallOwner(i) !== MODE_NONE) return;
-	const cap = simPx(TERRITORY_PUSH_SHARE);
-	const strength = Math.min(cap, g.aimLen * 0.5) * territoryForceShare(id);
+	const strength = territoryPushBase(g) * territoryForceShare(id);
 	if (strength <= 0) return;
 	const pushCost = TERRITORY_PUSH_COST * territoryForceShare(id) * 0.5;
 	if (pushCost > 0 && g.energy < pushCost) return;
@@ -540,20 +545,28 @@ function territoryDrawRooms(ctx) {
 	if (typeof roomsDrawBackground !== 'undefined' && roomsState.enabled) { roomsDrawBackground(ctx); return; }
 }
 
+// a ball's paint on the wall is its own footprint: the contact already spans the ball's diameter along
+// the wall, so the painted band is one ball wide instead of the plate's thickness
+function territoryMarkWidth() {
+	return Math.max(simField.wallT, simBallConfig.radius * 2);
+}
+
 function territoryDrawWall(ctx) {
 	const p = territoryPaint;
-	const x = simField.wallX - simField.wallT / 2;
 	const t = simField.wallT;
+	const x = simField.wallX - t / 2;
+	const markW = territoryMarkWidth();
+	const markX = simField.wallX - markW / 2;
 	for (let k = 0; k < p.count; k++) {
 		if (p.h[k] <= 0) continue;
 		const owner = p.owner[k];
 		const blend = p.blend[k];
 		if (owner !== MODE_NONE && blend >= TP_MATCH_BLEND) {
 			ctx.fillStyle = MODE_PASS_FILL[owner];
-			ctx.fillRect(x, p.y[k], t, p.h[k]);
+			ctx.fillRect(markX, p.y[k], markW, p.h[k]);
 			ctx.strokeStyle = MODE_CSS[owner];
 			ctx.lineWidth = 1.5;
-			ctx.strokeRect(x + 0.5, p.y[k], t - 1, p.h[k]);
+			ctx.strokeRect(markX + 0.5, p.y[k], markW - 1, p.h[k]);
 			continue;
 		}
 		ctx.fillStyle = '#495263';
@@ -561,7 +574,7 @@ function territoryDrawWall(ctx) {
 		if (owner === MODE_NONE || blend <= 0) continue;
 		ctx.globalAlpha = blend * 0.7;
 		ctx.fillStyle = MODE_WALL_CSS[owner];
-		ctx.fillRect(x, p.y[k], t, p.h[k]);
+		ctx.fillRect(markX, p.y[k], markW, p.h[k]);
 		ctx.globalAlpha = 1;
 	}
 	ctx.fillStyle = '#9ba6ba';
