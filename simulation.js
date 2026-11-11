@@ -332,6 +332,23 @@ function simRemoveBall(i) {
 		simBalls.vx[i] = simBalls.vx[last]; simBalls.vy[i] = simBalls.vy[last];
 		simBalls.r[i] = simBalls.r[last]; simBalls.rgb[i] = simBalls.rgb[last];
 		simBalls.palette[i] = simBalls.palette[last]; simBalls.css[i] = simBalls.css[last];
+		if (typeof territoryState !== 'undefined' && territoryState.hue && territoryState.hueCount > 0) {
+			if (i < territoryState.hue.length && last < territoryState.hue.length) {
+				territoryState.hue[i] = territoryState.hue[last];
+				territoryState.bucket[i] = territoryState.bucket[last];
+			}
+			if (territoryState.hueCount > simBalls.count) territoryState.hueCount = simBalls.count - 1;
+		}
+		if (typeof roomsState !== 'undefined' && roomsState.hue && roomsState.hueCount > 0) {
+			if (i < roomsState.hue.length && last < roomsState.hue.length) {
+				roomsState.hue[i] = roomsState.hue[last];
+				roomsState.bucket[i] = roomsState.bucket[last];
+			}
+			if (roomsState.hueCount > simBalls.count) roomsState.hueCount = simBalls.count - 1;
+		}
+	} else {
+		if (typeof territoryState !== 'undefined' && territoryState.hueCount > 0 && territoryState.hueCount >= simBalls.count) territoryState.hueCount = simBalls.count - 1;
+		if (typeof roomsState !== 'undefined' && roomsState.hueCount > 0 && roomsState.hueCount >= simBalls.count) roomsState.hueCount = simBalls.count - 1;
 	}
 	simBalls.count = last;
 	simFillDist();
@@ -483,6 +500,7 @@ function simMoveBall(i, dt) {
 		simBalls.y[i] += simBalls.vy[i] * sdt;
 		simWallBounce(i);
 		simDividerTouch(i);
+		if (typeof roomsWallBounce !== 'undefined' && roomsState && roomsState.enabled) roomsWallBounce(i);
 	}
 }
 

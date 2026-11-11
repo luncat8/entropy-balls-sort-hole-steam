@@ -120,6 +120,7 @@ function canvasResize() {
 		canvasView.dpr = dpr;
 	}
 	simResizeField(cw, ch);
+	if (typeof roomsResize !== 'undefined' && roomsState && roomsState.count) roomsResize();
 	if (canvasModeHook && canvasModeHook.resize) canvasModeHook.resize();
 }
 
@@ -167,8 +168,8 @@ function canvasDraw(dtSec) {
 	ctx.globalAlpha = 1;
 	ctx.fillStyle = STYLE_BG;
 	ctx.fillRect(0, 0, canvasView.w, canvasView.h);
-	// the screen edge is the field boundary: balls reflect off it, so nothing is drawn there
 	ctx.setTransform(canvasView.dpr, 0, 0, canvasView.dpr, 0, 0);
+	if (typeof roomsDrawBackground !== 'undefined' && roomsState && roomsState.enabled) roomsDrawBackground(ctx);
 	if (canvasModeHook && canvasModeHook.background) canvasModeHook.background(ctx);
 	const f = simField;
 	const half = simAperture.size / 2;
@@ -178,6 +179,7 @@ function canvasDraw(dtSec) {
 		ctx.fillRect(f.wallX - f.wallT / 2, 0, f.wallT, simAperture.y - half);
 		ctx.fillRect(f.wallX - f.wallT / 2, simAperture.y + half, f.wallT, f.h - simAperture.y - half);
 	}
+	if (typeof roomsDrawWalls !== 'undefined' && roomsState && roomsState.enabled) roomsDrawWalls(ctx);
 	// impact and forecast cues describe live motion; a goal layer is a still frame, so they would lie
 	const goal = goalBallsHook ? goalBallsHook() : null;
 	if (!goal && canvasDrawOptions.slowFadeHitSpot) {

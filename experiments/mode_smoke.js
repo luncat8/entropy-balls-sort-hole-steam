@@ -124,15 +124,24 @@ check('trajectory: player-colored wall region highlights its forecast',
 	territory.territoryView.forecast(0, traj.TRAJ_HIT, hitPath) === 2
 	&& territory.territoryView.forecastCss() === mc.MODE_CSS[mc.MODE_RED]);
 
-// colored rooms gradually move a ball's hue toward the room color
+// colored rooms gradually move a ball's hue toward the room color (procedural, side-attached)
 territory.territorySetRooms(true);
-place(0, sim.simField.w * 0.18, sim.simField.h * 0.28, 0, 0, 14, 0);
+const rooms = apis['rooms.js'];
+let redRoom = null;
+for (let k = 0; k < rooms.roomsState.count; k++) if (rooms.roomsState.rooms[k].owner === mc.MODE_RED) { redRoom = rooms.roomsState.rooms[k]; break; }
+if (!redRoom) redRoom = rooms.roomsState.rooms[0];
+place(0, redRoom.tintX + redRoom.tintW * 0.5, redRoom.tintY + redRoom.tintH * 0.5, 0, 0, 14, 0);
 territory.territoryState.hue[0] = mc.MODE_HUE[mc.MODE_NONE];
 territory.territoryState.bucket[0] = mc.MODE_HUE[mc.MODE_NONE] | 0;
 sim.simBalls.rgb[0] = mc.modeColorRgb(135);
 for (let k = 0; k < 40; k++) territory.territorySimHook.afterBalls(0.05);
 check('rooms: a ball inside a red room becomes red',
 	territory.territoryBallOwner(0) === mc.MODE_RED && sim.simBalls.css[0] !== '#ffffff');
+check('rooms: rooms are side-attached and have walls with holes',
+	rooms.roomsState.count >= 3 && rooms.roomsState.count <= 5
+	&& rooms.roomsState.rooms.some(r => r.walls.length > 0)
+	&& rooms.roomsState.rooms.some(r => r.walls.length === 0 || r.type === 'tint')
+	&& rooms.roomsState.rooms.every(r => r.tintX === 0 || r.tintX + r.tintW >= sim.simField.w - 1 || r.tintY === 0 || r.tintY + r.tintH >= sim.simField.h - 1));
 territory.territorySetRooms(false);
 const hueOff = territory.territoryState.hue[0];
 territory.territorySimHook.afterBalls(0.5);
@@ -179,8 +188,10 @@ check('gun: ray falloff is monotone and zero past reach',
 	gun.gunPullAccel(50, 5) > gun.gunPullAccel(300, 5)
 	&& gun.gunPullAccel(50, 5) > gun.gunPullAccel(50, 70)
 	&& gun.gunPullAccel(sim.simPx(700), 5) === 0);
+gun.gunSetForce(100);
 check('gun: push cap is field-relative in the 10-20 % range',
 	near(gun.gunPushStrength(), sim.simPx(150), 1));
+gun.gunSetForce(60);
 
 // deterministic target selection: the ball nearer the aim ray wins
 gun.gunSetAim(sim.simField.wallX, sim.simField.h * 0.5);
@@ -256,6 +267,124 @@ modeInput.modeInputStep(0.05);
 canv.dispatch('pointerup', { pointerId: 80, button: 0, pointerType: 'touch', clientX: 610, clientY: 650 });
 check('gesture: touch tap launches a stored ball', gun.gunState.stored === tapStored - 1
 	&& sim.simBalls.count === tapCount + 1);
+check('gun: wheel changes force and energy cost of pull and push', (() => {
+	gun.gunSetForce(20);
+	const lowPush = gun.gunPushStrength();
+	const lowAccel = gun.gunPullAccel(80, 10);
+	gun.gunSetForce(100);
+	const highPush = gun.gunPushStrength();
+	const highAccel = gun.gunPullAccel(80, 10);
+	gun.gunSetForce(60);
+	return highPush > lowPush && highAccel > lowAccel;
+})());
+check('gun: energy drains on pull and recharges when idle', (() => {
+	gun.gunSetForce(100);
+	gun.gunState.energy = gun.gunState.energyCap;
+	const before = gun.gunState.energy;
+	gun.gunSetAim(gun.gunState.x + 200, gun.gunState.y + 200);
+	const gx = gun.gunState.x;
+	const gy = gun.gunState.y;
+	place(0, gx + gun.gunState.ux * 120, gy + gun.gunState.uy * 120, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	gun.gunState.pull = 1;
+	gun.gunStep(0.1);
+	gun.gunState.pull = 0;
+	const afterPull = gun.gunState.energy;
+	gun.gunStep(0.5);
+	const afterRecharge = gun.gunState.energy;
+	return afterPull < before && afterRecharge > afterPull;
+})());
+check('gun: push costs energy and is refused when energy is empty', (() => {
+	place(0, gun.gunState.x, gun.gunState.y + 20, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	gun.gunCapture(0);
+	gun.gunSetAim(600, 650);
+	gun.gunState.energy = 0;
+	const stored = gun.gunState.stored;
+	gun.gunPush();
+	const refused = gun.gunState.refused === 1 && gun.gunState.stored === stored;
+	gun.gunState.energy = gun.gunState.energyCap;
+	gun.gunPush();
+	return refused && gun.gunState.stored === stored - 1;
+})());
+check('gesture: wheel event changes gun force', (() => {
+	gun.gunSetForce(60);
+	const cv2 = els.canv.dispatch('wheel', { deltaY: 100 });
+	return gun.gunState.force === 55;
+})());
+
+// territory ball-gun pull/consume/store/launch
+setMode('territory');
+check('territory: guns pull and consume neutral balls into a 3-ball store without bouncing', (() => {
+	territory.territorySetRooms(false);
+	const gid = 0;
+	const gx = territory.territoryGunX(gid);
+	const gy = territory.territoryGuns[gid].y;
+	place(0, gx - 18, gy + 2, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	territory.territoryState.hue[0] = mc.MODE_HUE[mc.MODE_NONE];
+	territory.territoryState.bucket[0] = mc.MODE_HUE[mc.MODE_NONE] | 0;
+	territory.territoryGuns[gid].aimX = gx - 120;
+	territory.territoryGuns[gid].aimY = gy;
+	territory.territoryGuns[gid].pull = 1;
+	territory.territoryGuns[gid].stored = 0;
+	territory.territoryUpdateAim(gid);
+	territory.territoryUpdateTarget(gid);
+	territory.territoryBeforeBalls(0.05);
+	const ok = territory.territoryGuns[gid].stored === 1 && sim.simBalls.count === 0;
+	territory.territoryGuns[gid].pull = 0;
+	return ok;
+})());
+check('territory: wheel changes force and energy cost for both guns', (() => {
+	const before0 = territory.territoryGuns[0].force;
+	territory.territoryWheel(-100);
+	const after0 = territory.territoryGuns[0].force;
+	territory.territoryWheel(100);
+	return after0 === before0 + 5 && territory.territoryGuns[0].force === before0;
+})());
+check('territory: push from store costs energy and can be triggered via stored balls', (() => {
+	const gid = 1;
+	const g = territory.territoryGuns[gid];
+	g.stored = 0;
+	place(0, territory.territoryGunX(gid) + 16, g.y, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	territory.territoryState.hue[0] = mc.MODE_HUE[mc.MODE_NONE];
+	territory.territoryState.bucket[0] = 0 | 0;
+	territory.territoryCapture(gid, 0);
+	const stored = g.stored;
+	g.energy = g.energyCap;
+	g.aimX = sim.simField.wallX + 200; g.aimY = g.y; territory.territoryUpdateAim(gid);
+	const beforeEnergy = g.energy;
+	territory.territoryLaunchBall(gid);
+	return stored === 1 && g.stored === 0 && sim.simBalls.count === 1 && g.energy < beforeEnergy;
+})());
+check('territory: muzzle capture ignores t<=0 and divider does not bounce a capturable ball', (() => {
+	const gid = 0;
+	const g = territory.territoryGuns[gid];
+	g.stored = 0;
+	const gx = territory.territoryGunX(gid);
+	place(0, gx, g.y, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	territory.territoryState.hue[0] = mc.MODE_HUE[mc.MODE_NONE];
+	const captured = territory.territoryTryCaptureMuzzle(gid, 0);
+	return captured && g.stored === 1 && sim.simBalls.count === 0;
+})());
+check('territory: rooms tint still works after refactor and HUD shows force/energy', (() => {
+	territory.territorySetRooms(true);
+	const rs = apis['rooms.js'].roomsState;
+	let redRoom2 = null;
+	for (let k = 0; k < rs.count; k++) if (rs.rooms[k].owner === mc.MODE_RED) { redRoom2 = rs.rooms[k]; break; }
+	if (!redRoom2) return false;
+	place(0, redRoom2.tintX + 4, redRoom2.tintY + 4, 0, 0, 14, 0);
+	territory.territoryState.hue[0] = mc.MODE_HUE[mc.MODE_NONE];
+	territory.territoryState.bucket[0] = 0 | 0;
+	sim.simBalls.rgb[0] = mc.modeColorRgb(135);
+	for (let k = 0; k < 30; k++) territory.territorySimHook.afterBalls(0.05);
+	territory.territoryHudPaint();
+	return territory.territoryBallOwner(0) === mc.MODE_RED && els['territory-force-0'].textContent.indexOf('%') >= 0;
+})());
+
+setMode('ball-gun');
 modeInput.modeInputCancel();
 check('gesture: cancellation and mode change stop force', gun.gunState.pull === 0
 	&& gun.gunState.target === -1);

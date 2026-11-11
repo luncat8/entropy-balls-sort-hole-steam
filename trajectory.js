@@ -49,15 +49,46 @@ function trajLeg(ray, planeX, lo, hi) {
 	return toLimit;
 }
 
+function trajRoomHit(ray) {
+	if (typeof roomsState === 'undefined' || !roomsState.enabled) return null;
+	return roomsRayHit(ray, 0);
+}
+
+function trajLegWithRooms(ray, planeX, lo, hi) {
+	const toPlane = (planeX - ray.x) / ray.ux;
+	const limit = ray.uy > 0 ? hi : lo;
+	const toLimit = ray.uy === 0 ? Infinity : (limit - ray.y) / ray.uy;
+	let best = toPlane <= toLimit ? toPlane : toLimit;
+	let kind = toPlane <= toLimit ? 'plane' : 'edge';
+	const room = trajRoomHit(ray);
+	if (room && room.dist < best && room.dist > 1e-6) { best = room.dist; kind = 'room'; }
+	if (kind === 'room') {
+		ray.x += ray.ux * best;
+		ray.y += ray.uy * best;
+		if (room.nx) ray.ux = -ray.ux; else ray.uy = -ray.uy;
+		return { flown: best, hit: 'room' };
+	}
+	if (kind === 'plane') {
+		ray.y += ray.uy * toPlane;
+		ray.x = planeX;
+		return { flown: toPlane, hit: 'plane' };
+	}
+	ray.x += ray.ux * toLimit;
+	ray.y = limit;
+	return { flown: toLimit, hit: 'edge' };
+}
+
 // the flight length to the plane with every edge bounce on the way, or -1 when the plane lies past the
 // reach or past the points the path may still use
 function trajFlight(ray, out, planeX, r, reach, points) {
 	let dist = 0;
 	while (out.n < points) {
-		dist += trajLeg(ray, planeX, r, simField.h - r);
+		const leg = trajLegWithRooms(ray, planeX, r, simField.h - r);
+		if (!leg) return -1;
+		dist += leg.flown;
 		if (dist > reach) return -1;
-		if (ray.x === planeX) return dist;
-		ray.uy = -ray.uy;
+		if (leg.hit === 'plane') return dist;
+		if (leg.hit === 'edge') { ray.uy = -ray.uy; trajPoint(out, ray); continue; }
 		trajPoint(out, ray);
 	}
 	return -1;

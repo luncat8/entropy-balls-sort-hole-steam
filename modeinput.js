@@ -2,7 +2,7 @@
 // edit for: gesture mapping, touch hold threshold
 
 const MODE_TAP_SEC = 0.18;
-const MODE_KEY_CODES = ['ArrowUp', 'ArrowDown', 'ArrowRight', 'Space'];
+const MODE_KEY_CODES = ['ArrowUp', 'ArrowDown', 'ArrowRight', 'Space', 'BracketLeft', 'BracketRight', 'Comma', 'Period'];
 
 const modeInputState = {
 	hook: null,
@@ -20,8 +20,7 @@ function modeInputInit() {
 	cv.addEventListener('pointerup', modeInputUp);
 	cv.addEventListener('pointercancel', modeInputEnd);
 	cv.addEventListener('lostpointercapture', modeInputEnd);
-	// middle-button mousedown starts autoscroll in desktop browsers; auxclick and the context menu
-	// would otherwise swallow the gesture this mode uses instead of the right button
+	cv.addEventListener('wheel', modeInputWheel, { passive: false });
 	cv.addEventListener('mousedown', modeInputMouseDown);
 	cv.addEventListener('auxclick', modeInputAux);
 	cv.addEventListener('contextmenu', modeInputContext);
@@ -52,7 +51,6 @@ function modeInputAim(e) {
 	s.hook.aim(x, y);
 }
 
-// a synthetic or already-ended pointer has no active id; capture is an optimization, not the gesture
 function modeInputCapture(e) {
 	if (!e.currentTarget || !e.currentTarget.setPointerCapture) return;
 	try { e.currentTarget.setPointerCapture(e.pointerId); } catch (error) { return; }
@@ -142,6 +140,12 @@ function modeInputVisibility() {
 	if (document.hidden) modeInputCancel();
 }
 
+function modeInputWheel(e) {
+	const s = modeInputState;
+	if (!s.hook) return;
+	if (s.hook.wheel) { s.hook.wheel(e.deltaY); e.preventDefault(); }
+}
+
 function modeInputOwned(e) {
 	const t = e.target;
 	if (!t) return false;
@@ -165,5 +169,5 @@ function modeInputKeyUp(e) { modeInputKey(e, false); }
 if (typeof module !== 'undefined') module.exports = {
 	modeInputState, modeInputInit, modeInputSetHook, modeInputStep, modeInputCancel,
 	modeInputDown, modeInputMove, modeInputUp, modeInputEnd, modeInputKeyDown, modeInputKeyUp,
-	MODE_TAP_SEC
+	modeInputWheel, MODE_TAP_SEC
 };

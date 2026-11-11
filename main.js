@@ -21,6 +21,7 @@ function mainFrame(tMs) {
 
 // one fixed-step boundary: the standard field keeps its channels, a mode owns its own controls
 function mainControlStep(dt) {
+	if (typeof roomsState !== 'undefined' && roomsState.enabled) roomsTint(dt);
 	modeControlStep(dt);
 }
 
@@ -31,6 +32,7 @@ function mainRestartRound() {
 	inputRelease();
 	simInit();
 	modeRoundReset();
+	if (typeof roomsGenerate !== 'undefined' && typeof roomsState !== 'undefined' && roomsState.enabled) roomsGenerate();
 	forceInit();
 	inputRebind();
 	botInit();
@@ -44,7 +46,6 @@ function mainRestartRound() {
 function mainBoot() {
 	simInit();
 	playersInit(1);
-	// characters before the panels: each bot column shows the one its slot drew
 	botInit();
 	tasksInit();
 	for (let i = 0; i < players.count; i++) tasksAttach(i);
@@ -54,6 +55,7 @@ function mainBoot() {
 	forceInit();
 	inputInit();
 	modeInit();
+	if (typeof roomsInit !== 'undefined') roomsInit();
 	settingsInit();
 	drawerInit();
 	forcePanelInit();

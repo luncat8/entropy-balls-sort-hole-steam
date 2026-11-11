@@ -26,14 +26,19 @@
 		<h2>Territory</h2>
 		<div class="mode-hud-row"><span class="mode-hud-name mode-red">P1 red</span><span id="territory-share-0">0 % wall</span><span id="territory-balls-0">0 balls</span></div>
 		<div class="mode-hud-row"><span class="mode-hud-name mode-blue">P2 blue</span><span id="territory-share-1">0 % wall</span><span id="territory-balls-1">0 balls</span></div>
-		<p class="mode-hud-note">Grow your color on the wall. Only neutral balls can be pulled or pushed.</p>
+		<div class="mode-hud-row"><span>P1 gun</span><span id="territory-force-0">60% force</span><span id="territory-energy-0">100/100</span></div>
+		<div class="mode-hud-row"><span>P2 gun</span><span id="territory-force-1">60% force</span><span id="territory-energy-1">100/100</span></div>
+		<div class="mode-hud-row"><span>Stored</span><span id="territory-stored-0">0/3</span><span id="territory-stored-1">0/3</span></div>
+		<p class="mode-hud-note">Middle hold pulls neutral balls into the gun; left click launches. Wheel changes force; ,. and [] change per-gun force. Rooms with walls and holes tint balls.</p>
 	</section>
 	<section id="gun-hud" class="mode-hud" hidden aria-label="Ball gun state">
 		<h2>Ball gun</h2>
 		<div class="mode-hud-row"><span>Target</span><span id="gun-target">no ball</span></div>
 		<div class="mode-hud-row"><span>Stored</span><span id="gun-stored">0 / 3</span></div>
 		<div class="mode-hud-row"><span>Launch</span><span id="gun-push">0 ‰/s push</span></div>
-		<p id="gun-state" class="mode-hud-note">middle hold pulls a ball into the gun · left click launches</p>
+		<div class="mode-hud-row"><span>Force</span><span id="gun-force">60% force · wheel</span><span id="gun-energy">100/100 energy</span></div>
+		<div class="mode-hud-energy"><div id="gun-energy-bar" class="mode-hud-energy-fill"></div></div>
+		<p id="gun-state" class="mode-hud-note">middle hold pulls a ball into the gun · left click launches · wheel changes force</p>
 	</section>
 	<ul id="task-list" class="quest-list" aria-live="polite"></ul>
 </div>
@@ -156,6 +161,7 @@
 <script src="drawer.js"></script>
 <script src="modecolor.js"></script>
 <script src="territorypaint.js"></script>
+<script src="rooms.js"></script>
 <script src="territory.js"></script>
 <script src="gun.js"></script>
 <script src="modeinput.js"></script>

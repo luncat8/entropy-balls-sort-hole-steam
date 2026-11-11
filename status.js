@@ -13,12 +13,12 @@ const STATUS_CONTROL_TEXT = [
 ];
 const STATUS_MODE_CONTROL = {
 	territory: [
-		'P1 red · pointer moves the gun and aims. Middle hold pulls, left click pushes. Touch: hold/tap.',
-		'P2 blue · ↑↓ moves the gun, hold → pulls, Space pushes.'
+		'P1 red · pointer aims, middle hold pulls into gun, left click launches, wheel/,/. adjusts force.',
+		'P2 blue · ↑↓ moves gun, hold → pulls, Space launches, wheel/[/] adjusts force. Rooms tint balls.'
 	],
 	'ball-gun': [
-		'P1 gun · pointer aims. Middle hold pulls a ball into the gun (up to 3 stored), left click launches the oldest. Touch: hold/tap.',
-		'P2 hole · ↑↓ sets force, hold → moves the hole at quarter speed.'
+		'P1 gun · pointer aims. Middle hold pulls a ball into the gun (up to 3 stored), left click launches oldest. Wheel changes force/energy.',
+		'P2 hole · ↑↓ sets force, hold → moves the hole at quarter speed. Ball speed quartered.'
 	]
 };
 const statusUi = { state: null, controls: [], players: [] };

@@ -12,6 +12,9 @@ const GUN_FORECAST_REACH_SHARE = 1500;
 const GUN_SPEED_CAP = 3;
 const GUN_STORE_CAP = 3;
 const GUN_CAPTURE_SHARE = 24;
+const GUN_FORCE_STEP = 5;
+const GUN_FORCE_START = 60;
+const GUN_ENERGY_PUSH_COST = 8;
 const GUN_SELECT_CSS = '#ffe27a';
 const GUN_PASS_CSS = '#a8d3ff';
 const GUN_PREDICT_CSS = '#7fe3c0';
@@ -21,7 +24,7 @@ const GUN_TARGET_CSS = '#ffe27a';
 const gunState = {
 	x: 0, y: 0, aimX: 0, aimY: 0, ux: 0, uy: 1, aimLen: 0,
 	pull: 0, target: -1, refused: 0, push: 0, lastW: 0, lastH: 0,
-	stored: 0,
+	stored: 0, force: GUN_FORCE_START, energy: FORCE_CAPACITY, energyCap: FORCE_CAPACITY, energyCost: FORCE_COST,
 	storeR: new Float32Array(GUN_STORE_CAP),
 	storeRgb: new Uint32Array(GUN_STORE_CAP),
 	storePalette: new Uint8Array(GUN_STORE_CAP),
@@ -35,8 +38,8 @@ const gunPath = {
 	dist: 0,
 	side: 0
 };
-const gunUi = { hud: null, target: null, stored: null, push: null, state: null };
-const gunHudCache = { target: -2, stored: -2, push: -2, state: -2 };
+const gunUi = { hud: null, target: null, stored: null, push: null, state: null, force: null, energy: null, energyBar: null };
+const gunHudCache = { target: -2, stored: -2, push: -2, state: -2, force: -2, energy: -2 };
 const GUN_STATE_TEXT = ['ready · left click launches the oldest stored ball', 'pulling', 'launch refused · change aim', 'store full · left click launches', 'middle hold pulls a ball into the gun'];
 
 function gunHudInit() {
@@ -45,10 +48,39 @@ function gunHudInit() {
 	gunUi.stored = $('gun-stored');
 	gunUi.push = $('gun-push');
 	gunUi.state = $('gun-state');
+	gunUi.force = $('gun-force');
+	gunUi.energy = $('gun-energy');
+	gunUi.energyBar = $('gun-energy-bar');
 	gunHudCache.target = -2;
 	gunHudCache.stored = -2;
 	gunHudCache.push = -2;
 	gunHudCache.state = -2;
+	gunHudCache.force = -2;
+	gunHudCache.energy = -2;
+}
+
+function gunSyncEnergy() {
+	gunState.energyCap = forceCapacity;
+	gunState.energyCost = forceCost;
+	if (gunState.energy > gunState.energyCap) gunState.energy = gunState.energyCap;
+}
+
+function gunSetForce(force) {
+	let next = Math.round(force / GUN_FORCE_STEP) * GUN_FORCE_STEP;
+	if (next < 0) next = 0; else if (next > 100) next = 100;
+	gunState.force = next;
+}
+
+function gunWheel(deltaY) {
+	if (!deltaY) return;
+	gunSetForce(gunState.force + (deltaY > 0 ? -GUN_FORCE_STEP : GUN_FORCE_STEP));
+}
+
+function gunRecharge(dt) {
+	gunSyncEnergy();
+	const recharge = gunState.energyCap * FORCE_RECHARGE_SHARE * dt;
+	gunState.energy += recharge;
+	if (gunState.energy > gunState.energyCap) gunState.energy = gunState.energyCap;
 }
 
 function gunInit() {
@@ -59,6 +91,9 @@ function gunInit() {
 	gunState.lastW = simField.w;
 	gunState.lastH = simField.h;
 	gunState.stored = 0;
+	gunState.force = GUN_FORCE_START;
+	gunSyncEnergy();
+	gunState.energy = gunState.energyCap;
 	gunRelease();
 	gunUpdateAim();
 	gunHudInit();
@@ -104,19 +139,25 @@ function gunRayReach() { return simPx(GUN_PULL_REACH_SHARE); }
 function gunRayBeam() { return simPx(GUN_BEAM_SHARE); }
 function gunRayCap() { return simPx(GUN_PULL_ACC_SHARE); }
 
-// smooth monotone falloff in along-ray distance and aim error, zero at the bounded reach
+function gunForceShare() {
+	if (gunState.force <= 0) return 0;
+	return gunState.force / 100;
+}
+
 function gunPullAccel(t, perp) {
 	const reach = gunRayReach();
 	if (t <= 0 || t >= reach) return 0;
 	const along = reach * 0.45;
 	const beam = gunRayBeam();
 	const fade = 1 - t / reach;
-	return gunRayCap() / (1 + (t / along) * (t / along))
+	return gunRayCap() * gunForceShare() / (1 + (t / along) * (t / along))
 		/ (1 + (perp / beam) * (perp / beam)) * fade * fade;
 }
 
 function gunPushStrength() {
-	return Math.min(simPx(GUN_PUSH_SHARE), gunState.aimLen * 0.5);
+	const cap = simPx(GUN_PUSH_SHARE);
+	const base = Math.min(cap, gunState.aimLen * 0.5);
+	return base * gunForceShare();
 }
 
 function gunUpdateTarget() {
@@ -170,11 +211,15 @@ function gunCapture(i) {
 function gunLaunchBall() {
 	const r = gunState.storeR[0];
 	const gap = simPx(GUN_CAPTURE_SHARE);
+	const pushCost = GUN_ENERGY_PUSH_COST * gunForceShare();
+	if (gunState.energy < pushCost) { gunState.refused = 1; return -1; }
 	const i = simAddBall(
 		gunState.x + gunState.ux * (r + gap), gunState.y + gunState.uy * (r + gap),
 		gunState.ux * gunState.push, gunState.uy * gunState.push,
 		r, gunState.storeRgb[0], gunState.storePalette[0], gunState.storeCss[0]);
 	if (i < 0) return -1;
+	gunState.energy -= pushCost;
+	if (gunState.energy < 0) gunState.energy = 0;
 	for (let k = 1; k < gunState.stored; k++) {
 		gunState.storeR[k - 1] = gunState.storeR[k];
 		gunState.storeRgb[k - 1] = gunState.storeRgb[k];
@@ -194,6 +239,11 @@ function gunApplyPull(dt) {
 	const perp = Math.abs(dx * gunState.uy - dy * gunState.ux);
 	const accel = gunPullAccel(t, perp);
 	if (accel <= 0) return;
+	if (gunState.energy <= 0) return;
+	const cost = gunState.energyCost * gunForceShare() * dt;
+	if (cost > gunState.energy) return;
+	gunState.energy -= cost;
+	if (gunState.energy < 0) gunState.energy = 0;
 	const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 	simBalls.vx[i] -= dx / dist * accel * dt;
 	simBalls.vy[i] -= dy / dist * accel * dt;
@@ -201,6 +251,7 @@ function gunApplyPull(dt) {
 }
 
 function gunStep(dt) {
+	gunRecharge(dt);
 	gunUpdateTarget();
 	gunState.push = gunPushStrength();
 	gunApplyPull(dt);
@@ -208,12 +259,9 @@ function gunStep(dt) {
 	if (!gunState.pull || i < 0 || i >= simBalls.count) return;
 	const dx = simBalls.x[i] - gunState.x;
 	const dy = simBalls.y[i] - gunState.y;
-	// a pulled ball that reaches the muzzle is consumed into the store, never bounced off the gun
 	if (dx * dx + dy * dy <= gunCaptureReach(simBalls.r[i]) * gunCaptureReach(simBalls.r[i])) gunCapture(i);
 }
 
-// the hole's live velocity shifts the opening over the flight to the divider, so a moving hole
-// refuses the same push the player would see fail
 function gunPredict() {
 	gunState.push = gunPushStrength();
 	if (!gunState.stored || gunState.push <= 0) {
@@ -236,6 +284,8 @@ function gunPredict() {
 
 function gunPush() {
 	if (!gunState.stored) { gunState.refused = 0; return; }
+	const pushCost = GUN_ENERGY_PUSH_COST * gunForceShare();
+	if (pushCost > 0 && gunState.energy < pushCost) { gunState.refused = 1; return; }
 	const end = gunPredict();
 	gunState.refused = end === TRAJ_PASS || gunState.push <= 0 ? 1 : 0;
 	if (gunState.refused) return;
@@ -260,9 +310,23 @@ function gunHudPaint() {
 		gunHudCache.push = push;
 		gunUi.push.textContent = push + ' ‰/s push';
 	}
-	if (gunHudCache.state === state) return;
-	gunHudCache.state = state;
-	gunUi.state.textContent = GUN_STATE_TEXT[state];
+	if (gunHudCache.state === state) {
+		// fall through to force/energy update
+	} else {
+		gunHudCache.state = state;
+		gunUi.state.textContent = GUN_STATE_TEXT[state];
+	}
+	const force = gunState.force;
+	if (gunHudCache.force !== force) {
+		gunHudCache.force = force;
+		if (gunUi.force) gunUi.force.textContent = force + '% force · wheel';
+	}
+	const energy = Math.round(gunState.energy);
+	if (gunHudCache.energy !== energy) {
+		gunHudCache.energy = energy;
+		if (gunUi.energy) gunUi.energy.textContent = energy + ' / ' + Math.round(gunState.energyCap) + ' energy';
+		if (gunUi.energyBar) gunUi.energyBar.style.width = (gunState.energyCap > 0 ? Math.round(gunState.energy / gunState.energyCap * 100) : 0) + '%';
+	}
 }
 
 const gunInput = {
@@ -271,16 +335,18 @@ const gunInput = {
 	pull(on) { gunState.pull = on ? 1 : 0; },
 	push() { gunPush(); },
 	key() {},
+	wheel(deltaY) { gunWheel(deltaY); },
 	cancel() { gunRelease(); }
 };
 
 function gunDrawOverlay(ctx) {
 	const s = gunState;
 	const radius = simField.wallT * 1.1;
+	const forceScale = s.force / 100;
 	ctx.setLineDash([7, 7]);
-	ctx.globalAlpha = s.pull ? 0.75 : 0.35;
+	ctx.globalAlpha = s.pull ? 0.35 + forceScale * 0.45 : 0.18 + forceScale * 0.22;
 	ctx.strokeStyle = GUN_SELECT_CSS;
-	ctx.lineWidth = s.pull ? 3 : 1.5;
+	ctx.lineWidth = 1 + forceScale * 2.5 + (s.pull ? 0.8 : 0);
 	ctx.beginPath();
 	ctx.moveTo(s.x, s.y);
 	ctx.lineTo(s.x + s.ux * gunRayReach(), s.y + s.uy * gunRayReach());
@@ -294,12 +360,33 @@ function gunDrawOverlay(ctx) {
 	ctx.strokeStyle = '#12151b';
 	ctx.lineWidth = 2;
 	ctx.stroke();
+	// force indicator ring thickness and energy bar
+	ctx.strokeStyle = GUN_SELECT_CSS;
+	ctx.lineWidth = 1.2 + forceScale * 1.8;
+	ctx.globalAlpha = 0.9;
+	ctx.beginPath();
+	ctx.arc(s.x, s.y + radius, radius + 3, -Math.PI/2, -Math.PI/2 + Math.PI*2*forceScale);
+	ctx.stroke();
+	ctx.globalAlpha = 1;
+	const barW = radius * 2.2;
+	const barH = 4;
+	const barX = s.x - barW/2;
+	const barY = s.y + radius + 6;
+	ctx.fillStyle = '#0b1119';
+	ctx.fillRect(barX, barY, barW, barH);
+	ctx.fillStyle = s.energy < s.energyCap * 0.25 ? '#ff7a7a' : '#7fe3c0';
+	ctx.fillRect(barX, barY, barW * (s.energyCap > 0 ? s.energy / s.energyCap : 0), barH);
+	ctx.strokeStyle = '#445263';
+	ctx.lineWidth = 0.8;
+	ctx.strokeRect(barX, barY, barW, barH);
 	for (let k = 0; k < s.stored; k++) {
 		ctx.fillStyle = s.storeCss[k];
 		ctx.beginPath();
-		ctx.arc(s.x + (k - (s.stored - 1) / 2) * radius * 2.4, s.y + radius * 2.6,
-			Math.min(s.storeR[k], radius), 0, Math.PI * 2);
+		ctx.arc(s.x + (k - (s.stored - 1) / 2) * s.storeR[k] * 1.1, s.y + radius * 2.6,
+			s.storeR[k], 0, Math.PI * 2);
 		ctx.fill();
+		ctx.strokeStyle = '#12151b';
+		ctx.lineWidth = 1;
 		ctx.stroke();
 	}
 	const i = s.target;
@@ -332,6 +419,6 @@ const gunView = {
 
 if (typeof module !== 'undefined') module.exports = {
 	gunState, gunPath, gunInit, gunRelease, gunResize, gunSetAim, gunStep, gunPush, gunPredict,
-	gunPullAccel, gunPushStrength, gunHudPaint, gunInput, gunView, gunCapture,
-	GUN_PASS_POINTS, GUN_PUSH_SHARE, GUN_STORE_CAP
+	gunPullAccel, gunPushStrength, gunHudPaint, gunInput, gunView, gunCapture, gunWheel, gunSetForce, gunRecharge, gunForceShare,
+	GUN_PASS_POINTS, GUN_PUSH_SHARE, GUN_STORE_CAP, GUN_FORCE_STEP, GUN_FORCE_START
 };

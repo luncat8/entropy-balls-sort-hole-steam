@@ -6,8 +6,8 @@ const MODE_NAMES = ['standard', 'territory', 'ball-gun'];
 const MODE_BALL_SPEED = { standard: 1, territory: 0.25, 'ball-gun': 0.25 };
 const MODE_HELP = [
 	'',
-	'Territory · P1 red moves its gun with the pointer, P2 blue with ↑↓. Hold the middle mouse button or → to pull neutral balls; left click or Space pushes. Touch: hold pulls, tap pushes. Every color crosses the top gate; a painted region is a hole only for its own color. Grow your wall share.',
-	'Ball gun · P1 aims with the pointer: hold the middle mouse button to pull a ball into the gun (stores up to 3), left click launches the oldest stored ball. P2 moves the hole with ↑↓ and holds →. A launch predicted to pass the hole is refused; aim again. Touch: hold pulls, tap launches. Balls move at a quarter of their normal speed in both new modes.'
+	'Territory · P1 red moves its gun with the pointer, P2 blue with ↑↓. Hold middle mouse or → to pull neutral balls into the gun; left click or Space launches the stored ball. Wheel or ,/. and [/] changes pull/push force and energy cost. Every color crosses the top gate; a painted region is a hole only for its own color. Rooms with walls and holes tint balls.',
+	'Ball gun · P1 aims with the pointer: hold middle mouse to pull a ball into the gun (stores up to 3), left click launches the oldest stored ball. Wheel changes force and energy cost. P2 moves the hole with ↑↓ and holds →. A launch predicted to pass the hole is refused; aim again. Touch: hold pulls, tap launches. Balls move at a quarter of their normal speed in both new modes.'
 ];
 const modeState = {
 	active: 'standard',
@@ -92,6 +92,9 @@ function modeSet(name) {
 			simInit();
 		}
 		questRepaint();
+		if (typeof roomsInit !== 'undefined' && typeof roomsState !== 'undefined' && !roomsState.hue) roomsInit();
+		if (typeof roomsSetEnabled !== 'undefined') roomsSetEnabled(settingsState.rooms);
+		if (typeof roomsGenerate !== 'undefined' && settingsState.rooms) roomsGenerate();
 		return true;
 	}
 	if (next === 'territory') {
@@ -117,11 +120,19 @@ function modeSet(name) {
 	modeInputSetHook(gunInput);
 	simInit();
 	gunInit();
+	if (typeof roomsInit !== 'undefined' && typeof roomsState !== 'undefined' && !roomsState.hue) roomsInit();
+	if (typeof roomsSetEnabled !== 'undefined') roomsSetEnabled(settingsState.rooms);
+	if (typeof roomsGenerate !== 'undefined' && settingsState.rooms) roomsGenerate();
 	return true;
 }
 
 function modeSetRooms(on) {
 	territorySetRooms(on);
+	if (typeof roomsState !== 'undefined' && modeStandard()) {
+		if (typeof roomsInit !== 'undefined' && !roomsState.hue) roomsInit();
+		roomsSetEnabled(on);
+		if (on) roomsGenerate();
+	}
 }
 
 // one control boundary: the standard field keeps its two channels, a mode owns the rest
@@ -145,6 +156,7 @@ function modeFrame() {
 function modeRoundReset() {
 	if (modeIs('territory')) territoryInit();
 	else if (modeIs('ball-gun')) gunInit();
+	if (typeof roomsGenerate !== 'undefined' && roomsState && roomsState.enabled) roomsGenerate();
 }
 
 if (typeof module !== 'undefined') module.exports = {
