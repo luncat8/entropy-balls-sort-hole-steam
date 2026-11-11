@@ -3,7 +3,12 @@ new game mode
 ## one player control hole, another control ball gun
 
 default for this mode
-2x ball movement
+2x slow ball movement
+
+in both new 2 game modes ball gun should pull and consume balls.
+wheel should change force and energy consumption of pull and push.
+
+
 
 ### 2nd player:
 control hole
@@ -12,7 +17,7 @@ control hole
 
 ### 1st player:
 ball gun position is center of some side (75% x, y=0).
-
+ball gun pull consume ball without bounce and store up to 3 balls.
 
 ball gun control with mouse (instead of player):
 right press suck pull aimed ball with force ~ 1/(5+distance px)

@@ -10,6 +10,8 @@ const GUN_BEAM_SHARE = 90;
 const GUN_PUSH_SHARE = 150;
 const GUN_FORECAST_REACH_SHARE = 1500;
 const GUN_SPEED_CAP = 3;
+const GUN_STORE_CAP = 3;
+const GUN_CAPTURE_SHARE = 24;
 const GUN_SELECT_CSS = '#ffe27a';
 const GUN_PASS_CSS = '#a8d3ff';
 const GUN_PREDICT_CSS = '#7fe3c0';
@@ -18,7 +20,12 @@ const GUN_TARGET_CSS = '#ffe27a';
 
 const gunState = {
 	x: 0, y: 0, aimX: 0, aimY: 0, ux: 0, uy: 1, aimLen: 0,
-	pull: 0, target: -1, refused: 0, push: 0, lastW: 0, lastH: 0
+	pull: 0, target: -1, refused: 0, push: 0, lastW: 0, lastH: 0,
+	stored: 0,
+	storeR: new Float32Array(GUN_STORE_CAP),
+	storeRgb: new Uint32Array(GUN_STORE_CAP),
+	storePalette: new Uint8Array(GUN_STORE_CAP),
+	storeCss: new Array(GUN_STORE_CAP)
 };
 const gunPath = {
 	n: 0,
@@ -28,16 +35,18 @@ const gunPath = {
 	dist: 0,
 	side: 0
 };
-const gunUi = { hud: null, target: null, push: null, state: null };
-const gunHudCache = { target: -2, push: -2, state: -2 };
-const GUN_STATE_TEXT = ['middle hold pulls · left click pushes', 'pulling', 'push refused · change aim'];
+const gunUi = { hud: null, target: null, stored: null, push: null, state: null };
+const gunHudCache = { target: -2, stored: -2, push: -2, state: -2 };
+const GUN_STATE_TEXT = ['ready · left click launches the oldest stored ball', 'pulling', 'launch refused · change aim', 'store full · left click launches', 'middle hold pulls a ball into the gun'];
 
 function gunHudInit() {
 	gunUi.hud = $('gun-hud');
 	gunUi.target = $('gun-target');
+	gunUi.stored = $('gun-stored');
 	gunUi.push = $('gun-push');
 	gunUi.state = $('gun-state');
 	gunHudCache.target = -2;
+	gunHudCache.stored = -2;
 	gunHudCache.push = -2;
 	gunHudCache.state = -2;
 }
@@ -49,6 +58,7 @@ function gunInit() {
 	gunState.aimY = simField.h * 0.5;
 	gunState.lastW = simField.w;
 	gunState.lastH = simField.h;
+	gunState.stored = 0;
 	gunRelease();
 	gunUpdateAim();
 	gunHudInit();
@@ -142,9 +152,42 @@ function gunClampSpeed(i) {
 	simBalls.vy[i] = vy * scale;
 }
 
+function gunCaptureReach(r) { return r + simPx(GUN_CAPTURE_SHARE); }
+
+function gunCapture(i) {
+	if (gunState.stored >= GUN_STORE_CAP || i < 0 || i >= simBalls.count) return false;
+	const k = gunState.stored;
+	gunState.storeR[k] = simBalls.r[i];
+	gunState.storeRgb[k] = simBalls.rgb[i];
+	gunState.storePalette[k] = simBalls.palette[i];
+	gunState.storeCss[k] = simBalls.css[i];
+	if (!simRemoveBall(i)) return false;
+	gunState.stored = k + 1;
+	gunState.target = -1;
+	return true;
+}
+
+function gunLaunchBall() {
+	const r = gunState.storeR[0];
+	const gap = simPx(GUN_CAPTURE_SHARE);
+	const i = simAddBall(
+		gunState.x + gunState.ux * (r + gap), gunState.y + gunState.uy * (r + gap),
+		gunState.ux * gunState.push, gunState.uy * gunState.push,
+		r, gunState.storeRgb[0], gunState.storePalette[0], gunState.storeCss[0]);
+	if (i < 0) return -1;
+	for (let k = 1; k < gunState.stored; k++) {
+		gunState.storeR[k - 1] = gunState.storeR[k];
+		gunState.storeRgb[k - 1] = gunState.storeRgb[k];
+		gunState.storePalette[k - 1] = gunState.storePalette[k];
+		gunState.storeCss[k - 1] = gunState.storeCss[k];
+	}
+	gunState.stored--;
+	return i;
+}
+
 function gunApplyPull(dt) {
 	const i = gunState.target;
-	if (!gunState.pull || i < 0 || i >= simBalls.count) return;
+	if (!gunState.pull || gunState.stored >= GUN_STORE_CAP || i < 0 || i >= simBalls.count) return;
 	const dx = simBalls.x[i] - gunState.x;
 	const dy = simBalls.y[i] - gunState.y;
 	const t = dx * gunState.ux + dy * gunState.uy;
@@ -161,44 +204,54 @@ function gunStep(dt) {
 	gunUpdateTarget();
 	gunState.push = gunPushStrength();
 	gunApplyPull(dt);
+	const i = gunState.target;
+	if (!gunState.pull || i < 0 || i >= simBalls.count) return;
+	const dx = simBalls.x[i] - gunState.x;
+	const dy = simBalls.y[i] - gunState.y;
+	// a pulled ball that reaches the muzzle is consumed into the store, never bounced off the gun
+	if (dx * dx + dy * dy <= gunCaptureReach(simBalls.r[i]) * gunCaptureReach(simBalls.r[i])) gunCapture(i);
 }
 
 // the hole's live velocity shifts the opening over the flight to the divider, so a moving hole
 // refuses the same push the player would see fail
 function gunPredict() {
-	const i = gunState.target;
 	gunState.push = gunPushStrength();
-	if (i < 0 || i >= simBalls.count) {
+	if (!gunState.stored || gunState.push <= 0) {
 		gunPath.n = 0;
 		gunPath.end = TRAJ_NONE;
 		return TRAJ_NONE;
 	}
-	const vx = simBalls.vx[i] + gunState.ux * gunState.push;
-	const vy = simBalls.vy[i] + gunState.uy * gunState.push;
-	const r = simBalls.r[i];
+	const r = gunState.storeR[0];
+	const gap = simPx(GUN_CAPTURE_SHARE);
+	const x = gunState.x + gunState.ux * (r + gap);
+	const y = gunState.y + gunState.uy * (r + gap);
+	const vx = gunState.ux * gunState.push;
+	const vy = gunState.uy * gunState.push;
 	const speed = Math.sqrt(vx * vx + vy * vy) || 1;
-	let end = trajTrace(simBalls.x[i], simBalls.y[i], vx, vy, r, Infinity, gunPath, -1, GUN_PATH_POINTS, 0);
+	let end = trajTrace(x, y, vx, vy, r, Infinity, gunPath, -1, GUN_PATH_POINTS, 0);
 	if (end === TRAJ_NONE) return end;
 	const shift = simAperture.velocity * gunPath.dist / speed;
-	return trajTrace(simBalls.x[i], simBalls.y[i], vx, vy, r, Infinity, gunPath, -1, GUN_PATH_POINTS, shift);
+	return trajTrace(x, y, vx, vy, r, Infinity, gunPath, -1, GUN_PATH_POINTS, shift);
 }
 
 function gunPush() {
-	gunUpdateTarget();
+	if (!gunState.stored) { gunState.refused = 0; return; }
 	const end = gunPredict();
-	gunState.refused = end === TRAJ_PASS ? 1 : 0;
+	gunState.refused = end === TRAJ_PASS || gunState.push <= 0 ? 1 : 0;
 	if (gunState.refused) return;
-	const i = gunState.target;
-	if (i < 0 || i >= simBalls.count) return;
-	simBalls.vx[i] += gunState.ux * gunState.push;
-	simBalls.vy[i] += gunState.uy * gunState.push;
-	gunClampSpeed(i);
+	gunLaunchBall();
 }
 
 function gunHudPaint() {
 	const target = gunState.target < 0 ? -1 : gunState.target + 1;
 	const push = Math.round(gunState.push / simField.scale * 1000);
-	const state = gunState.refused ? 2 : (gunState.pull ? 1 : 0);
+	const stored = gunState.stored;
+	if (gunHudCache.stored !== stored) {
+		gunHudCache.stored = stored;
+		gunUi.stored.textContent = stored + ' / ' + GUN_STORE_CAP;
+	}
+	const state = gunState.refused ? 2 : (gunState.pull ? 1
+		: (stored >= GUN_STORE_CAP ? 3 : (stored ? 0 : 4)));
 	if (gunHudCache.target !== target) {
 		gunHudCache.target = target;
 		gunUi.target.textContent = target < 0 ? 'no ball' : 'ball ' + target;
@@ -241,6 +294,14 @@ function gunDrawOverlay(ctx) {
 	ctx.strokeStyle = '#12151b';
 	ctx.lineWidth = 2;
 	ctx.stroke();
+	for (let k = 0; k < s.stored; k++) {
+		ctx.fillStyle = s.storeCss[k];
+		ctx.beginPath();
+		ctx.arc(s.x + (k - (s.stored - 1) / 2) * radius * 2.4, s.y + radius * 2.6,
+			Math.min(s.storeR[k], radius), 0, Math.PI * 2);
+		ctx.fill();
+		ctx.stroke();
+	}
 	const i = s.target;
 	if (i >= 0 && i < simBalls.count) {
 		ctx.strokeStyle = s.refused ? GUN_REFUSE_CSS : GUN_TARGET_CSS;
@@ -271,6 +332,6 @@ const gunView = {
 
 if (typeof module !== 'undefined') module.exports = {
 	gunState, gunPath, gunInit, gunRelease, gunResize, gunSetAim, gunStep, gunPush, gunPredict,
-	gunPullAccel, gunPushStrength, gunHudPaint, gunInput, gunView,
-	GUN_PASS_POINTS, GUN_PUSH_SHARE
+	gunPullAccel, gunPushStrength, gunHudPaint, gunInput, gunView, gunCapture,
+	GUN_PASS_POINTS, GUN_PUSH_SHARE, GUN_STORE_CAP
 };

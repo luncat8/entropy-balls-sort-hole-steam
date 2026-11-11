@@ -17,7 +17,7 @@ Build plan 3.0's mode selector, URL state and lifecycle first. This mode registe
 - Register `ball-gun` as a distinct selectable mode; preserve `standard` as the default and `territory` as a separate choice. Mode selection restores from the settings URL.
 - The mode uses two human slots: player 1 owns the pointer gun, player 2 owns the hole. Returning to standard restores the participants from the settings.
 - The hole player uses the existing force/energy channel. Hole speed is one quarter of its normal setting, while force cost, funding and energy source remain unchanged.
-- Ball motion is twice the normal speed in this mode. Derive both multipliers from the existing field-relative settings so resizing does not change their meaning and no setting value is overwritten.
+- Ball motion is a quarter of the normal speed in this mode (and in territory mode), from one mode speed table in `mode.js`. Derive both multipliers from the existing field-relative settings so resizing does not change their meaning and no setting value is overwritten.
 - The gun occupies a stable position near the top edge, three quarters of the field width from the left. Pointer movement sets its aim point; it does not move the gun itself.
 - Mode switching resets transient captures and input holds, and never changes settings or role assignment in the standard mode.
 
@@ -31,14 +31,15 @@ Build plan 3.0's mode selector, URL state and lifecycle first. This mode registe
 ### Gravity ray and ball selection
 
 - A held pull applies attraction to the ball under the aim ray, with a smooth monotone falloff in both along-ray distance and perpendicular aim error. The shape follows the draft's `~ 1/(5 + distance)` decay but is written in field-relative shares, not pixels. No ball is attached or teleported; the simulation remains responsible for motion and ball contacts.
+- When a pulled ball reaches the muzzle it is consumed without bouncing and stored in the gun, up to three balls (radius, color and palette kept in preallocated store slots). A full store pulls no further balls. A push no longer impulses a field ball: it launches the oldest stored ball from the muzzle along the aim at the push strength, and with an empty store it does nothing. `simulation.js` owns ball removal/insertion (`simRemoveBall`/`simAddBall`, swap-remove over the same typed arrays); the gun only decides.
 - Pull acceleration has a finite cap and tends continuously to zero at a bounded field-relative reach. The same formula and cap are shared by physics and the displayed ray.
 - The active target is the best eligible ball near the ray: in front of the gun, inside the reach and beam, scored by aim error and along-ray distance with deterministic tie-breaking by index. The target indicator names the ball being acted on.
-- A push applies an impulse along the aimed direction with magnitude increasing with the cursor's distance from the gun and capped at a field-relative maximum in the 10–20 % of field-scale range. A velocity cap keeps a repeatedly pushed ball controllable.
-- Before applying a push, forecast the selected ball with its post-push velocity and the current aperture trajectory (the hole's live velocity applied over the flight time to the divider). Refuse a push predicted to pass through the aperture; show the predicted path and refusal state so the player can adjust the aim. Changing aim clears the refusal state.
+- A launch applies a velocity along the aimed direction with magnitude increasing with the cursor's distance from the gun and capped at a field-relative maximum in the 10–20 % of field-scale range. A velocity cap keeps a repeatedly launched ball controllable.
+- Before launching, forecast the oldest stored ball from the muzzle with its launch velocity and the current aperture trajectory (the hole's live velocity applied over the flight time to the divider). Refuse a launch predicted to pass through the aperture; show the predicted path and refusal state so the player can adjust the aim. Changing aim clears the refusal state.
 
 ### Forecast cues
 
-- The selected ball's forecast is visible regardless of whether it will hit or pass, and uses the same whole-body divider fit as simulation. Its post-push predicted path is drawn before release as a second cue.
+- The stored ball's launch forecast is visible regardless of whether it will hit or pass, and uses the same whole-body divider fit as simulation. It is drawn before release as a second cue, and the stored balls are drawn beside the muzzle with a `Stored n / 3` HUD row.
 - Other balls draw a forecast only when they are predicted to pass through the aperture. Their trace is limited to six path points or a field-relative flight budget, whichever ends first, so the canvas does not fill with lines.
 - Reuse the existing preallocated trajectory buffer, the shared divider rule and dashed-line rendering. The per-ball point budget is a parameter of one trace function; there is no second, divergent divider-fit rule. The frame loop stays allocation-free.
 
@@ -66,7 +67,7 @@ The falloff curve, its along-ray and cross-ray scales, push impulse cap and touc
 - The selected ball shows its forecast and predicted push path; unrelated balls show only predicted passes, with no more than six segments.
 - Releasing, cancelling, losing focus, changing mode or using touch stops the gun cleanly; touch hold pulls and tap pushes.
 - Standard mode forecasts, plate marks and dash options are unchanged.
-- Ball speed doubles only in this mode; standard and territory modes retain their own speeds and control rules.
+- Ball speed is a quarter of the standard speed in both new modes; standard mode retains its own speed and control rules.
 - Mode URL restoration and compact/wide layout keep the role controls usable.
 
 ## Validation

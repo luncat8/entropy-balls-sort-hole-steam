@@ -17,7 +17,7 @@ const STATUS_MODE_CONTROL = {
 		'P2 blue · ↑↓ moves the gun, hold → pulls, Space pushes.'
 	],
 	'ball-gun': [
-		'P1 gun · pointer aims. Middle hold pulls, left click pushes. Touch: hold/tap.',
+		'P1 gun · pointer aims. Middle hold pulls a ball into the gun (up to 3 stored), left click launches the oldest. Touch: hold/tap.',
 		'P2 hole · ↑↓ sets force, hold → moves the hole at quarter speed.'
 	]
 };

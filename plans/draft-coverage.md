@@ -87,7 +87,7 @@ Status words: **shipped**, **partial**, **planned** (a plan file names it), **op
 | Matching-color passages plus a universal top passage; players move their guns along their own colored territory | shipped | [plan 3.0](plan3.0.md); one passage predicate shared by simulation and trajectory |
 | Colored rooms that gradually change a ball to the room's color; highlighted forecasts through player color | shipped | `rooms` setting (on by default in territory), `territory.js`, `canvas.js` mode forecast hook |
 | One player steers the aperture while the other uses a pointer ball gun | shipped | [plan 3.1](plan3.1.md), [worklog](../archive/3.1-worklog.md); `gun.js` |
-| Gravity-ray pull that weakens with distance and aim error; push refusal when a predicted path passes the hole | shipped | [plan 3.1](plan3.1.md); `gun.js`, `trajectory.js` hole shift |
+| Gravity-ray pull that weakens with distance and aim error; a pulled ball reaching the gun is consumed into a 3-ball store, and launching the oldest stored ball is refused when its predicted path passes the hole | shipped | [plan 3.1](plan3.1.md); `gun.js`, `trajectory.js` hole shift |
 | Show the selected ball's predicted path and filter other-ball forecasts to likely passes | shipped | [plan 3.1](plan3.1.md); six-point pass budget, standard forecast untouched |
 | Middle mouse aim instead of the right button, touch hold/tap, and a URL-selectable mode for each draft | shipped | `modeinput.js`, `mode.js`, `settings.js` |
 | Bot whole-body fit at first touch and centre line, policy split, and field-relative live fade | shipped | [plan 0.7](plan0.7.md), [worklog](../archive/0.7-worklog.md) |

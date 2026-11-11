@@ -2,10 +2,12 @@
 // edit for: mode list, mode-specific boot/reset, help copy
 
 const MODE_NAMES = ['standard', 'territory', 'ball-gun'];
+// both new modes run balls at a quarter of the standard speed; the hole keeps its own scale below
+const MODE_BALL_SPEED = { standard: 1, territory: 0.25, 'ball-gun': 0.25 };
 const MODE_HELP = [
 	'',
 	'Territory · P1 red moves its gun with the pointer, P2 blue with ↑↓. Hold the middle mouse button or → to pull neutral balls; left click or Space pushes. Touch: hold pulls, tap pushes. Every color crosses the top gate; a painted region is a hole only for its own color. Grow your wall share.',
-	'Ball gun · P1 aims with the pointer: hold the middle mouse button to pull a ball, left click to push it. P2 moves the hole with ↑↓ and holds →. A push predicted to pass the hole is refused; aim again. Touch: hold pulls, tap pushes.'
+	'Ball gun · P1 aims with the pointer: hold the middle mouse button to pull a ball into the gun (stores up to 3), left click launches the oldest stored ball. P2 moves the hole with ↑↓ and holds →. A launch predicted to pass the hole is refused; aim again. Touch: hold pulls, tap launches. Balls move at a quarter of their normal speed in both new modes.'
 ];
 const modeState = {
 	active: 'standard',
@@ -76,7 +78,7 @@ function modeSet(name) {
 	simSetModeHook(null);
 	trajSetModeHook(null);
 	canvasSetModeHook(null);
-	simSetModeSpeed(1);
+	simSetModeSpeed(MODE_BALL_SPEED[next]);
 	simSetModeApertureSpeed(1);
 	inputSetEnabled(true);
 	inputSetPointerEnabled(true);
@@ -110,7 +112,6 @@ function modeSet(name) {
 	forceInit();
 	inputRebind();
 	inputSetPointerEnabled(false);
-	simSetModeSpeed(2);
 	simSetModeApertureSpeed(0.25);
 	canvasSetModeHook(gunView);
 	modeInputSetHook(gunInput);

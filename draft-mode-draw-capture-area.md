@@ -1,5 +1,6 @@
 ## add settings:
-[] few holes and rooms with colored background that gradually changed ball color to same as this bg.
+[] few holes and rooms with colored background that gradually changed ball color to same as this bg. 
+room mean some area restricted by walls or wall + canvas border, think what good for game or generate random. for example: wall that cut corner of game field and has big hole in center so balls can pass to it. better not in center but connected to side of canvas. you can generate sometimes zone without walls but not always.
 
 ## implement new game mode
 in this mode:

@@ -60,6 +60,8 @@ check('mode: territory gate sits at the top and is finite', territory.territoryS
 	&& territory.territoryState.gate < sim.simField.h * 0.25
 	&& territory.territoryAperture.size === territory.territoryState.gate);
 check('mode: hole channel is disabled in territory', !input.inputState.pointerEnabled && !input.inputState.keysEnabled);
+check('mode: territory balls move at a quarter of the standard speed',
+	near(sim.simBallConfig.speed, sim.simPx(settings.settingsState.ballSpeed) * 0.25));
 check('mode: seeded regions are small, distinct and reachable',
 	paint.territoryPaintShare(mc.MODE_RED) > 0 && paint.territoryPaintShare(mc.MODE_RED) < 0.3
 	&& paint.territoryPaintShare(mc.MODE_BLUE) > 0 && paint.territoryPaintShare(mc.MODE_BLUE) < 0.3
@@ -164,8 +166,8 @@ setMode('ball-gun');
 check('mode: ball-gun URL state and HUD', mode.modeState.active === 'ball-gun'
 	&& !els['gun-hud'].hidden && els['territory-hud'].hidden
 	&& doc.body.dataset.mode === 'ball-gun');
-check('mode: ball speed doubles and hole speed quarters without changing settings',
-	near(sim.simBallConfig.speed, sim.simPx(settings.settingsState.ballSpeed) * 2)
+check('mode: ball speed quarters and hole speed quarters without changing settings',
+	near(sim.simBallConfig.speed, sim.simPx(settings.settingsState.ballSpeed) * 0.25)
 	&& near(sim.simAperture.speed, sim.simPx(settings.settingsState.holeSpeed) * 0.25)
 	&& sim.simBallConfig.speedShare === settings.settingsState.ballSpeed
 	&& sim.simAperture.speedShare === settings.settingsState.holeSpeed);
@@ -187,18 +189,42 @@ place(1, sim.simField.w * 0.62, sim.simField.h * 0.34, 0, 0, 14, 0);
 gun.gunStep(0);
 check('gun: target selection is deterministic', gun.gunState.target === 0);
 
-// refusal: a post-push path through the aperture is refused; a miss permits the push
+// capture: a pulled ball reaching the gun is consumed into the store, without bouncing
 gun.gunSetAim(600, 400);
-place(0, 700, 285, 0, 0, 14, 0);
+place(0, gun.gunState.x, gun.gunState.y + 20, 0, 0, 14, 0);
+sim.simBalls.count = 1;
+gun.gunState.pull = 1;
 gun.gunStep(0);
-const vxBefore = sim.simBalls.vx[0];
+check('gun: pull consumes a ball at the muzzle into the store',
+	gun.gunState.stored === 1 && sim.simBalls.count === 0 && gun.gunState.target === -1);
+gun.gunState.pull = 0;
+check('gun: capture keeps the stored ball color and radius',
+	gun.gunState.storeR[0] === 14 && gun.gunState.storeCss[0] === '#ffffff');
+place(0, gun.gunState.x, gun.gunState.y + 20, 0, 0, 14, 0);
+gun.gunCapture(0);
+place(0, gun.gunState.x, gun.gunState.y + 20, 0, 0, 14, 0);
+gun.gunCapture(0);
+place(0, gun.gunState.x, gun.gunState.y + 20, 0, 0, 14, 0);
+check('gun: store holds at most three balls', gun.gunState.stored === 3
+	&& gun.gunCapture(0) === false && sim.simBalls.count === 1);
+// FIFO: relaunch order is capture order — drain back to one stored ball for the refusal checks
+sim.simBalls.count = 0;
+for (let drain = 0; drain < 4 && gun.gunState.stored > 1; drain++) { gun.gunSetAim(600, 650); gun.gunPush(); sim.simBalls.count = 0; }
+check('gun: launches drain the store oldest first', gun.gunState.stored === 1);
+
+// refusal: a launch predicted through the aperture is refused and keeps the stored ball
+place(0, 700, 285, 0, 0, 14, 0);
+sim.simBalls.count = 0;
+gun.gunSetAim(sim.simField.wallX, sim.simAperture.y);
 gun.gunPush();
-check('gun: a predicted pass refuses the push', gun.gunState.refused === 1
-	&& sim.simBalls.vx[0] === vxBefore && gun.gunPredict() === traj.TRAJ_PASS);
+check('gun: a predicted pass refuses the launch', gun.gunState.refused === 1
+	&& gun.gunState.stored === 1 && sim.simBalls.count === 0 && gun.gunPredict() === traj.TRAJ_PASS);
 gun.gunSetAim(610, 650);
 gun.gunPush();
-check('gun: a predicted hit permits the push', gun.gunState.refused === 0
-	&& sim.simBalls.vx[0] !== vxBefore);
+check('gun: a predicted hit launches the stored ball along the aim', gun.gunState.refused === 0
+	&& gun.gunState.stored === 0 && sim.simBalls.count === 1 && sim.simBalls.vy[0] > 0);
+place(0, 700, 285, 0, 0, 14, 0);
+gun.gunStep(0);
 check('gun: selected ball is always forecast, other balls only on a pass',
 	gun.gunView.forecast(0, traj.TRAJ_HIT, traj.trajPath) === 2
 	&& gun.gunView.forecast(1, traj.TRAJ_HIT, traj.trajPath) === 0
@@ -222,11 +248,14 @@ modeInput.modeInputStep(0.2);
 check('gesture: touch hold pulls', gun.gunState.pull === 1);
 canv.dispatch('pointerup', { pointerId: 79, button: 0, pointerType: 'touch', clientX: 610, clientY: 650 });
 check('gesture: touch release stops the pull', gun.gunState.pull === 0);
-const tapVx = sim.simBalls.vx[0];
+gun.gunCapture(0);
+const tapStored = gun.gunState.stored;
+const tapCount = sim.simBalls.count;
 canv.dispatch('pointerdown', { pointerId: 80, button: 0, pointerType: 'touch', clientX: 610, clientY: 650 });
 modeInput.modeInputStep(0.05);
 canv.dispatch('pointerup', { pointerId: 80, button: 0, pointerType: 'touch', clientX: 610, clientY: 650 });
-check('gesture: touch tap pushes', sim.simBalls.vx[0] !== tapVx);
+check('gesture: touch tap launches a stored ball', gun.gunState.stored === tapStored - 1
+	&& sim.simBalls.count === tapCount + 1);
 modeInput.modeInputCancel();
 check('gesture: cancellation and mode change stop force', gun.gunState.pull === 0
 	&& gun.gunState.target === -1);

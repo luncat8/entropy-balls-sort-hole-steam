@@ -324,6 +324,31 @@ function simSpawn() {
 	simBalls.count = i + 1;
 }
 
+function simRemoveBall(i) {
+	if (i < 0 || i >= simBalls.count) return false;
+	const last = simBalls.count - 1;
+	if (i !== last) {
+		simBalls.x[i] = simBalls.x[last]; simBalls.y[i] = simBalls.y[last];
+		simBalls.vx[i] = simBalls.vx[last]; simBalls.vy[i] = simBalls.vy[last];
+		simBalls.r[i] = simBalls.r[last]; simBalls.rgb[i] = simBalls.rgb[last];
+		simBalls.palette[i] = simBalls.palette[last]; simBalls.css[i] = simBalls.css[last];
+	}
+	simBalls.count = last;
+	simFillDist();
+	return true;
+}
+
+// returns the new index, or -1 when the fixed-capacity field is full
+function simAddBall(x, y, vx, vy, r, rgb, palette, css) {
+	const i = simBalls.count;
+	if (i >= BALL_CAP) return -1;
+	simBalls.x[i] = x; simBalls.y[i] = y; simBalls.vx[i] = vx; simBalls.vy[i] = vy;
+	simBalls.r[i] = r; simBalls.rgb[i] = rgb; simBalls.palette[i] = palette; simBalls.css[i] = css;
+	simBalls.count = i + 1;
+	simFillDist();
+	return i;
+}
+
 function simDistSig() {
 	let s = simDist.total + 1;
 	s = (s * 33 + simDist.left) | 0;
@@ -517,6 +542,7 @@ function simAdvance(dtSec) {
 
 if (typeof module !== 'undefined') module.exports = {
 	simField, simBalls, simAperture, simDist, simBallConfig, simInit, simAdvance, simStep, simSpawn, simFillDist,
+	simRemoveBall, simAddBall,
 	simSetBallCollisions, simSetSpawnRate, simSetBallCount, simSetBallSpeed, simSetFriction, simSetControlHook,
 	simSetModeHook, simSetModeSpeed, simSetModeApertureSpeed,
 	simSetApertureSize, simSetApertureSpeed, simResizeField, simSetBallSize, simBallRadius,

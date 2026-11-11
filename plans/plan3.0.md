@@ -14,6 +14,7 @@ The divider has one fixed universal passage at the top edge. In this mode the st
 
 - Add a mode setting with `standard` as the default and `territory` and `ball-gun` as the other choices. It normalizes, encodes, restores from a copied URL, and switches mode through one owner rather than scattering mode checks across unrelated features.
 - A mode switch initializes mode state and controls without changing the standard mode's physics, task behavior, or settings. Returning to standard restores its existing field, participants and controls.
+- Balls move at a quarter of the standard speed in this mode (and in ball-gun mode), from one mode speed table in `mode.js`; no setting value is overwritten.
 - Mode-specific input, simulation rules, drawing, trajectory decisions and score presentation have named owners. The shared simulation remains the owner of field dimensions and ball motion; mode behavior is applied through explicit hooks at stable simulation boundaries (control step, before/after ball motion, divider contact). With no hook installed, every standard rule and every standard forecast is byte-for-byte the old behavior.
 - Keep the experience local and classic-script based. No network service or build step is introduced.
 
