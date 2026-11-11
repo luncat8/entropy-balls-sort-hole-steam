@@ -5,11 +5,16 @@ const GUN_X_SHARE = 0.75;
 const GUN_PATH_POINTS = 10;
 const GUN_PASS_POINTS = 6;
 const GUN_PULL_REACH_SHARE = 520;
-const GUN_PULL_ACC_SHARE = 1200;
+const GUN_PULL_ACC_SHARE = 2400;
 const GUN_BEAM_SHARE = 90;
-const GUN_PUSH_SHARE = 150;
+const GUN_PUSH_SHARE = 600;
+// the aim distance sets the launch speed up to the cap; cap and slope are both 4x the first tuning,
+// so a launch is 4x faster across the whole cursor range, not only at full reach
+const GUN_PUSH_SLOPE = 2;
 const GUN_FORECAST_REACH_SHARE = 1500;
-const GUN_SPEED_CAP = 3;
+// pulled balls reach this multiple of the base ball speed almost at once, so the cap — not the
+// acceleration — is what a player feels as the pull strength; pull is 2x, so the cap is 2x
+const GUN_SPEED_CAP = 6;
 const GUN_STORE_CAP = 3;
 const GUN_CAPTURE_SHARE = 24;
 const GUN_FORCE_STEP = 5;
@@ -156,7 +161,7 @@ function gunPullAccel(t, perp) {
 
 function gunPushStrength() {
 	const cap = simPx(GUN_PUSH_SHARE);
-	const base = Math.min(cap, gunState.aimLen * 0.5);
+	const base = Math.min(cap, gunState.aimLen * GUN_PUSH_SLOPE);
 	return base * gunForceShare();
 }
 
