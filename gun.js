@@ -5,9 +5,9 @@ const GUN_X_SHARE = 0.75;
 const GUN_PATH_POINTS = 10;
 const GUN_PASS_POINTS = 6;
 const GUN_PULL_REACH_SHARE = 520;
-const GUN_PULL_ACC_SHARE = 2400;
+const GUN_PULL_ACC_SHARE = 2880;
 const GUN_BEAM_SHARE = 90;
-const GUN_PUSH_SHARE = 600;
+const GUN_PUSH_SHARE = 720;
 // the aim distance sets the launch speed up to the cap; cap and slope are both 4x the first tuning,
 // so a launch is 4x faster across the whole cursor range, not only at full reach
 const GUN_PUSH_SLOPE = 2;
@@ -223,6 +223,7 @@ function gunLaunchBall() {
 		gunState.ux * gunState.push, gunState.uy * gunState.push,
 		r, gunState.storeRgb[0], gunState.storePalette[0], gunState.storeCss[0]);
 	if (i < 0) return -1;
+	simArmBall(i); // plan 3.2: fired balls carry the aura until hole crossing, 20s, or 4 bounces
 	gunState.energy -= pushCost;
 	if (gunState.energy < 0) gunState.energy = 0;
 	for (let k = 1; k < gunState.stored; k++) {

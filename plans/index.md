@@ -37,6 +37,8 @@ These plans turn `draft.txt` into implementable slices. The numbers identify sub
 21. ~~0.7 — Whole-body bot crossings and live forecast reach~~ — done: [plan](plan0.7.md), [worklog](../archive/0.7-worklog.md). Bot lanes require whole-body fit at first touch and centre line; forecast fade follows live mean free path.
 22. ~~3.0 — Colored-wall territory mode~~ — done: [plan](plan3.0.md), [worklog](../archive/3.0-worklog.md). URL-selectable mode with persistent color wall, colored rooms, color-matched passages, two wall guns and capture HUD.
 23. ~~3.1 — Ball-gun capture mode~~ — done: [plan](plan3.1.md), [worklog](../archive/3.1-worklog.md). URL-selectable mode with middle-button gravity-ray pull, predicted push refusal and asymmetric gun/hole roles.
+24. [3.2 — Gun mode tuning](plan3.2-gun-tuning.md): ×1.2 pull/push in both gun modes, fire-only push (territory), fired-ball aura.
+25. [4.0 — Plate-color mode](plan4.0-plate-mode.md): two-player ball-guns, shared plate with 2 holes, colorizer rooms, quest system.
 
 ## Shared product decisions
 

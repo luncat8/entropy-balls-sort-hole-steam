@@ -205,17 +205,16 @@ check('gun: ray falloff is monotone and zero past reach',
 	&& gun.gunPullAccel(50, 5) > gun.gunPullAccel(50, 70)
 	&& gun.gunPullAccel(sim.simPx(700), 5) === 0);
 gun.gunSetForce(100);
-check('gun: push cap is field-relative at 4x the first 150 ‰/s tuning',
-	near(gun.gunPushStrength(), sim.simPx(600), 1));
-check('gun: the whole cursor range launches 4x the old strength', (() => {
+check('gun: push cap is field-relative at 4.8x the first 150 ‰/s tuning',
+	near(gun.gunPushStrength(), sim.simPx(720), 1));
+check('gun: the whole cursor range launches min(720, len·2) × forceShare', (() => {
 	const g = gun.gunState;
-	const before = len => Math.min(sim.simPx(150), len * 0.5);
 	gun.gunSetAim(g.x + 100, g.y + 100);
 	const shortLen = g.aimLen;
 	const shortPush = gun.gunPushStrength();
 	gun.gunSetAim(g.x + 1000, g.y + 1000);
-	return near(shortPush, before(shortLen) * 4, 1e-6)
-		&& near(gun.gunPushStrength(), before(g.aimLen) * 4, 1e-6);
+	return near(shortPush, Math.min(sim.simPx(720), shortLen * 2), 1e-6)
+		&& near(gun.gunPushStrength(), Math.min(sim.simPx(720), g.aimLen * 2), 1e-6);
 })());
 gun.gunSetForce(100);
 check('gun: a pulled ball leaves at twice the old 3x speed cap', (() => {
@@ -281,6 +280,61 @@ check('gun: selected ball is always forecast, other balls only on a pass',
 	&& gun.gunView.forecast(1, traj.TRAJ_HIT, traj.trajPath) === 0
 	&& gun.gunView.forecast(1, traj.TRAJ_PASS, traj.trajPath) === 2
 	&& gun.gunView.forecastBudget(0) === 10 && gun.gunView.forecastBudget(1) === 6);
+
+// aura (plan 3.2): a fired ball crossing the hole is consumed; the aura expires on time or bounces
+check('aura: a fired ball at the hole is removed by simStep', (() => {
+	sim.simSetSpawnRate(0);
+	place(0, sim.simField.wallX, sim.simAperture.y, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	sim.simArmBall(0);
+	gun.gunState.pull = 0;
+	gun.gunState.target = -1;
+	sim.simStep(sim.FIXED_DT);
+	return sim.simBalls.count === 0;
+})());
+check('aura: a fired ball away from the hole survives one step', (() => {
+	sim.simSetSpawnRate(0);
+	place(0, sim.simField.wallX - 200, sim.simField.h / 2, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	sim.simArmBall(0);
+	gun.gunState.pull = 0;
+	gun.gunState.target = -1;
+	sim.simStep(sim.FIXED_DT);
+	return sim.simBalls.count === 1 && sim.simBallArmed[0] === 1;
+})());
+check('aura: a fired ball disarms after the time limit', (() => {
+	sim.simSetSpawnRate(0);
+	place(0, sim.simField.wallX - 200, sim.simField.h / 2, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	sim.simArmBall(0);
+	gun.gunState.pull = 0;
+	gun.gunState.target = -1;
+	const steps = Math.ceil(sim.SIM_AURA_MAX_SEC / sim.FIXED_DT) + 1;
+	for (let k = 0; k < steps; k++) sim.simStep(sim.FIXED_DT);
+	return sim.simBalls.count === 1 && sim.simBallArmed[0] === 0;
+})());
+check('aura: a fired ball disarms after 4 edge bounces', (() => {
+	sim.simSetSpawnRate(0);
+	place(0, 5, 100, -800, 0, 14, 0);
+	sim.simBalls.count = 1;
+	sim.simArmBall(0);
+	gun.gunState.pull = 0;
+	gun.gunState.target = -1;
+	for (let k = 0; k < 800 && sim.simBallArmed[0] === 1; k++) sim.simStep(sim.FIXED_DT);
+	return sim.simBalls.count === 1 && sim.simBallArmed[0] === 0;
+})());
+check('aura: an armed ball can still be pulled by the gun', (() => {
+	sim.simSetSpawnRate(0);
+	gun.gunSetAim(gun.gunState.x + 200, gun.gunState.y + 200);
+	place(0, gun.gunState.x, gun.gunState.y + 20, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	sim.simArmBall(0);
+	gun.gunState.energy = gun.gunState.energyCap;
+	gun.gunState.pull = 1;
+	gun.gunStep(0);
+	gun.gunState.pull = 0;
+	return gun.gunState.stored === 1;
+})());
 
 // middle mouse aims/pulls, left pushes, right is unused; touch hold/tap are one press/release pair
 const canv = els.canv;
@@ -397,6 +451,18 @@ check('territory: push from store costs energy and can be triggered via stored b
 	const beforeEnergy = g.energy;
 	territory.territoryLaunchBall(gid);
 	return stored === 1 && g.stored === 0 && sim.simBalls.count === 1 && g.energy < beforeEnergy;
+})());
+check('territory: push is fire-only — no stored ball means no push of distant balls', (() => {
+	const gid = 0;
+	const g = territory.territoryGuns[gid];
+	g.stored = 0;
+	place(0, territory.territoryGunX(gid) + 50, g.y, 0, 0, 14, 0);
+	sim.simBalls.count = 1;
+	g.aimX = sim.simField.wallX + 200; g.aimY = g.y; territory.territoryUpdateAim(gid);
+	const beforeVx = sim.simBalls.vx[0];
+	const beforeEnergy = g.energy;
+	territory.territoryPush(gid);
+	return sim.simBalls.vx[0] === beforeVx && g.energy === beforeEnergy && sim.simBalls.count === 1;
 })());
 check('territory: muzzle capture ignores t<=0 and divider does not bounce a capturable ball', (() => {
 	const gid = 0;

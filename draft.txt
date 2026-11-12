@@ -113,6 +113,7 @@ quest list target color drawn options radio buttons (with preview of what option
 
 
 ## ball gun
+improve all guns modes: increase the pull force 1.2x and the push force 1.2x in both gun modes (ball-gun and territory).
 make push force only fire balls, it does not push distant balls.
 
 ###
@@ -164,7 +165,7 @@ player can sign to task
 - random different tasks
 
 
-optional: make push force push distant balls weary weak (weak force, full power consumption).
+(push no longer pushes distant balls at all, in any gun mode — see the ball gun section above.)
 
 
 

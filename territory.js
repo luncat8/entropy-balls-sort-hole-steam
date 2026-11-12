@@ -5,9 +5,9 @@ const TERRITORY_GATE_SHARE = 120;
 const TERRITORY_SEED_SPAN = 0.09;
 const TERRITORY_ROOM_RATE = 110;
 const TERRITORY_PULL_REACH_SHARE = 420;
-const TERRITORY_PULL_ACC_SHARE = 1800;
+const TERRITORY_PULL_ACC_SHARE = 2160;
 const TERRITORY_BEAM_SHARE = 80;
-const TERRITORY_PUSH_SHARE = 520;
+const TERRITORY_PUSH_SHARE = 624;
 const TERRITORY_PUSH_SLOPE = 2;
 const TERRITORY_GUN_MOVE_SHARE = 230;
 // a pulled ball is at the cap within a frame, so the cap is the pull strength a player feels (gun.js: 2x)
@@ -329,6 +329,7 @@ function territoryLaunchBall(id) {
 	const y = g.y + g.uy * (r + gap);
 	const idx = simAddBall(x, y, g.ux * strength, g.uy * strength, r, g.storeRgb[0], g.storePalette[0], g.storeCss[0]);
 	if (idx < 0) return -1;
+	simArmBall(idx); // plan 3.2: fired balls carry the aura until hole crossing, 20s, or 4 bounces
 	g.energy -= pushCost;
 	if (g.energy < 0) g.energy = 0;
 	for (let k = 1; k < g.stored; k++) {
@@ -372,17 +373,6 @@ function territoryPush(id) {
 		territoryLaunchBall(id);
 		return;
 	}
-	if (g.target < 0 || g.target >= simBalls.count) return;
-	const i = g.target;
-	if (territoryBallOwner(i) !== MODE_NONE) return;
-	const strength = territoryPushBase(g) * territoryForceShare(id);
-	if (strength <= 0) return;
-	const pushCost = TERRITORY_PUSH_COST * territoryForceShare(id) * 0.5;
-	if (pushCost > 0 && g.energy < pushCost) return;
-	if (pushCost > 0) { g.energy -= pushCost; if (g.energy < 0) g.energy = 0; }
-	simBalls.vx[i] += g.ux * strength;
-	simBalls.vy[i] += g.uy * strength;
-	territoryClampSpeed(i);
 }
 
 function territoryPasses(i, y, r) {
@@ -679,5 +669,5 @@ if (typeof module !== 'undefined') module.exports = {
 	territoryInit, territoryRelease, territoryResize, territorySetRooms,
 	territoryControlStep, territoryHudPaint, territoryPasses, territoryBallOwner,
 	territoryPullAccel, territoryDivider, territoryInput, territoryView,
-	territoryTrajHook, territorySimHook, territoryCapture, territoryTryCaptureMuzzle, territoryWheel, territorySetForce, territoryLaunchBall, territoryGunX, territoryUpdateAim, territoryUpdateTarget, territoryBeforeBalls, territoryRecharge, territorySyncEnergy
+	territoryTrajHook, territorySimHook, territoryCapture, territoryTryCaptureMuzzle, territoryWheel, territorySetForce, territoryLaunchBall, territoryPush, territoryGunX, territoryUpdateAim, territoryUpdateTarget, territoryBeforeBalls, territoryRecharge, territorySyncEnergy
 };

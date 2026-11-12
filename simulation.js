@@ -66,6 +66,14 @@ const simBalls = {
 	css: new Array(BALL_CAP)
 };
 
+// fired-ball aura (plan 3.2): balls launched by a gun carry an armed flag while the aura is
+// active; the aura removes them on hole crossing so firing into the hole cannot solve a quest
+const SIM_AURA_MAX_SEC = 20;
+const SIM_AURA_MAX_BOUNCES = 4;
+const simBallArmed = new Uint8Array(BALL_CAP);
+const simBallAuraT = new Float32Array(BALL_CAP);
+const simBallAuraBounces = new Uint8Array(BALL_CAP);
+
 const simAperture = {
 	y: 400, drive: 0, velocity: 0, friction: 0,
 	sizeShare: APERTURE_SIZE, speedShare: APERTURE_SPEED,
@@ -332,6 +340,9 @@ function simRemoveBall(i) {
 		simBalls.vx[i] = simBalls.vx[last]; simBalls.vy[i] = simBalls.vy[last];
 		simBalls.r[i] = simBalls.r[last]; simBalls.rgb[i] = simBalls.rgb[last];
 		simBalls.palette[i] = simBalls.palette[last]; simBalls.css[i] = simBalls.css[last];
+		simBallArmed[i] = simBallArmed[last];
+		simBallAuraT[i] = simBallAuraT[last];
+		simBallAuraBounces[i] = simBallAuraBounces[last];
 		if (typeof territoryState !== 'undefined' && territoryState.hue && territoryState.hueCount > 0) {
 			if (i < territoryState.hue.length && last < territoryState.hue.length) {
 				territoryState.hue[i] = territoryState.hue[last];
@@ -364,6 +375,27 @@ function simAddBall(x, y, vx, vy, r, rgb, palette, css) {
 	simBalls.count = i + 1;
 	simFillDist();
 	return i;
+}
+
+// marks a ball as fired by a gun (plan 3.2): the aura removes it on hole crossing for
+// SIM_AURA_MAX_SEC or SIM_AURA_MAX_BOUNCES edge bounces, then disarms
+function simArmBall(i) {
+	if (i < 0 || i >= simBalls.count) return;
+	simBallArmed[i] = 1;
+	simBallAuraT[i] = 0;
+	simBallAuraBounces[i] = 0;
+}
+
+// an armed ball crossing the aperture opening is consumed (draft: firing into the hole
+// must not solve a quest); a mode can override the hole test via simModeHook.auraHole
+function simFiredCrossesHole(i) {
+	if (simModeHook && simModeHook.auraHole) return simModeHook.auraHole(i);
+	const r = simBalls.r[i];
+	const dx = simBalls.x[i] - simField.wallX;
+	if (dx > r || dx < -r) return false;
+	const half = simAperture.size / 2;
+	return simBalls.y[i] > simAperture.y - half - APERTURE_FIT_SLACK
+		&& simBalls.y[i] < simAperture.y + half + APERTURE_FIT_SLACK;
 }
 
 function simDistSig() {
@@ -424,6 +456,9 @@ function simInit() {
 	simBalls.count = 0;
 	spawnAcc = 0;
 	stepAcc = 0;
+	simBallArmed.fill(0);
+	simBallAuraT.fill(0);
+	simBallAuraBounces.fill(0);
 	simAperture.y = simField.h / 2;
 	simAperture.drive = 0;
 	simAperture.velocity = 0;
@@ -458,17 +493,29 @@ function simWallBounce(i) {
 	const r = simBalls.r[i];
 	if (simBalls.x[i] < r) {
 		simBalls.x[i] = r;
-		if (simBalls.vx[i] < 0) simBalls.vx[i] = -simBalls.vx[i];
+		if (simBalls.vx[i] < 0) {
+			simBalls.vx[i] = -simBalls.vx[i];
+			if (simBallArmed[i]) simBallAuraBounces[i]++;
+		}
 	} else if (simBalls.x[i] > simField.w - r) {
 		simBalls.x[i] = simField.w - r;
-		if (simBalls.vx[i] > 0) simBalls.vx[i] = -simBalls.vx[i];
+		if (simBalls.vx[i] > 0) {
+			simBalls.vx[i] = -simBalls.vx[i];
+			if (simBallArmed[i]) simBallAuraBounces[i]++;
+		}
 	}
 	if (simBalls.y[i] < r) {
 		simBalls.y[i] = r;
-		if (simBalls.vy[i] < 0) simBalls.vy[i] = -simBalls.vy[i];
+		if (simBalls.vy[i] < 0) {
+			simBalls.vy[i] = -simBalls.vy[i];
+			if (simBallArmed[i]) simBallAuraBounces[i]++;
+		}
 	} else if (simBalls.y[i] > simField.h - r) {
 		simBalls.y[i] = simField.h - r;
-		if (simBalls.vy[i] > 0) simBalls.vy[i] = -simBalls.vy[i];
+		if (simBalls.vy[i] > 0) {
+			simBalls.vy[i] = -simBalls.vy[i];
+			if (simBallArmed[i]) simBallAuraBounces[i]++;
+		}
 	}
 }
 
@@ -544,6 +591,16 @@ function simStep(dt) {
 	simSpawnTick(dt);
 	if (simModeHook && simModeHook.beforeBalls) simModeHook.beforeBalls(dt);
 	for (let i = 0; i < simBalls.count; i++) simMoveBall(i, dt);
+	// fired-ball aura (plan 3.2): armed balls that crossed the hole are consumed; the aura
+	// expires on time or bounce count, then the ball flies normally
+	for (let i = 0; i < simBalls.count; i++) {
+		if (!simBallArmed[i]) continue;
+		if (simFiredCrossesHole(i)) { simRemoveBall(i); i--; continue; }
+		simBallAuraT[i] += dt;
+		if (simBallAuraT[i] >= SIM_AURA_MAX_SEC || simBallAuraBounces[i] >= SIM_AURA_MAX_BOUNCES) {
+			simBallArmed[i] = 0;
+		}
+	}
 	if (simBallCollisions) simCollideBalls();
 	if (simModeHook && simModeHook.afterBalls) simModeHook.afterBalls(dt);
 	simFillDist();
@@ -560,7 +617,8 @@ function simAdvance(dtSec) {
 
 if (typeof module !== 'undefined') module.exports = {
 	simField, simBalls, simAperture, simDist, simBallConfig, simInit, simAdvance, simStep, simSpawn, simFillDist,
-	simRemoveBall, simAddBall,
+	simRemoveBall, simAddBall, simArmBall, simFiredCrossesHole,
+	simBallArmed, simBallAuraT, simBallAuraBounces, SIM_AURA_MAX_SEC, SIM_AURA_MAX_BOUNCES,
 	simSetBallCollisions, simSetSpawnRate, simSetBallCount, simSetBallSpeed, simSetFriction, simSetControlHook,
 	simSetModeHook, simSetModeSpeed, simSetModeApertureSpeed,
 	simSetApertureSize, simSetApertureSpeed, simResizeField, simSetBallSize, simBallRadius,

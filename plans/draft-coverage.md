@@ -130,9 +130,11 @@ open item is a table row or a control.
 
 Plans 3.0 and 3.1 now ship: territory mode (persistent wall paint, colored rooms, matching passages,
 two wall guns) and ball-gun mode (gravity-ray pull, predicted push refusal, filtered forecasts) are
-URL-selectable alongside the unchanged standard field. Plan 0.7 already closed the forecast/bot
-accuracy gap with whole-body fit at first touch and centre line. The existing settings include a
-generation slider, URL-backed table keys and a copy-link fallback; the remaining small settings
-feature from the earlier draft is a light theme. The task queue remains optional: implement plan 1.0
-only if players need to choose among several simultaneous objectives, and preserve its bounded
-queue/state-machine design rather than reusing an unreviewed generator loop.
+URL-selectable alongside the unchanged standard field. Plan 3.2 tunes both gun modes (×1.2
+pull/push, fire-only push, fired-ball aura) and is implemented. Plan 4.0 (plate-color mode: two
+player ball-guns, shared plate with 2 holes, colorizer rooms, quest system) is planned. Plan 0.7
+already closed the forecast/bot accuracy gap with whole-body fit at first touch and centre line. The
+existing settings include a generation slider, URL-backed table keys and a copy-link fallback; the
+remaining small settings feature from the earlier draft is a light theme. The task queue remains
+optional: implement plan 1.0 only if players need to choose among several simultaneous objectives,
+and preserve its bounded queue/state-machine design rather than reusing an unreviewed generator loop.
