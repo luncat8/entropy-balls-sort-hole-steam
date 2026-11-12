@@ -112,6 +112,23 @@ quest list target color drawn options radio buttons (with preview of what option
 [x] rectangle with smooth palette of possible range
 
 
+## ball gun
+make push force only fire balls, it does not push distant balls.
+
+###
+after fired ball has some field or aura that cause it disappears after hole intersection. this make not possible to solve tasks by fire into hole. aura time is something like 20sec or 4 bounces after gun fired it, then aura disabled.
+
+## new game mode
+2 player ball-guns on opposite side
+fixed hole on center
+plate with 2 holes to 2 colorizator bg rooms
+after ball colorized to bg it captured by gun same color
+goal - move plate w 2 holes to capture balls and prevent other player capture to his colorizer
+solve task by fire push balls and change trajectory of neutral balls to solve quests
+
+
+
+
 ## 
 
 agent suggest Next step:
@@ -125,9 +142,14 @@ Light/dark theme.
 Task queue with claiming, if you want plan 1.0. Do not copy its generator: the fallback loop's guard is inverted (|| guard > 50) and can only prolong the loop.
 Small ones: copy-link button (in settings)
 
+play-test a 588 ‰/s launch against the six-point pass forecast — a fast launch may cross the aperture before the forecast's hole-shift prediction (it re-traces with the hole's live velocity) looks stable, and that's the one number I'd tune next.
+
+
+
 
 
 ## low priority
+
 
 status bar for constant info and current help messages
 
@@ -140,5 +162,9 @@ player can sign to task
 - task is opposite: one player execute task another prevent it.
 - task is same (coop).
 - random different tasks
+
+
+optional: make push force push distant balls weary weak (weak force, full power consumption).
+
 
 
