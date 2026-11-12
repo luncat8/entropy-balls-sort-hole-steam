@@ -214,7 +214,7 @@ function plateDrawOverlay(ctx) {
 }
 
 const plateView = {
-	resize: plateResize,
+	resize() { plateResize(); },
 	background: plateDrawRooms,
 	wall: plateDrawWall,
 	overlay: plateDrawOverlay,

@@ -202,7 +202,7 @@ function territoryForecast(i, end, path) {
 }
 
 const territoryView = {
-	resize: territoryResize,
+	resize() { territoryResize(); },
 	noPositionMarks: true,
 	background: territoryDrawRooms,
 	wall: territoryDrawWall,

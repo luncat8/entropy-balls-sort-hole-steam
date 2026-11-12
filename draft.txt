@@ -169,3 +169,30 @@ player can sign to task
 
 
 
+
+
+
+
+###
+
+One shared plate with 2 holes. so players push plate using force to improve his profit and compete. i think good initial holes - position it to cover hald of both rooms doors. but this is subject to think about gameplay and gow be interesting
+
+
+Energy-driven like the hole. it move in front of rooms doors and can cover or allow pass balls to rooms.
+disadvantages of keep it always open - is ball can escape before got 100% color,
+. so bot strategy is to use energy and try to open his hole to pass more balls inside and close to prevent balls escape
+
+
+
+ so i think best is work like or 1st or 2nd is open
+
+draft.txt updated. Before writing the new-mode plan, I have a few genuinely unclear design points from the sketch — asking:
+this is open design question. i recommend moke settings to variants to play and let players prefer some
+
+
+
+gun act like some gravity ray. it decrease pull force from distance and from aim line. capture area mean balls draw color on wallCentral and similar color as player mean captured
+
+
+and player can move n similar color so more area can available
+
