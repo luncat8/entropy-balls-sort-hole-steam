@@ -1,5 +1,5 @@
-// owns: field, balls, aperture, physics, ball color generation, distribution snapshot
-// edit for: constants, spawn, stepping, snapshot fields, mode hooks
+// owns: field scale/resize, aperture, spawn, wall/divider/ball physics and fixed-step loop
+// edit for: constants, spawn, resize, stepping, mode hooks
 
 // The field is the canvas, so it is measured in CSS pixels and rebuilt on every resize; the divider
 // is always halfway across, and balls bounce off the screen edge instead of a drawn border.
@@ -24,10 +24,6 @@ const simField = {
 	scale: FIELD_START_SCALE
 };
 
-const BALL_CAP = 36;
-const BALL_COUNT_MIN = 6;
-const BALL_COUNT_DEFAULT = 24;
-const BALL_START_COUNT = 9;
 // sizes and speeds are shares of the field scale — the thousandth of sqrt(w * h) — and a speed is
 // the same share per second: ballSize 14 is a 1.4 % radius
 const BALL_SIZE_MIN = 6;
@@ -50,29 +46,6 @@ const APERTURE_FRICTION = 1;
 const FIXED_DT = 1 / 120;
 const MAX_CATCHUP = 0.25;
 const MAX_SUBSTEPS = 8;
-// a ball lying on a screen edge holds a float32 height, so an exact fit test turns back two in five of the
-// balls that skim the bottom edge into an opening parked there, while the top edge passes them all
-const APERTURE_FIT_SLACK = 1e-3;
-
-const simBalls = {
-	count: 0,
-	x: new Float32Array(BALL_CAP),
-	y: new Float32Array(BALL_CAP),
-	vx: new Float32Array(BALL_CAP),
-	vy: new Float32Array(BALL_CAP),
-	r: new Float32Array(BALL_CAP),
-	rgb: new Uint32Array(BALL_CAP),
-	palette: new Uint8Array(BALL_CAP),
-	css: new Array(BALL_CAP)
-};
-
-// fired-ball aura (plan 3.2): balls launched by a gun carry an armed flag while the aura is
-// active; the aura removes them on hole crossing so firing into the hole cannot solve a quest
-const SIM_AURA_MAX_SEC = 20;
-const SIM_AURA_MAX_BOUNCES = 4;
-const simBallArmed = new Uint8Array(BALL_CAP);
-const simBallAuraT = new Float32Array(BALL_CAP);
-const simBallAuraBounces = new Uint8Array(BALL_CAP);
 
 const simAperture = {
 	y: 400, drive: 0, velocity: 0, friction: 0,
@@ -87,24 +60,6 @@ const simBallConfig = {
 };
 // the widest radius the current size setting can produce, so the aperture rules need no ball scan
 const simBallRadius = { max: simBallMaxRadius() };
-
-const DIST_PALETTE = 6;
-const simDist = {
-	total: 0,
-	left: 0,
-	right: 0,
-	hot: 0,
-	cold: 0,
-	leftHot: 0,
-	leftCold: 0,
-	rightHot: 0,
-	rightCold: 0,
-	palette: new Uint16Array(DIST_PALETTE),
-	leftPalette: new Uint16Array(DIST_PALETTE),
-	rightPalette: new Uint16Array(DIST_PALETTE),
-	sig: 0,
-	rev: 0
-};
 
 let simBallCollisions = true;
 let simFrictionEnabled = false;
@@ -310,6 +265,7 @@ function simSpawn() {
 		x = r + Math.random() * (simField.w - 2 * r);
 		y = r + Math.random() * (simField.h - 2 * r);
 		if (Math.abs(x - simField.wallX) < gap) continue;
+		if (simModeHook && simModeHook.spawnBlocked && simModeHook.spawnBlocked(x, y, r)) continue;
 		if (!simSpawnOverlaps(x, y, r)) break;
 	}
 	if (Math.abs(x - simField.wallX) < gap) x = simField.wallX + (x < simField.wallX ? -gap : gap);
@@ -332,133 +288,10 @@ function simSpawn() {
 	simBalls.count = i + 1;
 }
 
-function simRemoveBall(i) {
-	if (i < 0 || i >= simBalls.count) return false;
-	const last = simBalls.count - 1;
-	if (i !== last) {
-		simBalls.x[i] = simBalls.x[last]; simBalls.y[i] = simBalls.y[last];
-		simBalls.vx[i] = simBalls.vx[last]; simBalls.vy[i] = simBalls.vy[last];
-		simBalls.r[i] = simBalls.r[last]; simBalls.rgb[i] = simBalls.rgb[last];
-		simBalls.palette[i] = simBalls.palette[last]; simBalls.css[i] = simBalls.css[last];
-		simBallArmed[i] = simBallArmed[last];
-		simBallAuraT[i] = simBallAuraT[last];
-		simBallAuraBounces[i] = simBallAuraBounces[last];
-		if (typeof territoryState !== 'undefined' && territoryState.hue && territoryState.hueCount > 0) {
-			if (i < territoryState.hue.length && last < territoryState.hue.length) {
-				territoryState.hue[i] = territoryState.hue[last];
-				territoryState.bucket[i] = territoryState.bucket[last];
-			}
-			if (territoryState.hueCount > simBalls.count) territoryState.hueCount = simBalls.count - 1;
-		}
-		if (typeof roomsState !== 'undefined' && roomsState.hue && roomsState.hueCount > 0) {
-			if (i < roomsState.hue.length && last < roomsState.hue.length) {
-				roomsState.hue[i] = roomsState.hue[last];
-				roomsState.bucket[i] = roomsState.bucket[last];
-			}
-			if (roomsState.hueCount > simBalls.count) roomsState.hueCount = simBalls.count - 1;
-		}
-	} else {
-		if (typeof territoryState !== 'undefined' && territoryState.hueCount > 0 && territoryState.hueCount >= simBalls.count) territoryState.hueCount = simBalls.count - 1;
-		if (typeof roomsState !== 'undefined' && roomsState.hueCount > 0 && roomsState.hueCount >= simBalls.count) roomsState.hueCount = simBalls.count - 1;
-	}
-	simBalls.count = last;
-	simFillDist();
-	return true;
-}
-
-// returns the new index, or -1 when the fixed-capacity field is full
-function simAddBall(x, y, vx, vy, r, rgb, palette, css) {
-	const i = simBalls.count;
-	if (i >= BALL_CAP) return -1;
-	simBalls.x[i] = x; simBalls.y[i] = y; simBalls.vx[i] = vx; simBalls.vy[i] = vy;
-	simBalls.r[i] = r; simBalls.rgb[i] = rgb; simBalls.palette[i] = palette; simBalls.css[i] = css;
-	simBalls.count = i + 1;
-	simFillDist();
-	return i;
-}
-
-// marks a ball as fired by a gun (plan 3.2): the aura removes it on hole crossing for
-// SIM_AURA_MAX_SEC or SIM_AURA_MAX_BOUNCES edge bounces, then disarms
-function simArmBall(i) {
-	if (i < 0 || i >= simBalls.count) return;
-	simBallArmed[i] = 1;
-	simBallAuraT[i] = 0;
-	simBallAuraBounces[i] = 0;
-}
-
-// an armed ball crossing the aperture opening is consumed (draft: firing into the hole
-// must not solve a quest); a mode can override the hole test via simModeHook.auraHole
-function simFiredCrossesHole(i) {
-	if (simModeHook && simModeHook.auraHole) return simModeHook.auraHole(i);
-	const r = simBalls.r[i];
-	const dx = simBalls.x[i] - simField.wallX;
-	if (dx > r || dx < -r) return false;
-	const half = simAperture.size / 2;
-	return simBalls.y[i] > simAperture.y - half - APERTURE_FIT_SLACK
-		&& simBalls.y[i] < simAperture.y + half + APERTURE_FIT_SLACK;
-}
-
-function simDistSig() {
-	let s = simDist.total + 1;
-	s = (s * 33 + simDist.left) | 0;
-	s = (s * 33 + simDist.right) | 0;
-	for (let p = 0; p < DIST_PALETTE; p++) {
-		s = (s * 33 + simDist.leftPalette[p]) | 0;
-		s = (s * 33 + simDist.rightPalette[p]) | 0;
-	}
-	return s;
-}
-
-function simFillDist() {
-	const oldSig = simDist.sig;
-	simDist.total = 0;
-	simDist.left = 0;
-	simDist.right = 0;
-	simDist.hot = 0;
-	simDist.cold = 0;
-	simDist.leftHot = 0;
-	simDist.leftCold = 0;
-	simDist.rightHot = 0;
-	simDist.rightCold = 0;
-	simDist.palette.fill(0);
-	simDist.leftPalette.fill(0);
-	simDist.rightPalette.fill(0);
-	const wallX = simField.wallX;
-	for (let i = 0; i < simBalls.count; i++) {
-		const p = simBalls.palette[i];
-		simDist.total++;
-		simDist.palette[p]++;
-		if (simBalls.x[i] < wallX) {
-			simDist.left++;
-			simDist.leftPalette[p]++;
-		} else {
-			simDist.right++;
-			simDist.rightPalette[p]++;
-		}
-	}
-	for (let p = 0; p < DIST_PALETTE; p++) {
-		const hue = PALETTE[p][1];
-		if (colorIsWarm(hue)) {
-			simDist.hot += simDist.palette[p];
-			simDist.leftHot += simDist.leftPalette[p];
-			simDist.rightHot += simDist.rightPalette[p];
-		} else if (colorIsCold(hue)) {
-			simDist.cold += simDist.palette[p];
-			simDist.leftCold += simDist.leftPalette[p];
-			simDist.rightCold += simDist.rightPalette[p];
-		}
-	}
-	simDist.sig = simDistSig();
-	if (simDist.sig !== oldSig) simDist.rev++;
-}
-
 function simInit() {
-	simBalls.count = 0;
+	simResetBalls();
 	spawnAcc = 0;
 	stepAcc = 0;
-	simBallArmed.fill(0);
-	simBallAuraT.fill(0);
-	simBallAuraBounces.fill(0);
 	simAperture.y = simField.h / 2;
 	simAperture.drive = 0;
 	simAperture.velocity = 0;
@@ -542,12 +375,15 @@ function simMoveBall(i, dt) {
 	let n = moveLen > r * 0.5 ? Math.ceil(moveLen / (r * 0.5)) : 1;
 	if (n > MAX_SUBSTEPS) n = MAX_SUBSTEPS;
 	const sdt = dt / n;
+	const roomsOn = typeof roomsWallBounce !== 'undefined' && roomsState && roomsState.enabled;
+	const modeSubstep = simModeHook && simModeHook.substep;
 	for (let s = 0; s < n; s++) {
 		simBalls.x[i] += simBalls.vx[i] * sdt;
 		simBalls.y[i] += simBalls.vy[i] * sdt;
 		simWallBounce(i);
 		simDividerTouch(i);
-		if (typeof roomsWallBounce !== 'undefined' && roomsState && roomsState.enabled) roomsWallBounce(i);
+		if (roomsOn) roomsWallBounce(i);
+		if (modeSubstep) modeSubstep(i);
 	}
 }
 
@@ -585,22 +421,19 @@ function simCollideBalls() {
 
 function simStep(dt) {
 	if (simControlHook) simControlHook(dt);
-	// force prices its requests per fixed step, so catch-up and frame rate cannot change a bill
-	simAperture.drive = forceDrive(dt);
-	simMoveAperture(dt);
+	if (simModeHook && simModeHook.skipApertureForce) {
+		simAperture.drive = 0;
+		simAperture.velocity = 0;
+		simAperture.friction = 0;
+	} else {
+		// force prices its requests per fixed step, so catch-up and frame rate cannot change a bill
+		simAperture.drive = forceDrive(dt);
+		simMoveAperture(dt);
+	}
 	simSpawnTick(dt);
 	if (simModeHook && simModeHook.beforeBalls) simModeHook.beforeBalls(dt);
 	for (let i = 0; i < simBalls.count; i++) simMoveBall(i, dt);
-	// fired-ball aura (plan 3.2): armed balls that crossed the hole are consumed; the aura
-	// expires on time or bounce count, then the ball flies normally
-	for (let i = 0; i < simBalls.count; i++) {
-		if (!simBallArmed[i]) continue;
-		if (simFiredCrossesHole(i)) { simRemoveBall(i); i--; continue; }
-		simBallAuraT[i] += dt;
-		if (simBallAuraT[i] >= SIM_AURA_MAX_SEC || simBallAuraBounces[i] >= SIM_AURA_MAX_BOUNCES) {
-			simBallArmed[i] = 0;
-		}
-	}
+	simStepAura(dt);
 	if (simBallCollisions) simCollideBalls();
 	if (simModeHook && simModeHook.afterBalls) simModeHook.afterBalls(dt);
 	simFillDist();

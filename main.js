@@ -19,9 +19,11 @@ function mainFrame(tMs) {
 	requestAnimationFrame(mainFrame);
 }
 
-// one fixed-step boundary: the standard field keeps its channels, a mode owns its own controls
+// one fixed-step boundary: territory and plate-color run their own room tinting, standard/ball-gun use roomsTint
 function mainControlStep(dt) {
-	if (typeof roomsState !== 'undefined' && roomsState.enabled) roomsTint(dt);
+	if (typeof roomsState !== 'undefined' && roomsState.enabled && !modeIs('territory') && !modeIs('plate-color')) {
+		roomsTint(dt);
+	}
 	modeControlStep(dt);
 }
 
@@ -32,9 +34,9 @@ function mainRestartRound() {
 	inputRelease();
 	simInit();
 	modeRoundReset();
-	if (typeof roomsGenerate !== 'undefined' && typeof roomsState !== 'undefined' && roomsState.enabled) roomsGenerate();
 	forceInit();
 	inputRebind();
+	if (typeof modeApplyInput !== 'undefined') modeApplyInput();
 	botInit();
 	tasksInit();
 	for (let id = 0; id < players.count; id++) tasksAttach(id);

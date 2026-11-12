@@ -40,6 +40,15 @@
 		<div class="mode-hud-energy"><div id="gun-energy-bar" class="mode-hud-energy-fill"></div></div>
 		<p id="gun-state" class="mode-hud-note">middle hold pulls a ball into the gun · left click launches · wheel changes force</p>
 	</section>
+	<section id="plate-hud" class="mode-hud" hidden aria-label="Plate color state">
+		<h2>Plate color</h2>
+		<div class="mode-hud-row"><span>Plate</span><span id="plate-open">both doors shut</span></div>
+		<div class="mode-hud-row"><span class="mode-hud-name mode-red">P1 red</span><span id="plate-cap-0">0 captured</span><span id="plate-stored-0">0/3</span></div>
+		<div class="mode-hud-row"><span class="mode-hud-name mode-blue">P2 blue</span><span id="plate-cap-1">0 captured</span><span id="plate-stored-1">0/3</span></div>
+		<div class="mode-hud-row"><span>P1 gun</span><span id="plate-force-0">60% force</span><span id="plate-energy-0">100/100 energy</span></div>
+		<div class="mode-hud-row"><span>P2 gun</span><span id="plate-force-1">60% force</span><span id="plate-energy-1">100/100 energy</span></div>
+		<p class="mode-hud-note">Push plate left (slider or A/D) or right (←/→) to open your colorizer door. Colorized balls home into your gun; middle/Shift pulls neutral balls, left/Space launches.</p>
+	</section>
 	<ul id="task-list" class="quest-list" aria-live="polite"></ul>
 </div>
 <div class="preview-overlays">
@@ -74,6 +83,12 @@
 					<option value="standard">Standard · aperture sorting</option>
 					<option value="territory">Territory · colored wall</option>
 					<option value="ball-gun">Ball gun · pull and push</option>
+					<option value="plate-color">Plate color · dual guns &amp; rooms</option>
+				</select>
+				<label class="settings-range-label settings-plate-only" for="settings-layout"><span>Room layout</span></label>
+				<select id="settings-layout" class="settings-plate-only">
+					<option value="top">Top colorizer rooms</option>
+					<option value="bottom">Bottom colorizer rooms</option>
 				</select>
 				<label><input id="settings-rooms" type="checkbox"> Colored rooms (recolor balls)</label>
 				<span class="settings-note">Rooms are on by default in territory mode. Middle mouse hold pulls, left click pushes; on touch hold pulls and tap pushes. The right mouse button is not used.</span>
@@ -141,6 +156,7 @@
 	</div>
 </details>
 <script src="color.js"></script>
+<script src="simballs.js"></script>
 <script src="simulation.js"></script>
 <script src="trajectory.js"></script>
 <script src="canvas.js"></script>
@@ -162,9 +178,12 @@
 <script src="modecolor.js"></script>
 <script src="territorypaint.js"></script>
 <script src="rooms.js"></script>
+<script src="territoryview.js"></script>
 <script src="territory.js"></script>
 <script src="gun.js"></script>
 <script src="modeinput.js"></script>
+<script src="plateview.js"></script>
+<script src="plate.js"></script>
 <script src="mode.js"></script>
 <script src="main.js"></script>
 </body>

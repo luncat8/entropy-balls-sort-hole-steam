@@ -2,7 +2,11 @@
 // edit for: gesture mapping, touch hold threshold
 
 const MODE_TAP_SEC = 0.18;
-const MODE_KEY_CODES = ['ArrowUp', 'ArrowDown', 'ArrowRight', 'Space', 'BracketLeft', 'BracketRight', 'Comma', 'Period'];
+const MODE_KEY_CODES = [
+	'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter',
+	'ShiftLeft', 'ShiftRight', 'BracketLeft', 'BracketRight', 'Comma', 'Period',
+	'KeyA', 'KeyD', 'KeyW', 'KeyS'
+];
 
 const modeInputState = {
 	hook: null,

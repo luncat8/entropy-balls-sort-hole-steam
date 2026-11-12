@@ -10,6 +10,11 @@ const TRAJ_NONE = 0;
 const TRAJ_HIT = 1;
 const TRAJ_PASS = 2;
 
+const TRAJ_LEG_PLANE = 0;
+const TRAJ_LEG_EDGE_Y = 1;
+const TRAJ_LEG_EDGE_X = 2;
+const TRAJ_LEG_WALL = 3;
+
 // dist is the flight length to the first touch of the divider; side is the chamber the ball comes from
 const trajPath = {
 	n: 0,
@@ -20,8 +25,9 @@ const trajPath = {
 	side: 0
 };
 const trajRay = { x: 0, y: 0, ux: 0, uy: 0 };
-// a mode may add its own passage predicate and its own gate aperture; no hook is the standard field
+// a mode may add its own passage predicate, gate aperture and interior walls; no hook is the standard field
 let trajModeHook = null;
+let trajLegKind = TRAJ_LEG_PLANE;
 
 function trajSetModeHook(hook) {
 	trajModeHook = hook;
@@ -49,46 +55,80 @@ function trajLeg(ray, planeX, lo, hi) {
 	return toLimit;
 }
 
-function trajRoomHit(ray) {
-	if (typeof roomsState === 'undefined' || !roomsState.enabled) return null;
-	return roomsRayHit(ray, 0);
+function trajWallHit(ray, r) {
+	let hit = null;
+	if (typeof roomsState !== 'undefined' && roomsState.enabled) hit = roomsRayHit(ray, r);
+	if (trajModeHook && trajModeHook.wallHit) {
+		const modeHit = trajModeHook.wallHit(ray, r);
+		if (modeHit && (!hit || modeHit.dist < hit.dist)) hit = modeHit;
+	}
+	return hit;
 }
 
-function trajLegWithRooms(ray, planeX, lo, hi) {
-	const toPlane = (planeX - ray.x) / ray.ux;
-	const limit = ray.uy > 0 ? hi : lo;
-	const toLimit = ray.uy === 0 ? Infinity : (limit - ray.y) / ray.uy;
-	let best = toPlane <= toLimit ? toPlane : toLimit;
-	let kind = toPlane <= toLimit ? 'plane' : 'edge';
-	const room = trajRoomHit(ray);
-	if (room && room.dist < best && room.dist > 1e-6) { best = room.dist; kind = 'room'; }
-	if (kind === 'room') {
+// when a vertical room wall reverses ray.ux, planeX lies behind the ray and the outer vertical screen
+// edge is the x boundary ahead; testing the forward x boundary prevents negative toPlane jumps
+function trajLegWalls(ray, planeX, r, lo, hi) {
+	const towardPlane = (planeX - ray.x) * ray.ux > 0;
+	const targetX = towardPlane ? planeX : (ray.ux < 0 ? r : simField.w - r);
+	const toX = ray.ux === 0 ? Infinity : (targetX - ray.x) / ray.ux;
+	const limitY = ray.uy > 0 ? hi : lo;
+	const toY = ray.uy === 0 ? Infinity : (limitY - ray.y) / ray.uy;
+	let best = toX <= toY ? toX : toY;
+	let kind = toX <= toY ? (towardPlane ? TRAJ_LEG_PLANE : TRAJ_LEG_EDGE_X) : TRAJ_LEG_EDGE_Y;
+	const wall = trajWallHit(ray, r);
+	if (wall && wall.dist > 1e-6 && wall.dist < best) {
+		best = wall.dist;
+		kind = TRAJ_LEG_WALL;
+	}
+	trajLegKind = kind;
+	if (kind === TRAJ_LEG_WALL) {
 		ray.x += ray.ux * best;
 		ray.y += ray.uy * best;
-		if (room.nx) ray.ux = -ray.ux; else ray.uy = -ray.uy;
-		return { flown: best, hit: 'room' };
+		if (wall.nx) ray.ux = -ray.ux;
+		if (wall.ny) ray.uy = -ray.uy;
+		return best;
 	}
-	if (kind === 'plane') {
-		ray.y += ray.uy * toPlane;
+	if (kind === TRAJ_LEG_PLANE) {
+		ray.y += ray.uy * toX;
 		ray.x = planeX;
-		return { flown: toPlane, hit: 'plane' };
+		return toX;
 	}
-	ray.x += ray.ux * toLimit;
-	ray.y = limit;
-	return { flown: toLimit, hit: 'edge' };
+	if (kind === TRAJ_LEG_EDGE_X) {
+		ray.y += ray.uy * toX;
+		ray.x = targetX;
+		ray.ux = -ray.ux;
+		return toX;
+	}
+	ray.x += ray.ux * toY;
+	ray.y = limitY;
+	ray.uy = -ray.uy;
+	return toY;
 }
 
 // the flight length to the plane with every edge bounce on the way, or -1 when the plane lies past the
 // reach or past the points the path may still use
 function trajFlight(ray, out, planeX, r, reach, points) {
+	const lo = r;
+	const hi = simField.h - r;
+	const hasWalls = (typeof roomsState !== 'undefined' && roomsState.enabled)
+		|| !!(trajModeHook && trajModeHook.wallHit);
 	let dist = 0;
+	if (!hasWalls) {
+		while (out.n < points) {
+			dist += trajLeg(ray, planeX, lo, hi);
+			if (dist > reach) return -1;
+			if (ray.x === planeX) return dist;
+			ray.uy = -ray.uy;
+			trajPoint(out, ray);
+		}
+		return -1;
+	}
 	while (out.n < points) {
-		const leg = trajLegWithRooms(ray, planeX, r, simField.h - r);
-		if (!leg) return -1;
-		dist += leg.flown;
+		const flown = trajLegWalls(ray, planeX, r, lo, hi);
+		if (flown < 0 || !Number.isFinite(flown)) return -1;
+		dist += flown;
 		if (dist > reach) return -1;
-		if (leg.hit === 'plane') return dist;
-		if (leg.hit === 'edge') { ray.uy = -ray.uy; trajPoint(out, ray); continue; }
+		if (trajLegKind === TRAJ_LEG_PLANE) return dist;
 		trajPoint(out, ray);
 	}
 	return -1;

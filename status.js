@@ -19,6 +19,10 @@ const STATUS_MODE_CONTROL = {
 	'ball-gun': [
 		'P1 gun · pointer aims. Middle hold pulls a ball into the gun (up to 3 stored), left click launches oldest. Wheel changes force/energy.',
 		'P2 hole · ↑↓ sets force, hold → moves the hole at quarter speed. Ball speed quartered.'
+	],
+	'plate-color': [
+		'P1 red · pointer aims left gun, middle hold pulls, left click launches, wheel adjusts gun force. Force slider or A/D pushes the plate.',
+		'P2 blue · ↑↓ aims right gun, Shift/. pulls, Space launches, [/] adjusts gun force. ←/→ pushes the plate (or check Bot).'
 	]
 };
 const statusUi = { state: null, controls: [], players: [] };

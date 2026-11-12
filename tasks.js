@@ -63,6 +63,17 @@ function tasksSetRand(fn) {
 	tasksRand = fn;
 }
 
+const tasksCatNames = [];
+
+function tasksEnsureCatNames() {
+	if (tasksCatNames.length) return;
+	tasksCatNames[0] = 'hot';
+	tasksCatNames[1] = 'cold';
+	const len = PALETTE.length;
+	for (let p = 0; p < len; p++) tasksCatNames[2 + p] = PALETTE[p][0];
+	for (let p = 0; p < len; p++) tasksCatNames[2 + len + p] = PALETTE[p][0] + '/' + PALETTE[(p + 1) % len][0];
+}
+
 // 0 hot, 1 cold, then one entry per palette color, then one per adjacent pair: a pair is the hue
 // window a "similar to this color" target covers, and with six palette hues every such window is a
 // single color or two neighbours, so the discrete set is the whole grammar, not an approximation
@@ -75,11 +86,9 @@ function tasksCatPair(cat) {
 }
 
 function tasksCatFromName(name) {
-	if (name === 'hot') return 0;
-	if (name === 'cold') return 1;
-	const n = tasksCatCount();
-	for (let cat = 2; cat < n; cat++) {
-		if (tasksCatName(cat) === name) return cat;
+	tasksEnsureCatNames();
+	for (let cat = 0; cat < tasksCatNames.length; cat++) {
+		if (tasksCatNames[cat] === name) return cat;
 	}
 	return 0;
 }
@@ -89,11 +98,8 @@ function tasksSideArrow(side) {
 }
 
 function tasksCatName(cat) {
-	if (cat === 0) return 'hot';
-	if (cat === 1) return 'cold';
-	const pair = tasksCatPair(cat);
-	if (pair < 0) return PALETTE[cat - 2][0];
-	return PALETTE[pair][0] + '/' + PALETTE[(pair + 1) % PALETTE.length][0];
+	tasksEnsureCatNames();
+	return tasksCatNames[cat] || 'hot';
 }
 
 function tasksCatTotal(cat) {
@@ -123,12 +129,15 @@ function tasksCatHas(cat, p) {
 	return p === pair || p === (pair + 1) % PALETTE.length ? 1 : 0;
 }
 
-// the hues an objective accepts, so a preview shows the same colors the evaluator counts
-function tasksCatHues(name, out) {
-	const cat = tasksCatFromName(name);
+function tasksCatHuesById(cat, out) {
 	let n = 0;
 	for (let p = 0; p < PALETTE.length; p++) if (tasksCatHas(cat, p)) out[n++] = PALETTE[p][1];
 	return n;
+}
+
+// the hues an objective accepts, so a preview shows the same colors the evaluator counts
+function tasksCatHues(name, out) {
+	return tasksCatHuesById(tasksCatFromName(name), out);
 }
 
 // how many category balls the named chamber needs; the same count tasksCost enumerates downwards
@@ -179,11 +188,12 @@ function tasksDecode(idx, out) {
 function tasksFillView(id) {
 	const v = tasksView[id];
 	const isLeft = tasksSide[id] === 0;
+	const cat = tasksCat[id];
 	const hues = TASK_HUE_VIEW[id];
-	hues.count = tasksCatHues(tasksCatName(tasksCat[id]), hues.hue);
+	hues.count = tasksCatHuesById(cat, hues.hue);
 	v.waiting = tasksWait[id] === 1;
 	v.side = TASK_SIDE_NAME[tasksSide[id]];
-	v.category = tasksCatName(tasksCat[id]);
+	v.category = tasksCatName(cat);
 	v.cmp = TASK_CMP_NAME[tasksCmp[id]];
 	v.measure = TASK_MEASURE_NAME[tasksMeasure[id]];
 	v.threshold = tasksThresh[id];

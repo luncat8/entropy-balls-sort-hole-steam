@@ -1,5 +1,5 @@
-// owns: territory mode — colored rooms, guns, wall divider rules, capture counting and its view/HUD
-// edit for: room layout, gun reach/forces, gate size, seed, drawing
+// owns: territory mode rules — guns, wall divider contact, room tint and simulation/trajectory hooks
+// edit for: gun reach/forces, gate size, seed, passage and capture rules
 
 const TERRITORY_GATE_SHARE = 120;
 const TERRITORY_SEED_SPAN = 0.09;
@@ -39,10 +39,6 @@ for (let id = 0; id < 2; id++) {
 	territoryGuns[id].storeCss = new Array(TERRITORY_STORE_CAP);
 }
 const territoryAperture = { y: 0, size: 0 };
-const territoryUi = { hud: null, share: [null, null], balls: [null, null], force: [null, null], energy: [null, null], stored: [null, null] };
-const territoryHudCache = new Int16Array(8);
-const territoryHudValues = new Int16Array(8);
-territoryHudCache.fill(-1);
 
 function territoryRand() {
 	territoryState.rand = (Math.imul(territoryState.rand, 1664525) + 1013904223) >>> 0;
@@ -85,6 +81,16 @@ function territoryEnsureHues() {
 	territoryState.hueCount = simBalls.count;
 }
 
+function territoryRemoveBall(i, last) {
+	if (!territoryState.hue || territoryState.hueCount <= 0) return;
+	if (i !== last && i < territoryState.hueCount) {
+		const hue = last < territoryState.hueCount ? territoryState.hue[last] : colorRgbHue(simBalls.rgb[last]);
+		territoryState.hue[i] = hue;
+		territoryState.bucket[i] = hue | 0;
+	}
+	if (territoryState.hueCount > last) territoryState.hueCount = last;
+}
+
 function territoryBallOwner(i) {
 	return modeColorOwner(territoryState.hue[i]);
 }
@@ -124,18 +130,6 @@ function territoryRecharge(dt) {
 		g.energy += recharge;
 		if (g.energy > g.energyCap) g.energy = g.energyCap;
 	}
-}
-
-function territoryHudInit() {
-	territoryUi.hud = $('territory-hud');
-	for (let id = 0; id < 2; id++) {
-		territoryUi.share[id] = $('territory-share-' + id);
-		territoryUi.balls[id] = $('territory-balls-' + id);
-		territoryUi.force[id] = $('territory-force-' + id);
-		territoryUi.energy[id] = $('territory-energy-' + id);
-		territoryUi.stored[id] = $('territory-stored-' + id);
-	}
-	territoryHudCache.fill(-1);
 }
 
 function territoryInit() {
@@ -218,27 +212,17 @@ function territoryUpdateAim(id) {
 	g.aimLen = len;
 }
 
-function territoryRayReach() {
-	return simPx(TERRITORY_PULL_REACH_SHARE);
-}
-
-function territoryRayBeam() {
-	return simPx(TERRITORY_BEAM_SHARE);
-}
-
-function territoryRayCap() {
-	return simPx(TERRITORY_PULL_ACC_SHARE);
-}
+function territoryRayReach() { return simPx(TERRITORY_PULL_REACH_SHARE); }
+function territoryRayBeam() { return simPx(TERRITORY_BEAM_SHARE); }
+function territoryRayCap() { return simPx(TERRITORY_PULL_ACC_SHARE); }
 
 function territoryForceShare(id) {
 	const f = territoryGuns[id].force;
-	if (f <= 0) return 0;
-	return f / 100;
+	return f <= 0 ? 0 : f / 100;
 }
 
 function territoryPushBase(g) {
-	const cap = simPx(TERRITORY_PUSH_SHARE);
-	return Math.min(cap, g.aimLen * TERRITORY_PUSH_SLOPE);
+	return Math.min(simPx(TERRITORY_PUSH_SHARE), g.aimLen * TERRITORY_PUSH_SLOPE);
 }
 
 function territoryPullAccel(t, perp, id) {
@@ -306,12 +290,11 @@ function territoryCapture(id, i) {
 
 function territoryTryCaptureMuzzle(id, i) {
 	const g = territoryGuns[id];
-	if (g.stored >= TERRITORY_STORE_CAP) return false;
-	if (i < 0 || i >= simBalls.count) return false;
-	const gx = territoryGunX(id);
-	const dx = simBalls.x[i] - gx;
+	if (g.stored >= TERRITORY_STORE_CAP || i < 0 || i >= simBalls.count) return false;
+	const dx = simBalls.x[i] - territoryGunX(id);
 	const dy = simBalls.y[i] - g.y;
-	if (dx * dx + dy * dy <= territoryCaptureReach(simBalls.r[i]) * territoryCaptureReach(simBalls.r[i])) return territoryCapture(id, i);
+	const reach = territoryCaptureReach(simBalls.r[i]);
+	if (dx * dx + dy * dy <= reach * reach) return territoryCapture(id, i);
 	return false;
 }
 
@@ -325,9 +308,8 @@ function territoryLaunchBall(id) {
 	const gx = territoryGunX(id);
 	const strength = territoryPushBase(g) * territoryForceShare(id);
 	if (strength <= 0) return -1;
-	const x = gx + g.ux * (r + gap);
-	const y = g.y + g.uy * (r + gap);
-	const idx = simAddBall(x, y, g.ux * strength, g.uy * strength, r, g.storeRgb[0], g.storePalette[0], g.storeCss[0]);
+	const idx = simAddBall(gx + g.ux * (r + gap), g.y + g.uy * (r + gap),
+		g.ux * strength, g.uy * strength, r, g.storeRgb[0], g.storePalette[0], g.storeCss[0]);
 	if (idx < 0) return -1;
 	simArmBall(idx); // plan 3.2: fired balls carry the aura until hole crossing, 20s, or 4 bounces
 	g.energy -= pushCost;
@@ -346,17 +328,14 @@ function territoryApplyPull(id, dt) {
 	const g = territoryGuns[id];
 	if (!g.pull || g.target < 0 || g.target >= simBalls.count) return;
 	const i = g.target;
-	if (territoryBallOwner(i) !== MODE_NONE) return;
-	if (g.stored >= TERRITORY_STORE_CAP) return;
+	if (territoryBallOwner(i) !== MODE_NONE || g.stored >= TERRITORY_STORE_CAP) return;
 	if (territoryTryCaptureMuzzle(id, i)) return;
-	const gx = territoryGunX(id);
-	const dx = simBalls.x[i] - gx;
+	const dx = simBalls.x[i] - territoryGunX(id);
 	const dy = simBalls.y[i] - g.y;
 	const t = dx * g.ux + dy * g.uy;
 	const perp = Math.abs(dx * g.uy - dy * g.ux);
 	const accel = territoryPullAccel(t, perp, id);
-	if (accel <= 0) return;
-	if (g.energy <= 0) return;
+	if (accel <= 0 || g.energy <= 0) return;
 	const cost = g.energyCost * territoryForceShare(id) * dt;
 	if (cost > g.energy) return;
 	g.energy -= cost;
@@ -368,11 +347,7 @@ function territoryApplyPull(id, dt) {
 }
 
 function territoryPush(id) {
-	const g = territoryGuns[id];
-	if (g.stored > 0) {
-		territoryLaunchBall(id);
-		return;
-	}
+	if (territoryGuns[id].stored > 0) territoryLaunchBall(id);
 }
 
 function territoryPasses(i, y, r) {
@@ -383,19 +358,15 @@ function territoryPasses(i, y, r) {
 function territoryDivider(i, y, r, dx) {
 	for (let gid = 0; gid < 2; gid++) {
 		const g = territoryGuns[gid];
-		if (g.stored >= TERRITORY_STORE_CAP) continue;
-		if (territoryBallOwner(i) !== MODE_NONE) continue;
-		const gx = territoryGunX(gid);
-		const ddx = simBalls.x[i] - gx;
+		if (g.stored >= TERRITORY_STORE_CAP || territoryBallOwner(i) !== MODE_NONE) continue;
+		const ddx = simBalls.x[i] - territoryGunX(gid);
 		const ddy = simBalls.y[i] - g.y;
-		if (ddx * ddx + ddy * ddy <= territoryCaptureReach(r) * territoryCaptureReach(r)) {
-			if (territoryCapture(gid, i)) return true;
-		}
+		const reach = territoryCaptureReach(r);
+		if (ddx * ddx + ddy * ddy <= reach * reach && territoryCapture(gid, i)) return true;
 	}
 	if (territoryPasses(i, y, r)) return true;
 	const side = dx >= 0 ? 1 : -1;
-	const toward = (side === -1 && simBalls.vx[i] > 0) || (side === 1 && simBalls.vx[i] < 0);
-	if (toward) {
+	if ((side === -1 && simBalls.vx[i] > 0) || (side === 1 && simBalls.vx[i] < 0)) {
 		const owner = territoryBallOwner(i);
 		if (owner !== MODE_NONE) territoryPaintContact(owner, y, r);
 		simBalls.vx[i] = -simBalls.vx[i];
@@ -406,31 +377,29 @@ function territoryDivider(i, y, r, dx) {
 
 function territoryTint(dt) {
 	territoryEnsureHues();
-	if (typeof roomsState !== 'undefined' && roomsState.enabled) {
-		roomsEnsureHues();
-		const step = TERRITORY_ROOM_RATE * dt;
-		for (let i = 0; i < simBalls.count; i++) {
-			const x = simBalls.x[i];
-			const y = simBalls.y[i];
-			let owner = -1;
-			for (let k = 0; k < roomsState.count; k++) {
-				const rm = roomsState.rooms[k];
-				if (x < rm.tintX || x > rm.tintX + rm.tintW || y < rm.tintY || y > rm.tintY + rm.tintH) continue;
-				owner = rm.owner;
-				break;
-			}
-			if (owner < 0) continue;
-			const hue = modeColorToward(territoryState.hue[i], owner, step);
-			territoryState.hue[i] = hue;
-			const bucket = hue | 0;
-			if (bucket === territoryState.bucket[i]) continue;
-			territoryState.bucket[i] = bucket;
-			simBalls.rgb[i] = modeColorRgb(bucket);
-			simBalls.css[i] = modeColorCssOfHue(bucket);
-			simBalls.palette[i] = modeColorPalette(bucket);
-			if (roomsState.hue) { roomsState.hue[i] = hue; roomsState.bucket[i] = bucket; }
+	if (typeof roomsState === 'undefined' || !roomsState.enabled) return;
+	roomsEnsureHues();
+	const step = TERRITORY_ROOM_RATE * dt;
+	for (let i = 0; i < simBalls.count; i++) {
+		const x = simBalls.x[i];
+		const y = simBalls.y[i];
+		let owner = -1;
+		for (let k = 0; k < roomsState.count; k++) {
+			const rm = roomsState.rooms[k];
+			if (x < rm.tintX || x > rm.tintX + rm.tintW || y < rm.tintY || y > rm.tintY + rm.tintH) continue;
+			owner = rm.owner;
+			break;
 		}
-		return;
+		if (owner < 0) continue;
+		const hue = modeColorToward(territoryState.hue[i], owner, step);
+		territoryState.hue[i] = hue;
+		const bucket = hue | 0;
+		if (bucket === territoryState.bucket[i]) continue;
+		territoryState.bucket[i] = bucket;
+		simBalls.rgb[i] = modeColorRgb(bucket);
+		simBalls.css[i] = modeColorCssOfHue(bucket);
+		simBalls.palette[i] = modeColorPalette(bucket);
+		if (roomsState.hue) { roomsState.hue[i] = hue; roomsState.bucket[i] = bucket; }
 	}
 }
 
@@ -454,204 +423,11 @@ function territoryBeforeBalls(dt) {
 	territoryRecharge(dt);
 	territoryApplyPull(0, dt);
 	territoryApplyPull(1, dt);
-	if (typeof roomsTint !== 'undefined' && roomsState.enabled) roomsTint(dt);
 }
 
 function territoryAfterBalls(dt) {
 	territoryTint(dt);
 }
-
-function territoryHudPaint() {
-	territoryEnsureHues();
-	let red = 0;
-	let blue = 0;
-	for (let i = 0; i < simBalls.count; i++) {
-		const owner = territoryBallOwner(i);
-		if (owner === MODE_RED) red++;
-		else if (owner === MODE_BLUE) blue++;
-	}
-	territoryHudValues[0] = Math.round(territoryPaintShare(MODE_RED) * 100);
-	territoryHudValues[1] = red;
-	territoryHudValues[2] = Math.round(territoryPaintShare(MODE_BLUE) * 100);
-	territoryHudValues[3] = blue;
-	territoryHudValues[4] = Math.round(territoryGuns[0].force);
-	territoryHudValues[5] = Math.round(territoryGuns[0].energy);
-	territoryHudValues[6] = Math.round(territoryGuns[1].force);
-	territoryHudValues[7] = Math.round(territoryGuns[1].energy);
-	let changed = false;
-	for (let k = 0; k < 4; k++) {
-		if (territoryHudCache[k] === territoryHudValues[k]) continue;
-		territoryHudCache[k] = territoryHudValues[k];
-		changed = true;
-	}
-	if (changed) {
-		territoryUi.share[0].textContent = territoryHudCache[0] + ' % wall';
-		territoryUi.balls[0].textContent = territoryHudCache[1] + ' balls';
-		territoryUi.share[1].textContent = territoryHudCache[2] + ' % wall';
-		territoryUi.balls[1].textContent = territoryHudCache[3] + ' balls';
-	}
-	for (let id = 0; id < 2; id++) {
-		const f = territoryHudValues[4 + id * 2];
-		const e = territoryHudValues[5 + id * 2];
-		if (territoryHudCache[4 + id * 2] !== f || territoryHudCache[5 + id * 2] !== e) {
-			territoryHudCache[4 + id * 2] = f;
-			territoryHudCache[5 + id * 2] = e;
-			if (territoryUi.force[id]) territoryUi.force[id].textContent = f + '% force';
-			if (territoryUi.energy[id]) territoryUi.energy[id].textContent = e + '/' + Math.round(territoryGuns[id].energyCap) + ' energy';
-			if (territoryUi.stored[id]) territoryUi.stored[id].textContent = territoryGuns[id].stored + '/' + TERRITORY_STORE_CAP;
-		}
-	}
-}
-
-const territoryInput = {
-	keys: true,
-	aim(x, y) {
-		const g = territoryGuns[0];
-		g.aimX = x;
-		g.aimY = y;
-		g.y = y;
-		territoryClampGun(0);
-	},
-	pull(on) { territoryGuns[0].pull = on ? 1 : 0; },
-	push() { territoryPush(0); },
-	key(code, down) {
-		const g = territoryGuns[1];
-		if (code === 'ArrowUp') g.up = down ? 1 : 0;
-		else if (code === 'ArrowDown') g.down = down ? 1 : 0;
-		else if (code === 'ArrowRight') g.pull = down ? 1 : 0;
-		else if (code === 'Space' && down) territoryPush(1);
-		else if (code === 'BracketLeft' && down) territorySetForce(1, g.force - TERRITORY_FORCE_STEP);
-		else if (code === 'BracketRight' && down) territorySetForce(1, g.force + TERRITORY_FORCE_STEP);
-		else if (code === 'Comma' && down) territorySetForce(0, territoryGuns[0].force - TERRITORY_FORCE_STEP);
-		else if (code === 'Period' && down) territorySetForce(0, territoryGuns[0].force + TERRITORY_FORCE_STEP);
-		else return;
-		g.move = g.down - g.up;
-	},
-	wheel(deltaY) { territoryWheel(deltaY); },
-	cancel() { territoryRelease(); }
-};
-
-function territoryDrawRooms(ctx) {
-	if (typeof roomsDrawBackground !== 'undefined' && roomsState.enabled) { roomsDrawBackground(ctx); return; }
-}
-
-// a ball's paint on the wall is its own footprint: the contact already spans the ball's diameter along
-// the wall, so the painted band is one ball wide instead of the plate's thickness
-function territoryMarkWidth() {
-	return Math.max(simField.wallT, simBallConfig.radius * 2);
-}
-
-function territoryDrawWall(ctx) {
-	const p = territoryPaint;
-	const t = simField.wallT;
-	const x = simField.wallX - t / 2;
-	const markW = territoryMarkWidth();
-	const markX = simField.wallX - markW / 2;
-	for (let k = 0; k < p.count; k++) {
-		if (p.h[k] <= 0) continue;
-		const owner = p.owner[k];
-		const blend = p.blend[k];
-		if (owner !== MODE_NONE && blend >= TP_MATCH_BLEND) {
-			ctx.fillStyle = MODE_PASS_FILL[owner];
-			ctx.fillRect(markX, p.y[k], markW, p.h[k]);
-			ctx.strokeStyle = MODE_CSS[owner];
-			ctx.lineWidth = 1.5;
-			ctx.strokeRect(markX + 0.5, p.y[k], markW - 1, p.h[k]);
-			continue;
-		}
-		ctx.fillStyle = '#495263';
-		ctx.fillRect(x, p.y[k], t, p.h[k]);
-		if (owner === MODE_NONE || blend <= 0) continue;
-		ctx.globalAlpha = blend * 0.7;
-		ctx.fillStyle = MODE_WALL_CSS[owner];
-		ctx.fillRect(markX, p.y[k], markW, p.h[k]);
-		ctx.globalAlpha = 1;
-	}
-	ctx.fillStyle = '#9ba6ba';
-	ctx.fillRect(x - t * 0.4, territoryState.gate - 2, t * 1.8, 2);
-}
-
-function territoryDrawGuns(ctx) {
-	const reach = territoryRayReach();
-	for (let id = 0; id < 2; id++) {
-		const g = territoryGuns[id];
-		const gx = territoryGunX(id);
-		const css = MODE_CSS[territoryOwnerOfGun(id)];
-		const forceScale = g.force / 100;
-		ctx.setLineDash([6, 6]);
-		ctx.globalAlpha = g.pull ? 0.35 + forceScale * 0.4 : 0.14 + forceScale * 0.16;
-		ctx.strokeStyle = css;
-		ctx.lineWidth = 1 + forceScale * 2.2 + (g.pull ? 0.7 : 0);
-		ctx.beginPath();
-		ctx.moveTo(gx, g.y);
-		ctx.lineTo(gx + g.ux * reach, g.y + g.uy * reach);
-		ctx.stroke();
-		ctx.setLineDash([]);
-		ctx.globalAlpha = 1;
-		ctx.fillStyle = css;
-		ctx.beginPath();
-		ctx.arc(gx, g.y, simField.wallT * 0.9, 0, Math.PI * 2);
-		ctx.fill();
-		ctx.strokeStyle = '#edf0f6';
-		ctx.lineWidth = 1;
-		ctx.stroke();
-		ctx.strokeStyle = css;
-		ctx.lineWidth = 1 + forceScale * 1.5;
-		ctx.globalAlpha = 0.85;
-		ctx.beginPath();
-		ctx.arc(gx, g.y, simField.wallT * 0.9 + 3, -Math.PI/2, -Math.PI/2 + Math.PI*2*forceScale);
-		ctx.stroke();
-		ctx.globalAlpha = 1;
-		const barW = simField.wallT * 2.0;
-		const barH = 3.5;
-		const barX = gx - barW/2;
-		const barY = g.y + simField.wallT * 1.25;
-		ctx.fillStyle = '#0b1119';
-		ctx.fillRect(barX, barY, barW, barH);
-		ctx.fillStyle = g.energy < g.energyCap * 0.25 ? '#ff7a7a' : (id === 0 ? '#f05656' : '#5b7cff');
-		ctx.fillRect(barX, barY, barW * (g.energyCap > 0 ? g.energy / g.energyCap : 0), barH);
-		ctx.strokeStyle = '#445263';
-		ctx.lineWidth = 0.7;
-		ctx.strokeRect(barX, barY, barW, barH);
-		for (let k = 0; k < g.stored; k++) {
-			ctx.fillStyle = g.storeCss[k];
-			ctx.beginPath();
-			ctx.arc(gx + (k - (g.stored - 1) / 2) * g.storeR[k] * 1.0, g.y + simField.wallT * 2.1, g.storeR[k], 0, Math.PI * 2);
-			ctx.fill();
-			ctx.strokeStyle = '#12151b';
-			ctx.lineWidth = 1;
-			ctx.stroke();
-		}
-		const i = g.target;
-		if (i < 0 || i >= simBalls.count) continue;
-		ctx.strokeStyle = css;
-		ctx.lineWidth = 2;
-		ctx.beginPath();
-		ctx.arc(simBalls.x[i], simBalls.y[i], simBalls.r[i] + 4, 0, Math.PI * 2);
-		ctx.stroke();
-	}
-}
-
-function territoryForecast(i, end, path) {
-	const y = path.y[path.n - 1];
-	territoryState.highlightOwner = territoryPaintOwnerAt(y);
-	if (territoryState.highlightOwner !== MODE_NONE || end === TRAJ_PASS) return 2;
-	return 1;
-}
-
-const territoryView = {
-	resize: territoryResize,
-	noPositionMarks: true,
-	background: territoryDrawRooms,
-	wall: territoryDrawWall,
-	overlay: territoryDrawGuns,
-	forecast: territoryForecast,
-	forecastCss(i) {
-		return territoryState.highlightOwner === MODE_NONE ? simBalls.css[i] : MODE_CSS[territoryState.highlightOwner];
-	},
-	forecastReach(reach) { return reach; },
-	forecastBudget() { return TRAJ_POINTS; }
-};
 
 const territoryTrajHook = {
 	aperture: territoryAperture,
@@ -661,7 +437,8 @@ const territoryTrajHook = {
 const territorySimHook = {
 	divider: territoryDivider,
 	beforeBalls: territoryBeforeBalls,
-	afterBalls: territoryAfterBalls
+	afterBalls: territoryAfterBalls,
+	removeBall: territoryRemoveBall
 };
 
 if (typeof module !== 'undefined') module.exports = {
@@ -669,5 +446,7 @@ if (typeof module !== 'undefined') module.exports = {
 	territoryInit, territoryRelease, territoryResize, territorySetRooms,
 	territoryControlStep, territoryHudPaint, territoryPasses, territoryBallOwner,
 	territoryPullAccel, territoryDivider, territoryInput, territoryView,
-	territoryTrajHook, territorySimHook, territoryCapture, territoryTryCaptureMuzzle, territoryWheel, territorySetForce, territoryLaunchBall, territoryPush, territoryGunX, territoryUpdateAim, territoryUpdateTarget, territoryBeforeBalls, territoryRecharge, territorySyncEnergy
+	territoryTrajHook, territorySimHook, territoryCapture, territoryTryCaptureMuzzle, territoryWheel,
+	territorySetForce, territoryLaunchBall, territoryPush, territoryGunX, territoryUpdateAim,
+	territoryUpdateTarget, territoryBeforeBalls, territoryRecharge, territorySyncEnergy
 };

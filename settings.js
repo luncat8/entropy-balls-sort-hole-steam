@@ -3,21 +3,21 @@
 
 // Every key is one table entry, so one path reads, encodes and clamps all of them. Sizes and speeds
 // are shares of the field scale in thousandths, so the screen size never changes what the settings mean.
-const SETTINGS_KEYS = ['mode', 'rooms', 'friction', 'humans', 'bots', 'balls', 'ballSpeed', 'ballSize', 'ballVaried',
-	'collisions', 'holeSize', 'holeSpeed', 'energyCost', 'energyStore', 'generation'];
-const SETTINGS_MODES = ['standard', 'territory', 'ball-gun'];
+const SETTINGS_KEYS = ['mode', 'plateLayout', 'rooms', 'friction', 'humans', 'bots', 'balls', 'ballSpeed',
+	'ballSize', 'ballVaried', 'collisions', 'holeSize', 'holeSpeed', 'energyCost', 'energyStore', 'generation'];
+const SETTINGS_MODES = ['standard', 'territory', 'ball-gun', 'plate-color'];
 const settingsDefaults = {
-	mode: 'standard', rooms: false, friction: false, humans: 1, bots: 0, balls: 24,
+	mode: 'standard', plateLayout: 'top', rooms: false, friction: false, humans: 1, bots: 0, balls: 24,
 	ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT, ballVaried: true, collisions: true,
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY, generation: 100
 };
 const settingsState = {
-	mode: 'standard', rooms: false, friction: false, humans: 1, bots: 0, balls: 24,
+	mode: 'standard', plateLayout: 'top', rooms: false, friction: false, humans: 1, bots: 0, balls: 24,
 	ballSpeed: BALL_SPEED_DEFAULT, ballSize: BALL_SIZE_DEFAULT, ballVaried: true, collisions: true,
 	holeSize: APERTURE_SIZE, holeSpeed: APERTURE_SPEED, energyCost: FORCE_COST, energyStore: FORCE_CAPACITY, generation: 100
 };
 const settingsUi = {
-	mode: null, rooms: null, friction: null, humans: null, balls: null, ballSpeed: null, ballSize: null,
+	mode: null, plateLayout: null, rooms: null, friction: null, humans: null, balls: null, ballSpeed: null, ballSize: null,
 	ballVaried: null, collisions: null,
 	holeSize: null, holeSpeed: null, energyCost: null, energyStore: null,
 	ballsValue: null, ballSpeedValue: null, ballSizeValue: null, holeSizeValue: null, holeSpeedValue: null,
@@ -41,6 +41,7 @@ function settingsPercent(share) {
 function settingsNormalize(key, raw) {
 	switch (key) {
 		case 'mode': return SETTINGS_MODES.indexOf(raw) < 0 ? 'standard' : raw;
+		case 'plateLayout': return raw === 'bottom' ? 'bottom' : 'top';
 		case 'rooms':
 		case 'friction':
 		case 'ballVaried':
@@ -89,6 +90,7 @@ function settingsNormalize(key, raw) {
 function settingsEncode(key, value) {
 	switch (key) {
 		case 'mode': return value === 'standard' ? undefined : value;
+		case 'plateLayout': return value === 'top' ? undefined : value;
 		case 'rooms': {
 			const def = settingsState.mode === 'territory';
 			return value === def ? undefined : (value ? '1' : '0');
@@ -111,7 +113,7 @@ function settingsEncode(key, value) {
 }
 
 const SETTINGS_PARAM = {
-	ballSpeed: 'speed', ballSize: 'size', holeSize: 'hole', holeSpeed: 'holeSpeed',
+	plateLayout: 'layout', ballSpeed: 'speed', ballSize: 'size', holeSize: 'hole', holeSpeed: 'holeSpeed',
 	energyCost: 'cost', energyStore: 'store'
 };
 
@@ -135,6 +137,7 @@ function settingsFromSearch(search) {
 
 function settingsInit() {
 	settingsUi.mode = $('settings-mode');
+	settingsUi.plateLayout = $('settings-layout');
 	settingsUi.rooms = $('settings-rooms');
 	settingsUi.friction = $('settings-friction');
 	settingsUi.humans = $('settings-humans');
@@ -161,6 +164,7 @@ function settingsInit() {
 	settingsUi.urlWrap = $('settings-url-wrap');
 	settingsUi.url = $('settings-url');
 	settingsUi.mode.addEventListener('change', settingsModeChanged);
+	if (settingsUi.plateLayout) settingsUi.plateLayout.addEventListener('change', settingsPlateLayoutChanged);
 	settingsUi.rooms.addEventListener('change', settingsRoomsChanged);
 	settingsUi.friction.addEventListener('change', settingsFrictionChanged);
 	settingsUi.humans.addEventListener('change', settingsHumansChanged);
@@ -178,60 +182,24 @@ function settingsInit() {
 	settingsApply(url, false);
 }
 
-function settingsModeChanged() {
-	settingsSetMode(settingsUi.mode.value, true);
-}
-
-function settingsRoomsChanged() {
-	settingsSetRooms(settingsUi.rooms.checked, true);
-}
-
-function settingsFrictionChanged() {
-	settingsSetFriction(settingsUi.friction.checked, true);
-}
-
-function settingsHumansChanged() {
-	settingsSetHumans(settingsUi.humans.checked ? 2 : 1, true);
-}
-
-function settingsBallsChanged() {
-	settingsSetBalls(Number(settingsUi.balls.value), true);
-}
-
-function settingsBallSpeedChanged() {
-	settingsSetBallSpeed(Number(settingsUi.ballSpeed.value), true);
-}
-
-function settingsBallSizeChanged() {
-	settingsSetBallSize(Number(settingsUi.ballSize.value), true);
-}
-
-function settingsBallVariedChanged() {
-	settingsSetBallVaried(settingsUi.ballVaried.checked, true);
-}
-
-function settingsCollisionsChanged() {
-	settingsSetCollisions(settingsUi.collisions.checked, true);
-}
-
-function settingsHoleSizeChanged() {
-	settingsSetHoleSize(Number(settingsUi.holeSize.value), true);
-}
-
-function settingsHoleSpeedChanged() {
-	settingsSetHoleSpeed(Number(settingsUi.holeSpeed.value), true);
-}
-
-function settingsEnergyCostChanged() {
-	settingsSetEnergyCost(Number(settingsUi.energyCost.value), true);
-}
-
-function settingsEnergyStoreChanged() {
-	settingsSetEnergyStore(Number(settingsUi.energyStore.value), true);
-}
+function settingsModeChanged() { settingsSetMode(settingsUi.mode.value, true); }
+function settingsPlateLayoutChanged() { settingsSetPlateLayout(settingsUi.plateLayout.value, true); }
+function settingsRoomsChanged() { settingsSetRooms(settingsUi.rooms.checked, true); }
+function settingsFrictionChanged() { settingsSetFriction(settingsUi.friction.checked, true); }
+function settingsHumansChanged() { settingsSetHumans(settingsUi.humans.checked ? 2 : 1, true); }
+function settingsBallsChanged() { settingsSetBalls(Number(settingsUi.balls.value), true); }
+function settingsBallSpeedChanged() { settingsSetBallSpeed(Number(settingsUi.ballSpeed.value), true); }
+function settingsBallSizeChanged() { settingsSetBallSize(Number(settingsUi.ballSize.value), true); }
+function settingsBallVariedChanged() { settingsSetBallVaried(settingsUi.ballVaried.checked, true); }
+function settingsCollisionsChanged() { settingsSetCollisions(settingsUi.collisions.checked, true); }
+function settingsHoleSizeChanged() { settingsSetHoleSize(Number(settingsUi.holeSize.value), true); }
+function settingsHoleSpeedChanged() { settingsSetHoleSpeed(Number(settingsUi.holeSpeed.value), true); }
+function settingsEnergyCostChanged() { settingsSetEnergyCost(Number(settingsUi.energyCost.value), true); }
+function settingsEnergyStoreChanged() { settingsSetEnergyStore(Number(settingsUi.energyStore.value), true); }
 
 function settingsSync() {
 	settingsUi.mode.value = settingsState.mode;
+	if (settingsUi.plateLayout) settingsUi.plateLayout.value = settingsState.plateLayout;
 	settingsUi.rooms.checked = settingsState.rooms;
 	settingsUi.friction.checked = settingsState.friction;
 	settingsUi.humans.checked = settingsState.humans === 2;
@@ -257,8 +225,10 @@ function settingsSync() {
 
 function settingsApply(values, updateUrl) {
 	const bots = settingsNormalize('bots', values.bots);
+	const mode = settingsNormalize('mode', values.mode);
+	const plateLayout = settingsNormalize('plateLayout', values.plateLayout);
 	const humans = values.humans === 2 || bots & 2 ? 2 : 1;
-	const mask = bots & (humans === 2 ? 3 : 1);
+	const mask = bots & (humans === 2 || mode === 'plate-color' ? 3 : 1);
 	const balls = settingsNormalize('balls', values.balls);
 	const speed = settingsNormalize('ballSpeed', values.ballSpeed);
 	const ballSize = settingsNormalize('ballSize', values.ballSize);
@@ -267,9 +237,10 @@ function settingsApply(values, updateUrl) {
 	const energyCost = settingsNormalize('energyCost', values.energyCost);
 	const energyStore = settingsNormalize('energyStore', values.energyStore);
 	const rebuild = humans !== settingsState.humans || mask !== settingsState.bots;
-	const mode = settingsNormalize('mode', values.mode);
 	const modeChanged = mode !== settingsState.mode;
+	const layoutChanged = plateLayout !== settingsState.plateLayout;
 	settingsState.mode = mode;
+	settingsState.plateLayout = plateLayout;
 	settingsState.rooms = settingsNormalize('rooms', values.rooms);
 	settingsState.friction = !!values.friction;
 	settingsState.ballVaried = values.ballVaried === undefined
@@ -297,17 +268,27 @@ function settingsApply(values, updateUrl) {
 	forceSetCapacity(settingsState.energyStore);
 	simSetSpawnRate(settingsState.generation / 60);
 	if (simSetBallCount(settingsState.balls)) tasksRegenerate();
-	if (rebuild) settingsRebuild();
-	modeSetRooms(settingsState.rooms);
 	if (modeChanged) modeSet(mode);
+	else {
+		if (rebuild) settingsRebuild();
+		modeSetRooms(settingsState.rooms);
+		if (mode === 'plate-color' && typeof plateSyncGeometry !== 'undefined') {
+			if (layoutChanged) plateSetLayout(plateLayout);
+			else plateSyncGeometry(true);
+		}
+	}
 	if (updateUrl) settingsWriteUrl();
 }
 
 // participants and stores first, then reproject human selections and restart only the live objectives
 function settingsRebuild() {
-	playersInit(settingsState.humans, settingsState.bots);
+	const nonStandard = typeof modeStandard !== 'undefined' && !modeStandard();
+	const slots = nonStandard ? 2 : settingsState.humans;
+	const mask = nonStandard ? (modeIs('plate-color') ? settingsState.bots : 0) : settingsState.bots;
+	playersInit(slots, mask);
 	forceInit();
 	inputRebind();
+	if (typeof modeApplyInput !== 'undefined') modeApplyInput();
 	botInit();
 	tasksRestart();
 }
@@ -317,6 +298,10 @@ function settingsSetMode(mode, updateUrl) {
 	const values = { ...settingsState, mode: settingsNormalize('mode', mode) };
 	if (settingsRoomAuto) values.rooms = values.mode === 'territory';
 	settingsApply(values, updateUrl);
+}
+
+function settingsSetPlateLayout(plateLayout, updateUrl) {
+	settingsApply({ ...settingsState, plateLayout }, updateUrl);
 }
 
 function settingsSetRooms(on, updateUrl) {
@@ -341,45 +326,16 @@ function settingsSetBot(id, on, updateUrl) {
 	settingsApply({ ...settingsState, humans, bots }, updateUrl);
 }
 
-function settingsSetBalls(balls, updateUrl) {
-	settingsApply({ ...settingsState, balls }, updateUrl);
-}
-
-function settingsSetBallSpeed(ballSpeed, updateUrl) {
-	settingsApply({ ...settingsState, ballSpeed }, updateUrl);
-}
-
-function settingsSetBallSize(ballSize, updateUrl) {
-	settingsApply({ ...settingsState, ballSize }, updateUrl);
-}
-
-function settingsSetBallVaried(ballVaried, updateUrl) {
-	settingsApply({ ...settingsState, ballVaried }, updateUrl);
-}
-
-function settingsSetCollisions(collisions, updateUrl) {
-	settingsApply({ ...settingsState, collisions }, updateUrl);
-}
-
-function settingsSetHoleSize(holeSize, updateUrl) {
-	settingsApply({ ...settingsState, holeSize }, updateUrl);
-}
-
-function settingsSetHoleSpeed(holeSpeed, updateUrl) {
-	settingsApply({ ...settingsState, holeSpeed }, updateUrl);
-}
-
-function settingsSetEnergyCost(energyCost, updateUrl) {
-	settingsApply({ ...settingsState, energyCost }, updateUrl);
-}
-
-function settingsSetEnergyStore(energyStore, updateUrl) {
-	settingsApply({ ...settingsState, energyStore }, updateUrl);
-}
-
-function settingsSetGeneration(generation, updateUrl) {
-	settingsApply({ ...settingsState, generation }, updateUrl);
-}
+function settingsSetBalls(balls, updateUrl) { settingsApply({ ...settingsState, balls }, updateUrl); }
+function settingsSetBallSpeed(ballSpeed, updateUrl) { settingsApply({ ...settingsState, ballSpeed }, updateUrl); }
+function settingsSetBallSize(ballSize, updateUrl) { settingsApply({ ...settingsState, ballSize }, updateUrl); }
+function settingsSetBallVaried(ballVaried, updateUrl) { settingsApply({ ...settingsState, ballVaried }, updateUrl); }
+function settingsSetCollisions(collisions, updateUrl) { settingsApply({ ...settingsState, collisions }, updateUrl); }
+function settingsSetHoleSize(holeSize, updateUrl) { settingsApply({ ...settingsState, holeSize }, updateUrl); }
+function settingsSetHoleSpeed(holeSpeed, updateUrl) { settingsApply({ ...settingsState, holeSpeed }, updateUrl); }
+function settingsSetEnergyCost(energyCost, updateUrl) { settingsApply({ ...settingsState, energyCost }, updateUrl); }
+function settingsSetEnergyStore(energyStore, updateUrl) { settingsApply({ ...settingsState, energyStore }, updateUrl); }
+function settingsSetGeneration(generation, updateUrl) { settingsApply({ ...settingsState, generation }, updateUrl); }
 
 function settingsUrl() {
 	const url = new URL(window.location.href);
@@ -420,7 +376,7 @@ function settingsWriteUrl() {
 }
 
 if (typeof module !== 'undefined') module.exports = {
-	settingsState, settingsInit, settingsApply, settingsSetMode, settingsSetRooms,
+	settingsState, settingsInit, settingsApply, settingsSetMode, settingsSetPlateLayout, settingsSetRooms,
 	settingsSetFriction, settingsSetHumans, settingsSetBot,
 	settingsSetBalls, settingsSetBallSpeed, settingsSetBallSize, settingsSetBallVaried,
 	settingsSetCollisions, settingsSetHoleSize, settingsSetHoleSpeed,

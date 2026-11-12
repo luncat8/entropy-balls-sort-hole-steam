@@ -18,6 +18,7 @@ const inputState = {
 	targetY: null,
 	keyHold: null,
 	pointerEnabled: true,
+	canvasEnabled: true,
 	keysEnabled: true
 };
 
@@ -49,13 +50,38 @@ function inputInit() {
 // modes own the pointer/keyboard while they are active; the hole channel comes back unchanged
 function inputSetEnabled(on) {
 	inputState.pointerEnabled = !!on;
+	inputState.canvasEnabled = !!on;
 	inputState.keysEnabled = !!on;
 	if (!on) inputReleaseAll();
 }
 
 function inputSetPointerEnabled(on) {
 	inputState.pointerEnabled = !!on;
+	inputState.canvasEnabled = !!on;
 	if (!on) inputReleaseAll();
+}
+
+// lets a mode take over canvas gestures while keeping the force-panel sliders live
+function inputSetCanvasEnabled(on) {
+	inputState.canvasEnabled = !!on;
+	if (!on) {
+		for (let id = 0; id < PLAYER_CAP; id++) {
+			inputReleaseCapture(inputUi.canvas, inputState.canvasPointer[id]);
+			inputState.canvasPointer[id] = INPUT_NONE;
+			inputRefresh(id);
+		}
+	}
+}
+
+function inputSetKeysEnabled(on) {
+	inputState.keysEnabled = !!on;
+	if (!on) {
+		for (let id = 0; id < PLAYER_CAP; id++) {
+			if (!inputState.keyHold[id]) continue;
+			inputState.keyHold[id] = 0;
+			inputRefresh(id);
+		}
+	}
 }
 
 function inputTwoHumans() {
@@ -235,7 +261,7 @@ function inputTargetAt(id, clientY) {
 
 function inputCanvasDown(e) {
 	const id = inputState.mouse;
-	if (!inputState.pointerEnabled || !inputControls(id)) return;
+	if (!inputState.pointerEnabled || !inputState.canvasEnabled || !inputControls(id)) return;
 	if ((e.button !== undefined && e.button !== 0) || inputState.canvasPointer[id] !== INPUT_NONE) return;
 	e.preventDefault();
 	inputState.canvasPointer[id] = e.pointerId;
@@ -246,14 +272,14 @@ function inputCanvasDown(e) {
 
 function inputCanvasMove(e) {
 	const id = inputState.mouse;
-	if (!inputState.pointerEnabled || e.pointerId !== inputState.canvasPointer[id]) return;
+	if (!inputState.pointerEnabled || !inputState.canvasEnabled || e.pointerId !== inputState.canvasPointer[id]) return;
 	inputTargetAt(id, e.clientY);
 	inputRefresh(id);
 }
 
 function inputCanvasEnd(e) {
 	const id = inputState.mouse;
-	if (!inputState.pointerEnabled || e.pointerId !== inputState.canvasPointer[id]) return;
+	if (!inputState.pointerEnabled || !inputState.canvasEnabled || e.pointerId !== inputState.canvasPointer[id]) return;
 	inputState.canvasPointer[id] = INPUT_NONE;
 	inputRefresh(id);
 }
@@ -274,7 +300,7 @@ function inputWheelStep(id, deltaY) {
 }
 
 function inputWheel(e) {
-	if (!inputState.pointerEnabled) return;
+	if (!inputState.pointerEnabled || !inputState.canvasEnabled) return;
 	if (inputWheelStep(inputState.mouse, e.deltaY)) e.preventDefault();
 }
 
@@ -319,6 +345,6 @@ function inputKeyUp(e) {
 if (typeof module !== 'undefined') module.exports = {
 	inputUi, inputState, inputInit, inputControls, inputValue, inputBindPanel, inputPreparePanels,
 	inputChannel, inputSetValue, inputRebind, inputRelease, inputStep, inputTwoHumans, inputApplyKey,
-	inputSetEnabled, inputSetPointerEnabled,
+	inputSetEnabled, inputSetPointerEnabled, inputSetCanvasEnabled, inputSetKeysEnabled,
 	INPUT_FORCE_STEP, INPUT_FORCE_START, INPUT_SLIDER_INSET, INPUT_NONE
 };

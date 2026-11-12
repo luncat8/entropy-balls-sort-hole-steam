@@ -17,6 +17,8 @@ const FORECAST_SOLID = [];
 const GOAL_RING = 'rgba(237, 240, 246, 0.9)';
 const GOAL_RING_W = 2;
 const GOAL_DIM_ALPHA = 0.35;
+const AURA_RING_CSS = '#ff9d5c';
+const AURA_RING_W = 1.8;
 
 const canvasView = { dpr: 1, w: 0, h: 0 };
 const canvasDrawOptions = {
@@ -208,9 +210,21 @@ function canvasDrawBalls(ctx, balls, goal) {
 		ctx.beginPath();
 		ctx.arc(balls.x[i], balls.y[i], balls.r[i], 0, Math.PI * 2);
 		ctx.fill();
-		if (!moved) continue;
-		ctx.strokeStyle = GOAL_RING;
-		ctx.lineWidth = GOAL_RING_W;
+		if (moved) {
+			ctx.strokeStyle = GOAL_RING;
+			ctx.lineWidth = GOAL_RING_W;
+			ctx.stroke();
+			continue;
+		}
+		if (goal || !simBallArmed[i]) continue;
+		const timeLeft = 1 - simBallAuraT[i] / SIM_AURA_MAX_SEC;
+		const bounceLeft = 1 - simBallAuraBounces[i] / SIM_AURA_MAX_BOUNCES;
+		const life = timeLeft < bounceLeft ? timeLeft : bounceLeft;
+		ctx.globalAlpha = 0.25 + 0.65 * (life > 0 ? life : 0);
+		ctx.strokeStyle = AURA_RING_CSS;
+		ctx.lineWidth = AURA_RING_W;
+		ctx.beginPath();
+		ctx.arc(balls.x[i], balls.y[i], balls.r[i] + 3.5, 0, Math.PI * 2);
 		ctx.stroke();
 	}
 	ctx.globalAlpha = 1;

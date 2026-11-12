@@ -25,6 +25,7 @@ const GUN_PASS_CSS = '#a8d3ff';
 const GUN_PREDICT_CSS = '#7fe3c0';
 const GUN_REFUSE_CSS = '#ff7a7a';
 const GUN_TARGET_CSS = '#ffe27a';
+const GUN_RAY_DASH = [7, 7];
 
 const gunState = {
 	x: 0, y: 0, aimX: 0, aimY: 0, ux: 0, uy: 1, aimLen: 0,
@@ -349,7 +350,7 @@ function gunDrawOverlay(ctx) {
 	const s = gunState;
 	const radius = simField.wallT * 1.1;
 	const forceScale = s.force / 100;
-	ctx.setLineDash([7, 7]);
+	ctx.setLineDash(GUN_RAY_DASH);
 	ctx.globalAlpha = s.pull ? 0.35 + forceScale * 0.45 : 0.18 + forceScale * 0.22;
 	ctx.strokeStyle = GUN_SELECT_CSS;
 	ctx.lineWidth = 1 + forceScale * 2.5 + (s.pull ? 0.8 : 0);
@@ -357,7 +358,7 @@ function gunDrawOverlay(ctx) {
 	ctx.moveTo(s.x, s.y);
 	ctx.lineTo(s.x + s.ux * gunRayReach(), s.y + s.uy * gunRayReach());
 	ctx.stroke();
-	ctx.setLineDash([]);
+	ctx.setLineDash(FORECAST_SOLID);
 	ctx.globalAlpha = 1;
 	ctx.fillStyle = GUN_SELECT_CSS;
 	ctx.beginPath();
@@ -408,7 +409,7 @@ function gunDrawOverlay(ctx) {
 	ctx.setLineDash(FORECAST_DASH);
 	ctx.lineWidth = 2.5;
 	canvasStrokeForecast(ctx, gunPath, s.refused ? GUN_REFUSE_CSS : GUN_PREDICT_CSS);
-	ctx.setLineDash([]);
+	ctx.setLineDash(FORECAST_SOLID);
 }
 
 const gunView = {

@@ -113,7 +113,8 @@ function scoreboardPaint() {
 	if (mode === scoreboardCache.mode) return;
 	scoreboardCache.mode = mode;
 	const suffix = scoreboardModeName === 'territory' ? ' · Territory'
-		: (scoreboardModeName === 'ball-gun' ? ' · Ball gun' : '');
+		: (scoreboardModeName === 'ball-gun' ? ' · Ball gun'
+		: (scoreboardModeName === 'plate-color' ? ' · Plate color' : ''));
 	scoreboardUi.mode.textContent = SCORE_MODE_TEXT[mode] + suffix;
 }
 
